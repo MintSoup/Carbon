@@ -1,2 +1,4 @@
 run.sh
 _vimrc_local.vim
+.vimspector.json
+.ycm_extra_conf.py
