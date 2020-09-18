@@ -1,7 +1,7 @@
 #include <stdio.h>
-#include "commons.h"
+#include "utils/carbon_commons.h"
+#include "vm/carbon_chunk.h"
 
-int main(){
-	puts("Hello, world!");	
+int main() {
 	return 0;
 }
