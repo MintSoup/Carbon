@@ -30,8 +30,11 @@ build: $(executable)
 debug: flags = $(debugflags)
 debug: $(executable)
 
+run_new: $(executable)
+	st sh -c './$(executable); pause'
+
 run: $(executable)
-	konsole -e 'sh -c "./$(executable); pause"'
+	./$(executable)
 
 $(obj): 
 	mkdir -p $(obj)
