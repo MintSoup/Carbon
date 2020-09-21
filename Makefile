@@ -31,7 +31,7 @@ debug: flags = $(debugflags)
 debug: $(executable)
 
 run_new: $(executable)
-	st sh -c './$(executable); pause'
+	st sh -c './$(executable) example.cbn; pause'
 
 run: $(executable)
 	./$(executable)

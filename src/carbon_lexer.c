@@ -32,7 +32,11 @@ struct Identifier identifierList[] = {
 	{.name = "self", .type = TokenSelf},
 };
 
-CarbonToken errorToken(char* msg, CarbonLexer* lexer){
+static bool isAtEnd(CarbonLexer* lexer) {
+	return *lexer->current == 0;
+}
+
+static CarbonToken errorToken(char *msg, CarbonLexer *lexer) {
 	CarbonToken t;
 	t.line = lexer->line;
 	t.length = strlen(msg);
@@ -64,6 +68,7 @@ static char peek(CarbonLexer *lexer) {
 	return *lexer->current;
 }
 static bool match(char i, CarbonLexer *lexer) {
+	if(isAtEnd(lexer)) return false;
 	if (peek(lexer) == i) {
 		next(lexer);
 		return true;
@@ -73,23 +78,26 @@ static bool match(char i, CarbonLexer *lexer) {
 
 static void skipWhitespace(CarbonLexer *lexer) {
 	while (true) {
-		switch (*lexer->current) {
-		case ' ':
-		case '\t': next(lexer); break;
+		char c = peek(lexer);
+		switch (c) {
+		case '\t':
+		case '\n':
+		case ' ': next(lexer); break;
 		case '#':
-			while (next(lexer) != '\n')
-				;
+			while (peek(lexer) != '\n' && !isAtEnd(lexer))
+				next(lexer);
 			break;
-		default: break;
+		default: return;
 		}
 	}
 }
 
 static CarbonToken makeToken(CarbonTokenType type, CarbonLexer *lexer) {
 	CarbonToken t;
+	t.length = lexer->current - lexer->start;
+	t.line = lexer->line;
 	t.type = type;
 	t.lexeme = lexer->start;
-	t.length = lexer->start - lexer->current;
 	return t;
 }
 
@@ -107,7 +115,7 @@ static CarbonTokenType identifyToken(CarbonLexer *lexer) {
 }
 
 static bool isNumeric(char i) {
-	return i >= '1' && i <= '9';
+	return i >= '0' && i <= '9';
 }
 static bool isAlpha(char i) {
 	return (i >= 'a' && i <= 'z') || (i >= 'A' && i <= 'Z');
@@ -115,6 +123,8 @@ static bool isAlpha(char i) {
 
 CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 	skipWhitespace(lexer);
+	
+	if(isAtEnd(lexer)) return makeToken(TokenEOF, lexer);
 
 	lexer->start = lexer->current;
 
@@ -129,6 +139,8 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 	case '?': return makeToken(TokenQuestion, lexer);
 	case ':': return makeToken(TokenColon, lexer);
 	case '%': return makeToken(TokenPercent, lexer);
+	case '.': return makeToken(TokenDot, lexer);
+	case ',': return makeToken(TokenComma, lexer);
 	case '+':
 		if (match('+', lexer)) return makeToken(TokenPlusPlus, lexer);
 		if (match('=', lexer)) return makeToken(TokenPlusEquals, lexer);
@@ -159,8 +171,7 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 			;
 		return makeToken(TokenStringLiteral, lexer);
 	default: {
-		if (isNumeric(peek(lexer))) {
-			next(lexer);
+		if (isNumeric(c)) {
 			while (isNumeric(peek(lexer))) {
 				next(lexer);
 			}
@@ -171,14 +182,13 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 				return makeToken(TokenInteger, lexer);
 			} else
 				return makeToken(TokenDot, lexer);
-		} else if (isAlpha(peek(lexer))) {
-			next(lexer);
+		} else if (isAlpha(c)) {
 			while (isAlpha(peek(lexer)) || isNumeric(peek(lexer))) {
 				next(lexer);
 			}
 			return makeToken(identifyToken(lexer), lexer);
 		}
-		return errorToken("Unexpected Character", lexer);	
+		return errorToken("Unexpected Character", lexer);
 	}
 	}
 }

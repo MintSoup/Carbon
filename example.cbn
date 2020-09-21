@@ -1,0 +1,142 @@
+# Comments are defined like this
+# Each file is a 'module'
+# A module is a series of declarations
+# Either class, function or variable
+
+double a 
+# Only floating-point type available since VM stack slots will be 64 bits anyways, so floats will be a waste of space
+# The only place where there could be memory savings are heap-allocated arrays, but those aren't really worth the extra complexity
+# Thus all variable types will be made to utilize the full 64 bits
+
+int x # 64 bit signed int
+
+uint y # 64 bit unsigned int
+
+string s # Heap allocated strings
+
+bool b # Boolean
+
+# Uninitialized variables can hold anything
+
+# Objects that should be visible from the FFI are marked with @Native
+# These are visible from the C interface
+# Native functions can be called from outside
+# Native variables can be changed and read from outside
+# The main function of a standalone program is always marked with @Native
+# However, no main function needs to exist if Krypton is embedded inside another program,
+# as the outside program can call whatever function it wants
+
+
+int main():
+	
+	# Here we have a standard, C like syntax
+	b = !(3 > 6)
+	
+	print('How old are you?')
+
+	s = readln()
+	
+	# Errors are heap-allocated objects
+	# They are the standard way in which functions tell you about errors
+	# Any function that can error out will take an error argument
+	# Usually, this is the last argument
+	# If a function can throw an error, it should be checked first before doing anything with its return value
+	# If a function errorrs out, its return value should be discarded
+
+	Error e = Error()
+	int age = toInt(s, e)
+
+	sqrt(Cringe()
+	,ok)
+
+	# Errors have 2 properties
+	# 1) Code
+	if e.code == 0:
+		# Code zero means that everything went alright
+		# Everything else is an error, each code representing one possible error
+		
+		# Now that we know nothing went wrong, we can safely utilize the return value
+		if age >= 18:
+			print('Epic you can drive')
+		else:
+			print('No')
+		end
+
+	# The user entered a float
+	elif e.code == 1:
+		print('Please make sure your age is a whole number')
+
+	# The user entered a random string
+	else:
+		print('Please input a valid number')
+		
+	# 2) message
+	print(e.msg) # String describing the problem
+
+	# While loops function as expected
+
+	int i = 0
+	while i < 10:
+		print(++i)
+	end
+
+	# Arrays are heap allocated
+	# An initial size must be given
+	# Uninitialized arrays will be filled with random content
+	int[4] arr = { 3, 6, 9, 5 }
+
+	# However, their size can grow at runtime
+	arr.append(4)
+
+	# Members can be accessed like so
+	print(arr[2]) # 9
+	
+	# Python-like for(each) loops
+
+	for member in arr:
+		print(member)
+	end
+
+	# Builtin hashtables
+	Hashtable g<string, int>
+	
+	Vector b(3,5)
+
+
+
+	return 0
+end
+
+
+Vector add(Vector a, Vector b):
+	return Vector(a.a + b.a, b.a + b.b)
+end
+
+
+class Vector:
+		
+	double a
+	double b
+	
+	Vector(double a, double b):
+		this.a = a
+		this.b = b
+	end
+	
+	double Magnitude():
+		return sqrt(a*a+b*b)
+	end
+	
+end
+
+class Animal:
+	void Eat():
+		print('lmao')
+	end
+
+	abstract void Eat()
+end
+
+class Dog < Animal, Cringe:
+$$$
+end
