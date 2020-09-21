@@ -1,5 +1,5 @@
 #pragma once
-#include "token.h"
+#include "carbon_token.h"
 typedef enum {
 	ExprBinary,
 	ExprUnary,

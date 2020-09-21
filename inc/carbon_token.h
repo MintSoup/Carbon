@@ -1,4 +1,5 @@
 #pragma once
+#include "utils/carbon_commons.h"
 
 typedef enum {
 	TokenLeftParen,
@@ -27,9 +28,9 @@ typedef enum {
 	TokenBangEquals,
 	TokenGEQ,
 	TokenLEQ,
-	TokenLess,
-	TokenGreater,
-	TokenColor,
+	TokenLessThan,
+	TokenGreaterThan,
+	TokenColon,
 	TokenIdentifier,
 	TokenFor,
 	TokenIn,
@@ -50,11 +51,16 @@ typedef enum {
 	TokenClass,
 	TokenAbstract,
 	TokenSuper,
-	TokenPrivate
+	TokenPrivate,
+	TokenSelf,
+	TokenError,
+	TokenEOF,
+	TokenEOS
 } CarbonTokenType;
 
 typedef struct {
 	CarbonTokenType type;
 	char *lexeme;
 	int length;
+	uint32_t line;
 } CarbonToken;
