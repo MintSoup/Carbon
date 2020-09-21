@@ -9,8 +9,8 @@ typedef struct {
 	uint32_t* lines;
 	uint32_t capacity;
 	uint32_t count;
-} Chunk;
+} CarbonChunk;
 
-void carbon_initChunk(Chunk *chunk);
-void carbon_writeToChunk(Chunk *chunk, uint8_t data, uint32_t line);
-void carbon_freeChunk(Chunk* chunk);
+void carbon_initChunk(CarbonChunk *chunk);
+void carbon_writeToChunk(CarbonChunk *chunk, uint8_t data, uint32_t line);
+void carbon_freeChunk(CarbonChunk *chunk);
