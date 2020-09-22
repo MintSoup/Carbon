@@ -19,6 +19,7 @@ int main(int argc, char *argv[]) {
 	size_t size = ftell(f);
 	fseek(f, 0, SEEK_SET);
 	char *t = malloc(size + 1);
+	if (!t) return 3;
 	t[size] = 0;
 	fread(t, size, 1, f);
 	fclose(f);
