@@ -7,6 +7,7 @@ typedef struct{
 	char* current;
 	char* start;
 	uint32_t line;
+	CarbonTokenType lastToken;
 } CarbonLexer;
 
 CarbonToken carbon_scanToken(CarbonLexer *lexer);

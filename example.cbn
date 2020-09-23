@@ -46,8 +46,8 @@ int main():
 	Error e = Error()
 	int age = toInt(s, e)
 
-	sqrt(Cringe()
-	,ok)
+	sqrt(Cringe(),
+					ok)
 
 	# Errors have 2 properties
 	# 1) Code
@@ -69,6 +69,7 @@ int main():
 	# The user entered a random string
 	else:
 		print('Please input a valid number')
+	end
 		
 	# 2) message
 	print(e.msg) # String describing the problem
@@ -83,7 +84,9 @@ int main():
 	# Arrays are heap allocated
 	# An initial size must be given
 	# Uninitialized arrays will be filled with random content
-	int[4] arr = { 3, 6, 9, 5 }
+	int[4] arr = { 3, 6, 
+							9, 5 }
+
 
 	# However, their size can grow at runtime
 	arr.append(4)
@@ -98,7 +101,7 @@ int main():
 	end
 
 	# Builtin hashtables
-	Hashtable g<string, int>
+	Hashtable g<string, int>()
 	
 	Vector b(3,5)
 
@@ -138,5 +141,4 @@ class Animal:
 end
 
 class Dog < Animal, Cringe:
-$$$
 end

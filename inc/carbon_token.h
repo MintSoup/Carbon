@@ -41,6 +41,7 @@ typedef enum {
 	TokenComma,
 	TokenDot,
 	TokenBreak,
+	TokenContinue,
 	TokenReturn,
 	TokenInt,
 	TokenDouble,
@@ -55,7 +56,11 @@ typedef enum {
 	TokenSelf,
 	TokenError,
 	TokenEOF,
-	TokenEOS
+	TokenEOS,
+	TokenIf,
+	TokenElse,
+	TokenElif,
+	TokenNone
 } CarbonTokenType;
 
 typedef struct {

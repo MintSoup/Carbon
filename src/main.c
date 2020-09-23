@@ -28,9 +28,11 @@ int main(int argc, char *argv[]) {
 		CarbonToken t = carbon_scanToken(&lexer);
 		if (t.type == TokenEOF)
 			break;
-		else if (t.type == TokenError) {
+		else if (t.type == TokenError)
 			printf("Line %d: %s %c\n", t.line, t.lexeme, *(lexer.current - 1));
-		} else
+		else if (t.type == TokenEOS)
+			puts("EOS");
+		else
 			printf("%.*s\n", t.length, t.lexeme);
 	}
 

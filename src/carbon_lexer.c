@@ -30,9 +30,13 @@ struct Identifier identifierList[] = {
 	{.name = "uint", .type = TokenUInt},
 	{.name = "while", .type = TokenWhile},
 	{.name = "self", .type = TokenSelf},
-};
+	{.name = "continue", .type = TokenContinue},
+	{.name = "if", .type = TokenIf},
+	{.name = "else", .type = TokenElse},
+	{.name = "elif", .type = TokenElif},
+	{.name = "continue", .type = TokenContinue}};
 
-static bool isAtEnd(CarbonLexer* lexer) {
+static bool isAtEnd(CarbonLexer *lexer) {
 	return *lexer->current == 0;
 }
 
@@ -55,6 +59,7 @@ CarbonLexer carbon_initLexer(char *source, uint32_t length) {
 	lexer.current = source;
 	lexer.line = 1;
 	lexer.start = source;
+	lexer.lastToken = TokenNone;
 	return lexer;
 }
 
@@ -68,7 +73,7 @@ static char peek(CarbonLexer *lexer) {
 	return *lexer->current;
 }
 static bool match(char i, CarbonLexer *lexer) {
-	if(isAtEnd(lexer)) return false;
+	if (isAtEnd(lexer)) return false;
 	if (peek(lexer) == i) {
 		next(lexer);
 		return true;
@@ -76,18 +81,41 @@ static bool match(char i, CarbonLexer *lexer) {
 	return false;
 }
 
-static void skipWhitespace(CarbonLexer *lexer) {
+static bool canEndStatement(CarbonTokenType type) {
+	switch (type) {
+	case TokenRightParen:
+	case TokenRightBracket:
+	case TokenRightBrace:
+	case TokenPlusPlus:
+	case TokenMinusMinus:
+	case TokenStringLiteral:
+	case TokenInteger:
+	case TokenDecimal:
+	case TokenIdentifier:
+	case TokenBreak:
+	case TokenContinue:
+	case TokenReturn:
+	case TokenSelf: return true;
+	default: return false;
+	}
+}
+
+static bool skipWhitespace(CarbonLexer *lexer) {
+	bool eos = false;
 	while (true) {
 		char c = peek(lexer);
 		switch (c) {
 		case '\t':
-		case '\n':
 		case ' ': next(lexer); break;
+		case '\n':
+			if (canEndStatement(lexer->lastToken)) eos = true;
+			next(lexer);
+			break;
 		case '#':
 			while (peek(lexer) != '\n' && !isAtEnd(lexer))
 				next(lexer);
 			break;
-		default: return;
+		default: return eos;
 		}
 	}
 }
@@ -98,6 +126,7 @@ static CarbonToken makeToken(CarbonTokenType type, CarbonLexer *lexer) {
 	t.line = lexer->line;
 	t.type = type;
 	t.lexeme = lexer->start;
+	lexer->lastToken = type;
 	return t;
 }
 
@@ -122,9 +151,9 @@ static bool isAlpha(char i) {
 }
 
 CarbonToken carbon_scanToken(CarbonLexer *lexer) {
-	skipWhitespace(lexer);
-	
-	if(isAtEnd(lexer)) return makeToken(TokenEOF, lexer);
+	if (skipWhitespace(lexer)) return makeToken(TokenEOS, lexer); 
+
+	if (isAtEnd(lexer)) return makeToken(TokenEOF, lexer);
 
 	lexer->start = lexer->current;
 
