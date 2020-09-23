@@ -1,5 +1,8 @@
 #pragma once
+
 #include "carbon_token.h"
+#include "carbon_value.h"
+
 typedef enum {
 	ExprBinary,
 	ExprUnary,
@@ -9,6 +12,7 @@ typedef enum {
 
 typedef struct {
 	CarbonExpressionType type;
+	CarbonValueType evaluatesTo;
 } CarbonExpression;
 
 typedef struct {

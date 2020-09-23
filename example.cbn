@@ -43,11 +43,13 @@ int main():
 	# If a function can throw an error, it should be checked first before doing anything with its return value
 	# If a function errorrs out, its return value should be discarded
 
-	Error e = Error()
-	int age = toInt(s, e)
-
-	sqrt(Cringe(),
-					ok)
+	Error e # Since we don't support null pointers, all objects are automatically initialized.
+	int age = toInt(s,
+						e) 
+	# Statements can be split across lines, as long as the last token on each line
+	# except the last cannot end a statement. Automatic semicolon insertion works like Go.
+	
+	b = 3 > 6; b = !b # Explicit semicolons are still supported.
 
 	# Errors have 2 properties
 	# 1) Code
@@ -103,6 +105,10 @@ int main():
 	# Builtin hashtables
 	Hashtable g<string, int>()
 	
+	# Instances can be created like this
+	Vector a = Vector(1,2)
+
+	# Or like this
 	Vector b(3,5)
 
 
