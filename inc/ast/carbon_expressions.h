@@ -12,7 +12,7 @@ typedef enum {
 
 typedef struct {
 	CarbonExprType type;
-	CarbonValueType evaluatesTo;
+	;
 } CarbonExpr;
 
 typedef struct {
@@ -41,16 +41,14 @@ typedef struct {
 	CarbonToken token;
 } CarbonExprLiteral;
 
-CarbonExprBinary *carbon_newBinaryExpr(CarbonExpr *right, CarbonExpr *left,
-									   CarbonToken op,
-									   CarbonValueType evaluatesTo);
+CarbonExprBinary *carbon_newBinaryExpr(CarbonExpr *left, CarbonExpr *right,
+									   CarbonToken op);
 
-CarbonExprUnary *carbon_newUnaryExpr(CarbonExpr *operand, CarbonToken op,
-									 CarbonValueType evaluatesTo);
+CarbonExprUnary *carbon_newUnaryExpr(CarbonExpr *operand, CarbonToken op);
 
-CarbonExprLiteral *carbon_newLiteralExpr(CarbonToken token,
-										 CarbonValueType evaluatesTo);
+CarbonExprLiteral *carbon_newLiteralExpr(CarbonToken token);
 
 CarbonExprGrouping *carbon_newGroupingExpr(CarbonExpr *expr);
 
 void carbon_freeExpr(CarbonExpr *expr);
+void carbon_printExpr(CarbonExpr *expr);

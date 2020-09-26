@@ -34,7 +34,9 @@ struct Identifier identifierList[] = {
 	{.name = "if", .type = TokenIf},
 	{.name = "else", .type = TokenElse},
 	{.name = "elif", .type = TokenElif},
-	{.name = "continue", .type = TokenContinue}};
+	{.name = "continue", .type = TokenContinue},
+	{.name = "false", .type = TokenFalse},
+	{.name = "true", .type = TokenTrue}};
 
 static bool isAtEnd(CarbonLexer *lexer) {
 	return *lexer->current == 0;
@@ -151,7 +153,7 @@ static bool isAlpha(char i) {
 }
 
 CarbonToken carbon_scanToken(CarbonLexer *lexer) {
-	if (skipWhitespace(lexer)) return makeToken(TokenEOS, lexer); 
+	if (skipWhitespace(lexer)) return makeToken(TokenEOS, lexer);
 
 	if (isAtEnd(lexer)) return makeToken(TokenEOF, lexer);
 
@@ -209,9 +211,9 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 				while (isNumeric(peek(lexer))) {
 					next(lexer);
 				}
-				return makeToken(TokenInteger, lexer);
+				return makeToken(TokenDecimal, lexer);
 			} else
-				return makeToken(TokenDot, lexer);
+				return makeToken(TokenInteger, lexer);
 		} else if (isAlpha(c)) {
 			while (isAlpha(peek(lexer)) || isNumeric(peek(lexer))) {
 				next(lexer);
