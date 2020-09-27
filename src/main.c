@@ -4,7 +4,10 @@
 #include "carbon_lexer.h"
 #include "carbon_parser.h"
 #include "carbon_token.h"
+#include "carbon_value.h"
 #include "utils/carbon_commons.h"
+#include "vm/carbon_chunk.h"
+#include "vm/carbon_vm.h"
 
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
@@ -23,15 +26,8 @@ int main(int argc, char *argv[]) {
 	t[size] = 0;
 	fread(t, size, 1, f);
 	fclose(f);
+	
 
-	CarbonParser p;
-	CarbonLexer l = carbon_initLexer(t, size);
-	carbon_initParser(&p, &l);
-	if (p.panic) return 1;
-	CarbonExpr *e = carbon_parseExpression(&p);
-
-	carbon_printExpr(e);
-	carbon_freeExpr(e);
 
 	free(t);
 
