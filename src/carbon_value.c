@@ -5,7 +5,8 @@ static inline void growArray(CarbonValueArray *arr) {
 	uint32_t oldSize = arr->capacity;
 	uint32_t newSize = 8;
 	if (oldSize != 0) newSize = oldSize * 2;
-	arr->arr = carbon_reallocate(oldSize, newSize * sizeof(CarbonValue), arr->arr);
+	arr->arr = carbon_reallocate(oldSize * sizeof(CarbonValue),
+								 newSize * sizeof(CarbonValue), arr->arr);
 	arr->capacity = newSize;
 }
 void carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val) {

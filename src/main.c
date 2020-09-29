@@ -9,6 +9,11 @@
 #include "vm/carbon_chunk.h"
 #include "vm/carbon_vm.h"
 
+uint8_t instructions[] = {
+	OpLoadConstant, 0, OpLoadConstant, 1,		OpAddInt, OpIntToDouble,
+	OpLoadConstant, 2, OpDivDouble,	   OpReturn};
+
+extern size_t heapSize;
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
 		puts("Usage: carbon <filename>");
@@ -26,9 +31,24 @@ int main(int argc, char *argv[]) {
 	t[size] = 0;
 	fread(t, size, 1, f);
 	fclose(f);
+
+	CarbonVM vm;
+	carbon_initVM(&vm);
+
+	carbon_addConstant(&vm.chunk, CarbonInt(7));
+	carbon_addConstant(&vm.chunk, CarbonInt(8));
+	carbon_addConstant(&vm.chunk, CarbonDouble(2));
+
+	for (int i = 0; i < sizeof(instructions); i++) {
+		carbon_writeToChunk(&vm.chunk, instructions[i], 0);
+	}
+
+	carbon_run(&vm);
+
+	printf("%lf\n", vm.stack[vm.stackTop - 1].dbl);
+	carbon_freeVM(&vm);
+
 	
-
-
 	free(t);
 
 	return 0;

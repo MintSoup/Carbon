@@ -12,5 +12,6 @@ typedef struct {
 
 void carbon_initVM(CarbonVM *vm);
 void carbon_freeVM(CarbonVM *vm);
+void carbon_run(CarbonVM *vm);
 
 #undef StackSize

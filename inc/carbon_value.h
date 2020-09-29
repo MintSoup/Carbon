@@ -39,3 +39,5 @@ void carbon_freeCarbonValueArray(CarbonValueArray *arr);
 	(CarbonValue) { .uint = x }
 #define CarbonDouble(x)                                                           \
 	(CarbonValue) { .dbl = x }
+#define CarbonBool(x)                                                           \
+	(CarbonValue) { .boolean = x }

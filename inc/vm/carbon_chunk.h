@@ -6,6 +6,7 @@
 typedef enum {
 	// Misc
 	OpLoadConstant,
+	OpLoadConstant16,
 	OpReturn,
 
 	// Arithmetic
@@ -26,7 +27,9 @@ typedef enum {
 	OpIntToDouble,
 	OpDoubleToInt,
 	OpUIntToDouble,
-	OpDoubleToUInt
+	OpDoubleToUInt,
+
+	
 
 } CarbonOpCode;
 
