@@ -12,7 +12,7 @@ typedef enum {
 
 typedef struct {
 	CarbonExprType type;
-	;
+	CarbonValueType evalsTo;
 } CarbonExpr;
 
 typedef struct {

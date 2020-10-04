@@ -22,13 +22,15 @@ int main(int argc, char *argv[]) {
 	}
 	FILE *f = fopen(argv[1], "rb");
 
-	if (!f) return 2;
+	if (!f)
+		return 2;
 
 	fseek(f, 0, SEEK_END);
 	size_t size = ftell(f);
 	fseek(f, 0, SEEK_SET);
 	char *t = malloc(size + 1);
-	if (!t) return 3;
+	if (!t)
+		return 3;
 	t[size] = 0;
 	fread(t, size, 1, f);
 	fclose(f);
@@ -39,8 +41,21 @@ int main(int argc, char *argv[]) {
 	CarbonLexer lexer = carbon_initLexer(t, size);
 	carbon_initParser(&parser, &lexer);
 	CarbonExpr *expr = carbon_parseExpression(&parser);
-	if (expr != NULL) carbon_compile(expr, &vm);
+	if (expr != NULL)
+		carbon_compileExpression(expr, &vm.chunk);
 
+
+	carbon_writeToChunk(&vm.chunk, OpReturn, 100);
+	carbon_run(&vm);
+
+	carbon_freeExpr(expr);
+	printf("heapsize %d\n", heapSize);
+
+	printf("%lu\n", vm.stack[vm.stackTop - 1].uint);
+
+	carbon_freeVM(&vm);
+
+	printf("heapsize %d\n", heapSize);
 	free(t);
 
 	return 0;

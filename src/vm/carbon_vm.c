@@ -1,6 +1,7 @@
 #include "vm/carbon_vm.h"
 #include "carbon_value.h"
 #include "vm/carbon_chunk.h"
+#include <sys/types.h>
 
 void carbon_initVM(CarbonVM *vm) {
 	vm->stackTop = 0;
@@ -34,12 +35,18 @@ void carbon_run(CarbonVM *vm) {
 #define pop() pop(vm)
 #define peek() vm->stack[vm->stackTop - 1]
 
-#define arithmetic(type, operator, cast, fieldName)                            \
+#define binary(type, operator, cast, fieldName)                                \
 	do {                                                                       \
 		type a = pop().fieldName;                                              \
 		type b = pop().fieldName;                                              \
 		push(cast(b operator a));                                              \
-	} while (false);
+	} while (false)
+
+#define unary(type, operator, cast, fieldName)                                 \
+	do {                                                                       \
+		type a = pop().fieldName;                                              \
+		push(cast(operator a));                                                \
+	} while (false)
 
 #define cast(from, to, nativeType) push(to((nativeType) pop().from))
 #define ReadConstant8() vm->chunk.constants.arr[*ip]
@@ -49,57 +56,75 @@ void carbon_run(CarbonVM *vm) {
 		case OpReturn:
 			return;
 
-		// Signed integer arithmetic
+		// Signed integer binary ops
 		case OpAddInt:
-			arithmetic(int64_t, +, CarbonInt, sint);
+			binary(int64_t, +, CarbonInt, sint);
 			ip++;
 			break;
 		case OpSubInt:
-			arithmetic(int64_t, -, CarbonInt, sint);
+			binary(int64_t, -, CarbonInt, sint);
 			ip++;
 			break;
 		case OpDivInt:
-			arithmetic(int64_t, /, CarbonInt, sint);
+			binary(int64_t, /, CarbonInt, sint);
 			ip++;
 			break;
 		case OpMulInt:
-			arithmetic(int64_t, *, CarbonInt, sint);
+			binary(int64_t, *, CarbonInt, sint);
 			ip++;
 			break;
 
-		// Unsigned integer arithmetic
+		// Unsigned integer binary ops
 		case OpAddUInt:
-			arithmetic(uint64_t, +, CarbonUInt, uint);
+			binary(uint64_t, +, CarbonUInt, uint);
 			ip++;
 			break;
 		case OpSubUInt:
-			arithmetic(uint64_t, -, CarbonUInt, uint);
+			binary(uint64_t, -, CarbonUInt, uint);
 			ip++;
 			break;
 		case OpDivUInt:
-			arithmetic(uint64_t, /, CarbonUInt, uint);
+			binary(uint64_t, /, CarbonUInt, uint);
 			ip++;
 			break;
 		case OpMulUInt:
-			arithmetic(uint64_t, *, CarbonUInt, uint);
+			binary(uint64_t, *, CarbonUInt, uint);
 			ip++;
 			break;
 
-		// Double arithmetic
+		// Double binary ops
 		case OpAddDouble:
-			arithmetic(double, +, CarbonDouble, dbl);
+			binary(double, +, CarbonDouble, dbl);
 			ip++;
 			break;
 		case OpSubDouble:
-			arithmetic(double, -, CarbonDouble, dbl);
+			binary(double, -, CarbonDouble, dbl);
 			ip++;
 			break;
 		case OpDivDouble:
-			arithmetic(double, /, CarbonDouble, dbl);
+			binary(double, /, CarbonDouble, dbl);
 			ip++;
 			break;
 		case OpMulDouble:
-			arithmetic(double, *, CarbonDouble, dbl);
+			binary(double, *, CarbonDouble, dbl);
+			ip++;
+			break;
+
+		// Unary ops
+		case OpNegateBool:
+			unary(bool, !, CarbonBool, boolean);
+			ip++;
+			break;
+		case OpNegateUInt:
+			unary(uint64_t, -, CarbonInt, uint);
+			ip++;
+			break;
+		case OpNegateInt:
+			unary(int64_t, -, CarbonInt, sint);
+			ip++;
+			break;
+		case OpNegateDouble:
+			unary(double, -, CarbonDouble, dbl);
 			ip++;
 			break;
 

@@ -6,7 +6,8 @@
 static inline void growChunk(CarbonChunk *chunk) {
 	uint32_t oldSize = chunk->capacity;
 	uint32_t newSize = 8;
-	if (oldSize != 0) newSize = oldSize * 2;
+	if (oldSize != 0)
+		newSize = oldSize * 2;
 	chunk->code = carbon_reallocate(oldSize, newSize, chunk->code);
 	chunk->lines = carbon_reallocate(oldSize * sizeof(uint32_t),
 									 newSize * sizeof(uint32_t), chunk->lines);
@@ -35,6 +36,6 @@ void carbon_freeChunk(CarbonChunk *chunk) {
 	carbon_freeCarbonValueArray(&chunk->constants);
 	carbon_initChunk(chunk);
 }
-void carbon_addConstant(CarbonChunk *chunk, CarbonValue constant) {
-	carbon_writeToValueArray(&chunk->constants, constant);
+uint16_t carbon_addConstant(CarbonChunk *chunk, CarbonValue constant) {
+	return carbon_writeToValueArray(&chunk->constants, constant);
 }

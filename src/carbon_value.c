@@ -9,12 +9,12 @@ static inline void growArray(CarbonValueArray *arr) {
 								 newSize * sizeof(CarbonValue), arr->arr);
 	arr->capacity = newSize;
 }
-void carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val) {
+uint16_t carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val) {
 	if (arr->capacity <= arr->count) {
 		growArray(arr);
 	}
 	arr->arr[arr->count] = val;
-	arr->count++;
+	return arr->count++;
 }
 void carbon_initValueArray(CarbonValueArray *arr) {
 	arr->arr = NULL;

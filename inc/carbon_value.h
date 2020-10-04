@@ -30,7 +30,7 @@ typedef struct {
 } CarbonValueArray;
 
 
-void carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val) ;
+uint16_t carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val) ;
 void carbon_initValueArray(CarbonValueArray *arr); 
 void carbon_freeCarbonValueArray(CarbonValueArray *arr);
 

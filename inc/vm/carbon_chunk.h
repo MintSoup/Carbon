@@ -9,7 +9,7 @@ typedef enum {
 	OpLoadConstant16,
 	OpReturn,
 
-	// Arithmetic
+	// Binary Operations
 	OpAddInt,
 	OpAddUInt,
 	OpAddDouble,
@@ -22,6 +22,12 @@ typedef enum {
 	OpDivInt,
 	OpDivUInt,
 	OpDivDouble,
+
+	// Unary operations
+	OpNegateDouble,
+	OpNegateInt,
+	OpNegateUInt,
+	OpNegateBool,
 
 	// Castings
 	OpIntToDouble,
@@ -44,4 +50,4 @@ typedef struct {
 void carbon_initChunk(CarbonChunk *chunk);
 void carbon_writeToChunk(CarbonChunk *chunk, uint8_t data, uint32_t line);
 void carbon_freeChunk(CarbonChunk *chunk);
-void carbon_addConstant(CarbonChunk *chunk, CarbonValue constant);
+uint16_t carbon_addConstant(CarbonChunk *chunk, CarbonValue constant);
