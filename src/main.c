@@ -49,13 +49,11 @@ int main(int argc, char *argv[]) {
 	carbon_run(&vm);
 
 	carbon_freeExpr(expr);
-	printf("heapsize %d\n", heapSize);
 
 	printf("%lu\n", vm.stack[vm.stackTop - 1].uint);
 
 	carbon_freeVM(&vm);
 
-	printf("heapsize %d\n", heapSize);
 	free(t);
 
 	return 0;

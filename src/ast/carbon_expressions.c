@@ -50,6 +50,7 @@ CarbonExprGrouping *carbon_newGroupingExpr(CarbonExpr *expr) {
 }
 
 void carbon_freeExpr(CarbonExpr *expr) {
+	if(expr == NULL) return;
 	switch (expr->type) {
 	case ExprUnary: {
 		CarbonExprUnary *un = (CarbonExprUnary *) expr;
