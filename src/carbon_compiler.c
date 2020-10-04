@@ -110,7 +110,7 @@ static CarbonValueType typecheck(CarbonExpr *expr) {
 	}
 	case ExprLiteral: {
 		CarbonExprLiteral *lit = (CarbonExprLiteral *) expr;
-		if (lit->token.lexeme[0] == '\"') return ValueString;
+		if (lit->token.lexeme[0] == '\'') return ValueString;
 		if (lit->token.length == 4 || lit->token.length == 5) {
 			if (memcmp(lit->token.lexeme, "null", 4) == 0) return ValueInstance;
 			if (memcmp(lit->token.lexeme, "true", 4) == 0) return ValueBool;
