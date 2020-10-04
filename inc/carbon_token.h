@@ -62,12 +62,13 @@ typedef enum {
 	TokenElif,
 	TokenTrue,
 	TokenFalse,
+	TokenNull,
 	TokenNone
 } CarbonTokenType;
 
 typedef struct {
 	CarbonTokenType type;
 	char *lexeme;
-	int length;
+	uint32_t length;
 	uint32_t line;
 } CarbonToken;

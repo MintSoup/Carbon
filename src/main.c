@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ast/carbon_expressions.h"
+#include "carbon_compiler.h"
 #include "carbon_lexer.h"
 #include "carbon_parser.h"
 #include "carbon_token.h"
@@ -34,21 +35,12 @@ int main(int argc, char *argv[]) {
 
 	CarbonVM vm;
 	carbon_initVM(&vm);
+	CarbonParser parser;
+	CarbonLexer lexer = carbon_initLexer(t, size);
+	carbon_initParser(&parser, &lexer);
+	CarbonExpr *expr = carbon_parseExpression(&parser);
+	if (expr != NULL) carbon_compile(expr, &vm);
 
-	carbon_addConstant(&vm.chunk, CarbonInt(7));
-	carbon_addConstant(&vm.chunk, CarbonInt(8));
-	carbon_addConstant(&vm.chunk, CarbonDouble(2));
-
-	for (int i = 0; i < sizeof(instructions); i++) {
-		carbon_writeToChunk(&vm.chunk, instructions[i], 0);
-	}
-
-	carbon_run(&vm);
-
-	printf("%lf\n", vm.stack[vm.stackTop - 1].dbl);
-	carbon_freeVM(&vm);
-
-	
 	free(t);
 
 	return 0;

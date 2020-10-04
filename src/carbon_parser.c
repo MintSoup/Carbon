@@ -9,7 +9,7 @@ static void error(CarbonToken at, char *msg, CarbonParser *p) {
 	if (p->panic) return;
 	p->panic = true;
 	p->hadError = true;
-	fprintf(stderr, "Error at line %d", at.line);
+	fprintf(stderr, "[Line %d]", at.line);
 	switch (at.type) {
 	case TokenEOF: {
 		fprintf(stderr, ", EOF: %s", msg);
@@ -60,10 +60,6 @@ static bool consume(CarbonTokenType t, char *msg, CarbonParser *p) {
 	}
 	errorAtCurrent(msg, p);
 	return false;
-}
-
-static CarbonToken peek(CarbonParser *p) {
-	return p->current;
 }
 
 void carbon_initParser(CarbonParser *parser, CarbonLexer *lexer) {

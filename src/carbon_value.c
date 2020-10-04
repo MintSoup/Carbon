@@ -25,3 +25,17 @@ void carbon_freeCarbonValueArray(CarbonValueArray *arr) {
 	carbon_reallocate(arr->capacity * sizeof(CarbonValue), 0, arr->arr);
 	carbon_initValueArray(arr);
 }
+
+char *CarbonValueTypeName[] = {
+	[ValueInt] = "int",
+	[ValueUInt] = "uint",
+	[ValueString] = "string",
+	[ValueDouble] = "double",
+	[ValueBool] = "bool",
+	[ValueInstance] = "instance",
+	[ValueHashtable] = "hashtable",
+	[ValueArray] = "array",
+	[ValueFunction] = "function",
+	[ValueError] = "Error",
+	[ValueUnresolved] = "unresolved",
+};

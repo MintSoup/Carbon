@@ -36,7 +36,8 @@ struct Identifier identifierList[] = {
 	{.name = "elif", .type = TokenElif},
 	{.name = "continue", .type = TokenContinue},
 	{.name = "false", .type = TokenFalse},
-	{.name = "true", .type = TokenTrue}};
+	{.name = "true", .type = TokenTrue},
+	{.name = "null", .type = TokenNull}};
 
 static bool isAtEnd(CarbonLexer *lexer) {
 	return *lexer->current == 0;
@@ -97,8 +98,10 @@ static bool canEndStatement(CarbonTokenType type) {
 	case TokenBreak:
 	case TokenContinue:
 	case TokenReturn:
-	case TokenSelf: return true;
-	default: return false;
+	case TokenSelf:
+		return true;
+	default:
+		return false;
 	}
 }
 
@@ -108,7 +111,9 @@ static bool skipWhitespace(CarbonLexer *lexer) {
 		char c = peek(lexer);
 		switch (c) {
 		case '\t':
-		case ' ': next(lexer); break;
+		case ' ':
+			next(lexer);
+			break;
 		case '\n':
 			if (canEndStatement(lexer->lastToken)) eos = true;
 			next(lexer);
@@ -117,7 +122,8 @@ static bool skipWhitespace(CarbonLexer *lexer) {
 			while (peek(lexer) != '\n' && !isAtEnd(lexer))
 				next(lexer);
 			break;
-		default: return eos;
+		default:
+			return eos;
 		}
 	}
 }
@@ -145,10 +151,10 @@ static CarbonTokenType identifyToken(CarbonLexer *lexer) {
 	return TokenIdentifier;
 }
 
-static bool isNumeric(char i) {
+static inline bool isNumeric(char i) {
 	return i >= '0' && i <= '9';
 }
-static bool isAlpha(char i) {
+static inline bool isAlpha(char i) {
 	return (i >= 'a' && i <= 'z') || (i >= 'A' && i <= 'Z');
 }
 
@@ -161,18 +167,30 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 
 	char c = next(lexer);
 	switch (c) {
-	case '{': return makeToken(TokenLeftBrace, lexer);
-	case '}': return makeToken(TokenRightBrace, lexer);
-	case '(': return makeToken(TokenLeftParen, lexer);
-	case ')': return makeToken(TokenRightParen, lexer);
-	case '[': return makeToken(TokenLeftBracket, lexer);
-	case ']': return makeToken(TokenRightBracket, lexer);
-	case '?': return makeToken(TokenQuestion, lexer);
-	case ':': return makeToken(TokenColon, lexer);
-	case '%': return makeToken(TokenPercent, lexer);
-	case '.': return makeToken(TokenDot, lexer);
-	case ',': return makeToken(TokenComma, lexer);
-	case ';': return makeToken(TokenEOS, lexer);
+	case '{':
+		return makeToken(TokenLeftBrace, lexer);
+	case '}':
+		return makeToken(TokenRightBrace, lexer);
+	case '(':
+		return makeToken(TokenLeftParen, lexer);
+	case ')':
+		return makeToken(TokenRightParen, lexer);
+	case '[':
+		return makeToken(TokenLeftBracket, lexer);
+	case ']':
+		return makeToken(TokenRightBracket, lexer);
+	case '?':
+		return makeToken(TokenQuestion, lexer);
+	case ':':
+		return makeToken(TokenColon, lexer);
+	case '%':
+		return makeToken(TokenPercent, lexer);
+	case '.':
+		return makeToken(TokenDot, lexer);
+	case ',':
+		return makeToken(TokenComma, lexer);
+	case ';':
+		return makeToken(TokenEOS, lexer);
 	case '+':
 		if (match('+', lexer)) return makeToken(TokenPlusPlus, lexer);
 		if (match('=', lexer)) return makeToken(TokenPlusEquals, lexer);
