@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 
 	carbon_freeExpr(expr);
 
-	printf("%lu\n", vm.stack[vm.stackTop - 1].uint);
+	printf("%ld\n", vm.stack[vm.stackTop - 1].sint);
 
 	carbon_freeVM(&vm);
 

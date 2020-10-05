@@ -89,7 +89,7 @@ static void typecheck(CarbonExpr *expr) {
 					expr->evalsTo = operandType;
 					return;
 				case ValueUInt:
-					expr->evalsTo = ValueUInt;
+					expr->evalsTo = ValueInt;
 					return;
 				default:
 					expr->evalsTo = ValueUnresolved;
