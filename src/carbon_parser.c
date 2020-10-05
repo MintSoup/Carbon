@@ -16,7 +16,7 @@ static void error(CarbonToken at, char *msg, CarbonParser *p) {
 		break;
 	}
 	case TokenError: {
-		fprintf(stderr, ": %.*s", at.length, msg);
+		fprintf(stderr, ": Unexpected charater '%c'", at.length);
 		break;
 	}
 	case TokenEOS: {

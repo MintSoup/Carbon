@@ -43,11 +43,10 @@ static bool isAtEnd(CarbonLexer *lexer) {
 	return *lexer->current == 0;
 }
 
-static CarbonToken errorToken(char *msg, CarbonLexer *lexer) {
+static CarbonToken errorToken(char unexpected, CarbonLexer *lexer) {
 	CarbonToken t;
 	t.line = lexer->line;
-	t.length = strlen(msg);
-	t.lexeme = msg;
+	t.length = unexpected;
 	t.type = TokenError;
 	return t;
 }
@@ -238,7 +237,7 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 			}
 			return makeToken(identifyToken(lexer), lexer);
 		}
-		return errorToken("Unexpected Character", lexer);
+		return errorToken(c, lexer);
 	}
 	}
 }
