@@ -1,4 +1,4 @@
-CC := gcc
+CC := c99
 name := carbon
 
 src := src
