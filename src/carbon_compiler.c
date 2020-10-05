@@ -70,8 +70,6 @@ static void binaryOpNotSupported(CarbonToken op, char *left, char *right,
 }
 
 static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
-	if (expr == NULL)
-		return;
 	switch (expr->type) {
 		case ExprUnary: {
 			CarbonExprUnary *un = (CarbonExprUnary *) expr;
