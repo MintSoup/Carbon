@@ -53,33 +53,41 @@ static bool canBinary(CarbonTokenType op, CarbonValueType left,
 	}
 }
 
-static void unaryOpNotSupported(CarbonToken op, char *type) {
+static void unaryOpNotSupported(CarbonToken op, char *type, CarbonCompiler *c) {
 	fprintf(stderr,
 			"[Line %d] Operator '%.*s' not supported for operand type %s\n",
 			op.line, op.length, op.lexeme, type);
+	c->hadError = true;
 }
 
-static void binaryOpNotSupported(CarbonToken op, char *left, char *right) {
+static void binaryOpNotSupported(CarbonToken op, char *left, char *right,
+								 CarbonCompiler *c) {
 	fprintf(
 		stderr,
 		"[Line %d] Operator '%.*s' not supported for operand types %s and %s\n",
 		op.line, op.length, op.lexeme, left, right);
+	c->hadError = true;
 }
 
-static void typecheck(CarbonExpr *expr) {
+static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 	if (expr == NULL)
 		return;
 	switch (expr->type) {
 		case ExprUnary: {
 			CarbonExprUnary *un = (CarbonExprUnary *) expr;
-			typecheck(un->operand);
+			if (un->operand == NULL) {
+				expr->evalsTo = ValueUnresolved;
+				return;
+			}
+			typecheck(un->operand, c);
 			CarbonValueType operandType = un->operand->evalsTo;
 			if (operandType == ValueUnresolved) {
 				expr->evalsTo = ValueUnresolved;
 				return;
 			}
 			if (!canUnary(un->op.type, operandType)) {
-				unaryOpNotSupported(un->op, CarbonValueTypeName[operandType]);
+				unaryOpNotSupported(un->op, CarbonValueTypeName[operandType],
+									c);
 				expr->evalsTo = ValueUnresolved;
 			}
 			switch (operandType) {
@@ -98,8 +106,12 @@ static void typecheck(CarbonExpr *expr) {
 		}
 		case ExprBinary: {
 			CarbonExprBinary *bin = (CarbonExprBinary *) expr;
-			typecheck(bin->left);
-			typecheck(bin->right);
+			if (bin->left == NULL || bin->right == NULL) {
+				expr->evalsTo = ValueUnresolved;
+				return;
+			}
+			typecheck(bin->left, c);
+			typecheck(bin->right, c);
 			CarbonValueType leftType = bin->left->evalsTo;
 			CarbonValueType rightType = bin->right->evalsTo;
 
@@ -114,7 +126,7 @@ static void typecheck(CarbonExpr *expr) {
 
 			if (!canBinary(bin->op.type, leftType, rightType)) {
 				binaryOpNotSupported(bin->op, CarbonValueTypeName[leftType],
-									 CarbonValueTypeName[rightType]);
+									 CarbonValueTypeName[rightType], c);
 				expr->evalsTo = ValueUnresolved;
 				return;
 			}
@@ -172,7 +184,11 @@ static void typecheck(CarbonExpr *expr) {
 		}
 		case ExprGrouping: {
 			CarbonExprGrouping *group = (CarbonExprGrouping *) expr;
-			typecheck(group->expression);
+			if (group->expression == NULL) {
+				expr->evalsTo = ValueUnresolved;
+				return;
+			}
+			typecheck(group->expression, c);
 			expr->evalsTo = group->expression->evalsTo;
 			return;
 		}
@@ -216,15 +232,19 @@ static CarbonValue getLiteralValue(CarbonExprLiteral *lit) {
 	}
 }
 
-void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk) {
-	typecheck(expr);
+void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
+							  CarbonCompiler *c) {
+
+	typecheck(expr, c);
 	if (expr->evalsTo == ValueUnresolved)
+		return;
+	if (c->parserHadError)
 		return;
 
 	switch (expr->type) {
 		case ExprUnary: {
 			CarbonExprUnary *un = (CarbonExprUnary *) expr;
-			carbon_compileExpression(un->operand, chunk);
+			carbon_compileExpression(un->operand, chunk, c);
 			if (un->op.type == TokenMinus)
 				switch (un->operand->evalsTo) {
 					case ValueUInt:
@@ -251,8 +271,8 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk) {
 		carbon_writeToChunk(chunk, instruction, bin->op.line)
 
 			CarbonExprBinary *bin = (CarbonExprBinary *) expr;
-			carbon_compileExpression(bin->left, chunk);
-			carbon_compileExpression(bin->right, chunk);
+			carbon_compileExpression(bin->left, chunk, c);
+			carbon_compileExpression(bin->right, chunk, c);
 			switch (bin->op.type) {
 				case TokenPlus:
 					switch (bin->left->evalsTo) {
@@ -326,8 +346,17 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk) {
 		}
 		case ExprGrouping: {
 			CarbonExprGrouping *group = (CarbonExprGrouping *) expr;
-			carbon_compileExpression(group->expression, chunk);
+			carbon_compileExpression(group->expression, chunk, c);
 			break;
 		}
 	}
+}
+
+void carbon_initCompiler(CarbonCompiler *compiler, CarbonParser *parser) {
+	compiler->hadError = false;
+	compiler->parserHadError = parser->hadError;
+}
+void carbon_freeCompiler(CarbonCompiler *compiler) {
+	compiler->hadError = false;
+	compiler->parserHadError = false;
 }

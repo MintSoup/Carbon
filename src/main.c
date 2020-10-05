@@ -35,24 +35,25 @@ int main(int argc, char *argv[]) {
 	fread(t, size, 1, f);
 	fclose(f);
 
-	CarbonVM vm;
-	carbon_initVM(&vm);
 	CarbonParser parser;
 	CarbonLexer lexer = carbon_initLexer(t, size);
 	carbon_initParser(&parser, &lexer);
 	CarbonExpr *expr = carbon_parseExpression(&parser);
-	if (expr != NULL)
-		carbon_compileExpression(expr, &vm.chunk);
-
-
-	carbon_writeToChunk(&vm.chunk, OpReturn, 100);
-	carbon_run(&vm);
+	if (expr != NULL) {
+		CarbonVM vm;
+		carbon_initVM(&vm);
+		CarbonCompiler c;
+		carbon_initCompiler(&c, &parser);
+		carbon_compileExpression(expr, &vm.chunk, &c);
+		if (!c.hadError && !c.parserHadError) {
+			carbon_writeToChunk(&vm.chunk, OpReturn, 100);
+			carbon_run(&vm);
+			printf("%ld\n", vm.stack[vm.stackTop - 1].sint);
+		}
+		carbon_freeVM(&vm);
+	}
 
 	carbon_freeExpr(expr);
-
-	printf("%ld\n", vm.stack[vm.stackTop - 1].sint);
-
-	carbon_freeVM(&vm);
 
 	free(t);
 
