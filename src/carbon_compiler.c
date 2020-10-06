@@ -392,9 +392,9 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 			uint16_t index = carbon_addConstant(chunk, value);
 			if (index > UINT8_MAX) {
 				carbon_writeToChunk(chunk, OpLoadConstant16, lit->token.line);
-				carbon_writeToChunk(chunk, (uint8_t) index >> 8,
+				carbon_writeToChunk(chunk, (uint8_t) (index >> 8),
 									lit->token.line);
-				carbon_writeToChunk(chunk, (uint8_t) index | 0xFF,
+				carbon_writeToChunk(chunk, (uint8_t) (index & 0xFF),
 									lit->token.line);
 			} else {
 				carbon_writeToChunk(chunk, OpLoadConstant, lit->token.line);

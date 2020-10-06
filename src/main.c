@@ -48,11 +48,9 @@ int main(int argc, char *argv[]) {
 		carbon_compileExpression(expr, &vm.chunk, &c);
 		if (!c.hadError && !c.parserHadError) {
 			carbon_writeToChunk(&vm.chunk, OpReturn, 100);
-
 			carbon_disassemble(&vm.chunk);
-
 			carbon_run(&vm);
-			printf("%ld\n", vm.stack[vm.stackTop - 1].sint);
+			printf("%lf\n", vm.stack[vm.stackTop - 1].dbl);
 		}
 		carbon_freeVM(&vm);
 	}
