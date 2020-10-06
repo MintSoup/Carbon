@@ -6,27 +6,28 @@
 #include <stdio.h>
 
 static void error(CarbonToken at, char *msg, CarbonParser *p) {
-	if (p->panic) return;
+	if (p->panic)
+		return;
 	p->panic = true;
 	p->hadError = true;
 	fprintf(stderr, "[Line %d]", at.line);
 	switch (at.type) {
-	case TokenEOF: {
-		fprintf(stderr, ", EOF: %s", msg);
-		break;
-	}
-	case TokenError: {
-		fprintf(stderr, ": Unexpected charater '%c'", at.length);
-		break;
-	}
-	case TokenEOS: {
-		fprintf(stderr, ", at end of statement: %s", msg);
-		break;
-	}
-	default: {
-		fprintf(stderr, ": %s", msg);
-		break;
-	}
+		case TokenEOF: {
+			fprintf(stderr, ", EOF: %s", msg);
+			break;
+		}
+		case TokenError: {
+			fprintf(stderr, ": Unexpected charater '%c'", at.length);
+			break;
+		}
+		case TokenEOS: {
+			fprintf(stderr, ", at end of statement: %s", msg);
+			break;
+		}
+		default: {
+			fprintf(stderr, ": %s", msg);
+			break;
+		}
 	}
 	fprintf(stderr, "\n");
 }
@@ -39,7 +40,8 @@ static CarbonToken next(CarbonParser *p) {
 	p->previous = p->current;
 	while (true) {
 		p->current = carbon_scanToken(p->lexer);
-		if (p->current.type != TokenError) break;
+		if (p->current.type != TokenError)
+			break;
 		errorAtCurrent(p->current.lexeme, p);
 	}
 	return p->previous;
@@ -69,17 +71,38 @@ void carbon_initParser(CarbonParser *parser, CarbonLexer *lexer) {
 	next(parser);
 }
 
+static CarbonExpr *equality(CarbonParser *p);
+static CarbonExpr *comparison(CarbonParser *p);
 static CarbonExpr *addition(CarbonParser *p);
 static CarbonExpr *multiplication(CarbonParser *p);
 static CarbonExpr *unary(CarbonParser *p);
 static CarbonExpr *primary(CarbonParser *p);
 
 static CarbonExpr *expression(CarbonParser *p) {
-	return (CarbonExpr *) addition(p);
+	return (CarbonExpr *) equality(p);
 }
 
 CarbonExpr *carbon_parseExpression(CarbonParser *p) {
 	return expression(p);
+}
+
+static CarbonExpr *equality(CarbonParser *p) {
+	CarbonExpr *expr = comparison(p);
+	while (match(TokenEqualsEquals, p) || match(TokenBangEquals, p)) {
+		CarbonToken tok = p->previous;
+		expr = (CarbonExpr *) carbon_newBinaryExpr(expr, comparison(p), tok);
+	}
+	return expr;
+}
+
+static CarbonExpr *comparison(CarbonParser *p) {
+	CarbonExpr *expr = addition(p);
+	while (match(TokenGreaterThan, p) || match(TokenLessThan, p) ||
+		   match(TokenLEQ, p) || match(TokenGEQ, p)) {
+		CarbonToken tok = p->previous;
+		expr = (CarbonExpr *) carbon_newBinaryExpr(expr, addition(p), tok);
+	}
+	return expr;
 }
 
 static CarbonExpr *addition(CarbonParser *p) {
@@ -111,23 +134,23 @@ static CarbonExpr *unary(CarbonParser *p) {
 
 static CarbonExpr *primary(CarbonParser *p) {
 	switch (p->current.type) {
-	case TokenStringLiteral:
-	case TokenInteger:
-	case TokenDecimal:
-	case TokenTrue:
-	case TokenFalse: {
-		return (CarbonExpr *) carbon_newLiteralExpr(next(p));
-	}
-	case TokenLeftParen: {
-		next(p);
-		CarbonExpr *expr = expression(p);
-		expr = (CarbonExpr *) carbon_newGroupingExpr(expr);
-		consume(TokenRightParen, "Expected expression", p);
-		return expr;
-	}
-	default: {
-		errorAtCurrent("Expected expression", p);
-		return NULL;
-	}
+		case TokenStringLiteral:
+		case TokenInteger:
+		case TokenDecimal:
+		case TokenTrue:
+		case TokenFalse: {
+			return (CarbonExpr *) carbon_newLiteralExpr(next(p));
+		}
+		case TokenLeftParen: {
+			next(p);
+			CarbonExpr *expr = expression(p);
+			expr = (CarbonExpr *) carbon_newGroupingExpr(expr);
+			consume(TokenRightParen, "Expected expression", p);
+			return expr;
+		}
+		default: {
+			errorAtCurrent("Expected expression", p);
+			return NULL;
+		}
 	}
 }

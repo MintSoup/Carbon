@@ -141,10 +141,12 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 				case TokenGEQ:
 				case TokenAnd:
 				case TokenOr:
+				case TokenEqualsEquals:
+				case TokenBangEquals:
 					expr->evalsTo = ValueBool;
 					return;
 				default:
-					expr->evalsTo = ValueUnresolved;
+					expr->evalsTo = ValueUnresolved; // Reaching here is a bug
 					return;
 			}
 		}
@@ -258,7 +260,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 						break;
 				}
 			else if (un->op.type == TokenBang)
-				carbon_writeToChunk(chunk, OpNegateDouble, un->op.line);
+				carbon_writeToChunk(chunk, OpNegateBool, un->op.line);
 			break;
 		}
 
@@ -319,6 +321,64 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 						default:
 							break;
 					}
+					break;
+				case TokenGreaterThan:
+					switch (bin->left->evalsTo) {
+						binInstruction(ValueInt, OpCompareInt);
+						break;
+						binInstruction(ValueUInt, OpCompareUInt);
+						break;
+						binInstruction(ValueDouble, OpCompareDouble);
+						break;
+						default:
+							break;
+					}
+					carbon_writeToChunk(chunk, OpGreater, bin->op.line);
+					break;
+				case TokenLessThan:
+					switch (bin->left->evalsTo) {
+						binInstruction(ValueInt, OpCompareInt);
+						break;
+						binInstruction(ValueUInt, OpCompareUInt);
+						break;
+						binInstruction(ValueDouble, OpCompareDouble);
+						break;
+						default:
+							break;
+					}
+					carbon_writeToChunk(chunk, OpLess, bin->op.line);
+					break;
+				case TokenLEQ:
+					switch (bin->left->evalsTo) {
+						binInstruction(ValueInt, OpCompareInt);
+						break;
+						binInstruction(ValueUInt, OpCompareUInt);
+						break;
+						binInstruction(ValueDouble, OpCompareDouble);
+						break;
+						default:
+							break;
+					}
+					carbon_writeToChunk(chunk, OpLEQ, bin->op.line);
+					break;
+				case TokenGEQ:
+					switch (bin->left->evalsTo) {
+						binInstruction(ValueInt, OpCompareInt);
+						break;
+						binInstruction(ValueUInt, OpCompareUInt);
+						break;
+						binInstruction(ValueDouble, OpCompareDouble);
+						break;
+						default:
+							break;
+					}
+					carbon_writeToChunk(chunk, OpGEQ, bin->op.line);
+					break;
+				case TokenEqualsEquals:
+					carbon_writeToChunk(chunk, OpEquals, bin->op.line);
+					break;
+				case TokenBangEquals:
+					carbon_writeToChunk(chunk, OpNotEquals, bin->op.line);
 					break;
 				default:
 					break;

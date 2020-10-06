@@ -48,115 +48,181 @@ void carbon_run(CarbonVM *vm) {
 		push(cast(operator a));                                                \
 	} while (false)
 
+#define compare(type, fieldName)                                               \
+	do {                                                                       \
+		type a = pop().fieldName;                                              \
+		type b = pop().fieldName;                                              \
+		if (a < b)                                                             \
+			push(CarbonInt(1));                                                \
+		else if (a > b)                                                        \
+			push(CarbonInt(-1));                                               \
+		else                                                                   \
+			push(CarbonInt(0));                                                \
+	} while (false)
+
 #define cast(from, to, nativeType) push(to((nativeType) pop().from))
 #define ReadConstant8() vm->chunk.constants.arr[*ip]
 #define ReadConstant16() c16(vm, ip)
 	while (true) {
 		switch (*ip) {
-		case OpReturn:
-			return;
+			case OpReturn:
+				return;
 
-		// Signed integer binary ops
-		case OpAddInt:
-			binary(int64_t, +, CarbonInt, sint);
-			ip++;
-			break;
-		case OpSubInt:
-			binary(int64_t, -, CarbonInt, sint);
-			ip++;
-			break;
-		case OpDivInt:
-			binary(int64_t, /, CarbonInt, sint);
-			ip++;
-			break;
-		case OpMulInt:
-			binary(int64_t, *, CarbonInt, sint);
-			ip++;
-			break;
+			// Signed integer binary ops
+			case OpAddInt:
+				binary(int64_t, +, CarbonInt, sint);
+				ip++;
+				break;
+			case OpSubInt:
+				binary(int64_t, -, CarbonInt, sint);
+				ip++;
+				break;
+			case OpDivInt:
+				binary(int64_t, /, CarbonInt, sint);
+				ip++;
+				break;
+			case OpMulInt:
+				binary(int64_t, *, CarbonInt, sint);
+				ip++;
+				break;
 
-		// Unsigned integer binary ops
-		case OpAddUInt:
-			binary(uint64_t, +, CarbonUInt, uint);
-			ip++;
-			break;
-		case OpSubUInt:
-			binary(uint64_t, -, CarbonUInt, uint);
-			ip++;
-			break;
-		case OpDivUInt:
-			binary(uint64_t, /, CarbonUInt, uint);
-			ip++;
-			break;
-		case OpMulUInt:
-			binary(uint64_t, *, CarbonUInt, uint);
-			ip++;
-			break;
+			// Unsigned integer binary ops
+			case OpAddUInt:
+				binary(uint64_t, +, CarbonUInt, uint);
+				ip++;
+				break;
+			case OpSubUInt:
+				binary(uint64_t, -, CarbonUInt, uint);
+				ip++;
+				break;
+			case OpDivUInt:
+				binary(uint64_t, /, CarbonUInt, uint);
+				ip++;
+				break;
+			case OpMulUInt:
+				binary(uint64_t, *, CarbonUInt, uint);
+				ip++;
+				break;
 
-		// Double binary ops
-		case OpAddDouble:
-			binary(double, +, CarbonDouble, dbl);
-			ip++;
-			break;
-		case OpSubDouble:
-			binary(double, -, CarbonDouble, dbl);
-			ip++;
-			break;
-		case OpDivDouble:
-			binary(double, /, CarbonDouble, dbl);
-			ip++;
-			break;
-		case OpMulDouble:
-			binary(double, *, CarbonDouble, dbl);
-			ip++;
-			break;
+			// Double binary ops
+			case OpAddDouble:
+				binary(double, +, CarbonDouble, dbl);
+				ip++;
+				break;
+			case OpSubDouble:
+				binary(double, -, CarbonDouble, dbl);
+				ip++;
+				break;
+			case OpDivDouble:
+				binary(double, /, CarbonDouble, dbl);
+				ip++;
+				break;
+			case OpMulDouble:
+				binary(double, *, CarbonDouble, dbl);
+				ip++;
+				break;
 
-		// Unary ops
-		case OpNegateBool:
-			unary(bool, !, CarbonBool, boolean);
-			ip++;
-			break;
-		case OpNegateUInt:
-			unary(uint64_t, -, CarbonInt, uint);
-			ip++;
-			break;
-		case OpNegateInt:
-			unary(int64_t, -, CarbonInt, sint);
-			ip++;
-			break;
-		case OpNegateDouble:
-			unary(double, -, CarbonDouble, dbl);
-			ip++;
-			break;
+			// Unary ops
+			case OpNegateBool:
+				unary(bool, !, CarbonBool, boolean);
+				ip++;
+				break;
+			case OpNegateUInt:
+				unary(uint64_t, -, CarbonInt, uint);
+				ip++;
+				break;
+			case OpNegateInt:
+				unary(int64_t, -, CarbonInt, sint);
+				ip++;
+				break;
+			case OpNegateDouble:
+				unary(double, -, CarbonDouble, dbl);
+				ip++;
+				break;
 
-		// Primitive casts
-		case OpDoubleToInt:
-			cast(dbl, CarbonInt, int64_t);
-			ip++;
-			break;
-		case OpDoubleToUInt:
-			cast(dbl, CarbonUInt, uint64_t);
-			ip++;
-			break;
-		case OpIntToDouble:
-			cast(sint, CarbonDouble, double);
-			ip++;
-			break;
-		case OpUIntToDouble:
-			cast(uint, CarbonDouble, double);
-			ip++;
-			break;
+			// Primitive casts
+			case OpDoubleToInt:
+				cast(dbl, CarbonInt, int64_t);
+				ip++;
+				break;
+			case OpDoubleToUInt:
+				cast(dbl, CarbonUInt, uint64_t);
+				ip++;
+				break;
+			case OpIntToDouble:
+				cast(sint, CarbonDouble, double);
+				ip++;
+				break;
+			case OpUIntToDouble:
+				cast(uint, CarbonDouble, double);
+				ip++;
+				break;
 
-		// Constant instructions
-		case OpLoadConstant:
-			ip++;
-			push(ReadConstant8());
-			ip++;
-			break;
-		case OpLoadConstant16:
-			ip++;
-			push(ReadConstant16());
-			ip += 2;
-			break;
+			// Comparison and equality
+			case OpCompareInt:
+				compare(int64_t, sint);
+				ip++;
+				break;
+			case OpCompareUInt:
+				compare(uint64_t, uint);
+				ip++;
+				break;
+			case OpCompareDouble:
+				compare(double, dbl);
+				ip++;
+				break;
+
+			case OpGreater: {
+				int64_t top = pop().sint;
+				push(CarbonBool(top == 1));
+				ip++;
+				break;
+			}
+			case OpLess: {
+				int64_t top = pop().sint;
+				push(CarbonBool(top == -1));
+				ip++;
+				break;
+			}
+			case OpGEQ: {
+				int64_t top = pop().sint;
+				push(CarbonBool(top != -1));
+				ip++;
+				break;
+			}
+			case OpLEQ: {
+				int64_t top = pop().sint;
+				push(CarbonBool(top != 1));
+				ip++;
+				break;
+			}
+
+			case OpEquals: {
+				uint64_t a = pop().uint;
+				uint64_t b = pop().uint;
+				push(CarbonBool(a == b));
+				ip++;
+				break;
+			}
+			case OpNotEquals: {
+				uint64_t a = pop().uint;
+				uint64_t b = pop().uint;
+				push(CarbonBool(a != b));
+				ip++;
+				break;
+			}
+
+			// Constant instructions
+			case OpLoadConstant:
+				ip++;
+				push(ReadConstant8());
+				ip++;
+				break;
+			case OpLoadConstant16:
+				ip++;
+				push(ReadConstant16());
+				ip += 2;
+				break;
 		}
 	}
 }

@@ -35,6 +35,17 @@ typedef enum {
 	OpUIntToDouble,
 	OpDoubleToUInt,
 
+	//Comparison and equality
+	OpCompareInt,
+	OpCompareUInt,
+	OpCompareDouble,
+	OpEquals,
+	OpNotEquals,
+	OpGreater,
+	OpLess,
+	OpGEQ,
+	OpLEQ
+
 	
 
 } CarbonOpCode;
