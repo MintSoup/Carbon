@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
 			carbon_writeToChunk(&vm.chunk, OpReturn, 100);
 			carbon_disassemble(&vm.chunk);
 			carbon_run(&vm);
-			printf("%lf\n", vm.stack[vm.stackTop - 1].dbl);
+			printf("%ld\n", vm.stack[vm.stackTop - 1].uint);
 		}
 		carbon_freeVM(&vm);
 	}

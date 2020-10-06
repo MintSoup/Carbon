@@ -1,4 +1,4 @@
-CC := c99
+CC := gcc
 name := carbon
 
 src := src
@@ -13,9 +13,9 @@ objdirs = $(dir $(objf))
 
 executable := $(name)
 
-flags := -O3 -Wall
+flags := -O3 -Wall -std=c99
 
-debugflags := -g -O0 -Wall -DDebug 
+debugflags := -g -O0 -Wall -std=c99 -DDebug
 
 
 $(obj)/%.o: $(src)/%.c $(obj)
