@@ -46,8 +46,9 @@ int main(int argc, char *argv[]) {
 		CarbonCompiler c;
 		carbon_initCompiler(&c, &parser);
 		carbon_compileExpression(expr, &vm.chunk, &c);
+		carbon_freeExpr(expr);
 		if (!c.hadError && !c.parserHadError) {
-			carbon_writeToChunk(&vm.chunk, OpReturn, 100);
+			carbon_writeToChunk(&vm.chunk, OpReturn, 9999);
 			carbon_disassemble(&vm.chunk);
 			carbon_run(&vm);
 			printf("%ld\n", vm.stack[vm.stackTop - 1].uint);
@@ -55,7 +56,6 @@ int main(int argc, char *argv[]) {
 		carbon_freeVM(&vm);
 	}
 
-	carbon_freeExpr(expr);
 
 	free(t);
 

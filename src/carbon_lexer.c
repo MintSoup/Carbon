@@ -111,6 +111,7 @@ static bool skipWhitespace(CarbonLexer *lexer) {
 		switch (c) {
 		case '\t':
 		case ' ':
+		case '\r':
 			next(lexer);
 			break;
 		case '\n':

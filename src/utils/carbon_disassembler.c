@@ -54,8 +54,9 @@ void carbon_disassemble(CarbonChunk *chunk) {
 	uint8_t *ip = chunk->code;
 
 	while (ip < chunk->code + chunk->count) {
-		printf("%04d|0x%04lx  %s", instructionNumber, ip - chunk->code,
-			   names[*ip]);
+		printf("%04d %04d|0x%04lx  %s",
+			   chunk->lines[ip - chunk->code], instructionNumber,
+			   ip - chunk->code, names[*ip]);
 
 		switch (*ip) {
 			case OpReturn:
