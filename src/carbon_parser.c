@@ -15,7 +15,7 @@ static void error(CarbonToken at, char *msg, CarbonParser *p) {
 	fprintf(stderr, "[Line %d]", at.line);
 	switch (at.type) {
 		case TokenEOF: {
-			fprintf(stderr, ", EOF: %s", msg);
+			fprintf(stderr, " EOF: %s", msg);
 			break;
 		}
 		case TokenError: {
@@ -23,7 +23,7 @@ static void error(CarbonToken at, char *msg, CarbonParser *p) {
 			break;
 		}
 		case TokenEOS: {
-			fprintf(stderr, ", at end of statement: %s", msg);
+			fprintf(stderr, " at end of statement: %s", msg);
 			break;
 		}
 		default: {
