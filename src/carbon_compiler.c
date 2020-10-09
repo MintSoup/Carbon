@@ -343,7 +343,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 					switch (bin->left->evalsTo) {
 						binInstruction(ValueInt, OpAddInt);
 						break;
-						binInstruction(ValueUInt, OpAddUInt);
+						binInstruction(ValueUInt, OpAddInt);
 						break;
 						binInstruction(ValueDouble, OpAddDouble);
 						break;
@@ -355,7 +355,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 					switch (bin->left->evalsTo) {
 						binInstruction(ValueInt, OpSubInt);
 						break;
-						binInstruction(ValueUInt, OpSubUInt);
+						binInstruction(ValueUInt, OpSubInt);
 						break;
 						binInstruction(ValueDouble, OpSubDouble);
 						break;

@@ -11,10 +11,8 @@ typedef enum {
 
 	// Binary Operations
 	OpAddInt,
-	OpAddUInt,
 	OpAddDouble,
 	OpSubInt,
-	OpSubUInt,
 	OpSubDouble,
 	OpMulInt,
 	OpMulUInt,

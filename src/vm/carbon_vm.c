@@ -83,18 +83,9 @@ void carbon_run(CarbonVM *vm) {
 				break;
 			case OpMulInt:
 				binary(int64_t, *, CarbonInt, sint);
-				ip++;
 				break;
 
 			// Unsigned integer binary ops
-			case OpAddUInt:
-				binary(uint64_t, +, CarbonUInt, uint);
-				ip++;
-				break;
-			case OpSubUInt:
-				binary(uint64_t, -, CarbonUInt, uint);
-				ip++;
-				break;
 			case OpDivUInt:
 				binary(uint64_t, /, CarbonUInt, uint);
 				ip++;
@@ -225,4 +216,14 @@ void carbon_run(CarbonVM *vm) {
 				break;
 		}
 	}
+#undef ReadByte
+#undef push
+#undef pop
+#undef peek
+#undef binary
+#undef unary
+#undef compare
+#undef cast
+#undef ReadConstant8
+#undef ReadConstant16
 }

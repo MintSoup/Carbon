@@ -12,10 +12,8 @@ static char *names[] = {
 
 	// Binary Operations
 	[OpAddInt] = "iadd",
-	[OpAddUInt] = "uadd",
 	[OpAddDouble] = "dadd",
 	[OpSubInt] = "isub",
-	[OpSubUInt] = "usub",
 	[OpSubDouble] = "dsub",
 	[OpMulInt] = "imul",
 	[OpMulUInt] = "umul",
@@ -61,10 +59,8 @@ void carbon_disassemble(CarbonChunk *chunk) {
 		switch (*ip) {
 			case OpReturn:
 			case OpAddInt:
-			case OpAddUInt:
 			case OpAddDouble:
 			case OpSubInt:
-			case OpSubUInt:
 			case OpSubDouble:
 			case OpMulInt:
 			case OpMulUInt:
