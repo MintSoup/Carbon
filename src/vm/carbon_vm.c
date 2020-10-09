@@ -83,6 +83,7 @@ void carbon_run(CarbonVM *vm) {
 				break;
 			case OpMulInt:
 				binary(int64_t, *, CarbonInt, sint);
+				ip++;
 				break;
 
 			// Unsigned integer binary ops
