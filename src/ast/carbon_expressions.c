@@ -49,66 +49,88 @@ CarbonExprGrouping *carbon_newGroupingExpr(CarbonExpr *expr) {
 	return grouping;
 }
 
+CarbonExprCast *carbon_newCastExpr(CarbonToken to, CarbonExpr *expr) {
+	CarbonExprCast *cast =
+		(CarbonExprCast *) allocateNode(CarbonExprCast, ExprCast);
+	cast->expression = expr;
+	cast->to = to;
+	return cast;
+}
+
 void carbon_freeExpr(CarbonExpr *expr) {
-	if(expr == NULL) return;
+	if (expr == NULL)
+		return;
 	switch (expr->type) {
-	case ExprUnary: {
-		CarbonExprUnary *un = (CarbonExprUnary *) expr;
-		carbon_freeExpr(un->operand);
-		carbon_reallocate(sizeof(CarbonExprUnary), 0, expr);
-		break;
-	}
-	case ExprBinary: {
-		CarbonExprBinary *bin = (CarbonExprBinary *) expr;
-		carbon_freeExpr(bin->left);
-		carbon_freeExpr(bin->right);
-		carbon_reallocate(sizeof(CarbonExprBinary), 0, expr);
-		break;
-	}
-	case ExprGrouping: {
-		CarbonExprGrouping *group = (CarbonExprGrouping *) expr;
-		carbon_freeExpr(group->expression);
-		carbon_reallocate(sizeof(CarbonExprGrouping), 0, expr);
-		break;
-	}
-	case ExprLiteral: {
-		carbon_reallocate(sizeof(CarbonExprLiteral), 0, expr);
-		break;
-	}
+		case ExprUnary: {
+			CarbonExprUnary *un = (CarbonExprUnary *) expr;
+			carbon_freeExpr(un->operand);
+			carbon_reallocate(sizeof(CarbonExprUnary), 0, expr);
+			break;
+		}
+		case ExprBinary: {
+			CarbonExprBinary *bin = (CarbonExprBinary *) expr;
+			carbon_freeExpr(bin->left);
+			carbon_freeExpr(bin->right);
+			carbon_reallocate(sizeof(CarbonExprBinary), 0, expr);
+			break;
+		}
+		case ExprGrouping: {
+			CarbonExprGrouping *group = (CarbonExprGrouping *) expr;
+			carbon_freeExpr(group->expression);
+			carbon_reallocate(sizeof(CarbonExprGrouping), 0, expr);
+			break;
+		}
+		case ExprLiteral: {
+			carbon_reallocate(sizeof(CarbonExprLiteral), 0, expr);
+			break;
+		}
+		case ExprCast: {
+			CarbonExprCast *cast = (CarbonExprCast *) expr;
+			carbon_freeExpr(cast->expression);
+			carbon_reallocate(sizeof(CarbonExprCast), 0, expr);
+			break;
+		}
 	}
 }
 
 void carbon_printExpr(CarbonExpr *expr) {
 	switch (expr->type) {
-	case ExprUnary: {
-		CarbonExprUnary *un = (CarbonExprUnary *) expr;
-		printf("%c", *un->op.lexeme);
-		fflush(stdout);
-		carbon_printExpr(un->operand);
-		break;
-	}
-	case ExprBinary: {
-		CarbonExprBinary *bin = (CarbonExprBinary *) expr;
-		carbon_printExpr(bin->left);
-		printf(" %c ", *bin->op.lexeme);
-		fflush(stdout);
-		carbon_printExpr(bin->right);
-		break;
-	}
-	case ExprGrouping: {
-		CarbonExprGrouping *group = (CarbonExprGrouping *) expr;
-		printf("(");
-		fflush(stdout);
-		carbon_printExpr(group->expression);
-		printf(")");
-		fflush(stdout);
-		break;
-	}
-	case ExprLiteral: {
-		CarbonExprLiteral *lit = (CarbonExprLiteral *) expr;
-		printf("%.*s", lit->token.length, lit->token.lexeme);
-		fflush(stdout);
-		break;
-	}
+		case ExprUnary: {
+			CarbonExprUnary *un = (CarbonExprUnary *) expr;
+			printf("%c", *un->op.lexeme);
+			fflush(stdout);
+			carbon_printExpr(un->operand);
+			break;
+		}
+		case ExprBinary: {
+			CarbonExprBinary *bin = (CarbonExprBinary *) expr;
+			carbon_printExpr(bin->left);
+			printf(" %c ", *bin->op.lexeme);
+			fflush(stdout);
+			carbon_printExpr(bin->right);
+			break;
+		}
+		case ExprGrouping: {
+			CarbonExprGrouping *group = (CarbonExprGrouping *) expr;
+			printf("(");
+			fflush(stdout);
+			carbon_printExpr(group->expression);
+			printf(")");
+			fflush(stdout);
+			break;
+		}
+		case ExprLiteral: {
+			CarbonExprLiteral *lit = (CarbonExprLiteral *) expr;
+			printf("%.*s", lit->token.length, lit->token.lexeme);
+			fflush(stdout);
+			break;
+		}
+		case ExprCast: {
+			CarbonExprCast *cast = (CarbonExprCast *) expr;
+			printf("(%.*s) ", cast->to.length, cast->to.lexeme);
+			carbon_printExpr(cast->expression);
+			fflush(stdout);
+			break;
+		}
 	}
 }

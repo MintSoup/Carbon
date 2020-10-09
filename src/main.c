@@ -40,6 +40,7 @@ int main(int argc, char *argv[]) {
 	CarbonLexer lexer = carbon_initLexer(t, size);
 	carbon_initParser(&parser, &lexer);
 	CarbonExpr *expr = carbon_parseExpression(&parser);
+	carbon_freeParser(&parser);
 	if (expr != NULL) {
 		CarbonVM vm;
 		carbon_initVM(&vm);
@@ -51,7 +52,11 @@ int main(int argc, char *argv[]) {
 			carbon_writeToChunk(&vm.chunk, OpReturn, 9999);
 			carbon_disassemble(&vm.chunk);
 			carbon_run(&vm);
-			printf("%ld\n", vm.stack[vm.stackTop - 1].uint);
+			puts("--------------------EXECUTION OVER--------------------");
+			puts("Stack top");
+			printf("Signed: %ld\n", vm.stack[vm.stackTop - 1].sint);
+			printf("Unsigned: %lu\n", vm.stack[vm.stackTop - 1].uint);
+			printf("Double: %lf\n", vm.stack[vm.stackTop - 1].dbl);
 		}
 		carbon_freeVM(&vm);
 	}

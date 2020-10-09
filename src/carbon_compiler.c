@@ -24,6 +24,23 @@ static bool canUnary(CarbonTokenType op, CarbonValueType operand) {
 	}
 }
 
+static bool canCast(CarbonValueType from, CarbonToken to) {
+	switch (from) {
+		case ValueUInt:
+			return to.type == TokenInt || to.type == TokenDouble ||
+				   to.type == TokenBool;
+		case ValueInt:
+			return to.type == TokenUInt || to.type == TokenDouble ||
+				   to.type == TokenBool;
+		case ValueDouble:
+			return to.type == TokenUInt || to.type == TokenInt;
+		case ValueBool:
+			return to.type == TokenInt || to.type == TokenUInt;
+		default:
+			return false;
+	}
+}
+
 static bool canBinary(CarbonTokenType op, CarbonValueType left,
 					  CarbonValueType right) {
 	if (left != right) {
@@ -66,6 +83,13 @@ static void binaryOpNotSupported(CarbonToken op, char *left, char *right,
 		stderr,
 		"[Line %d] Operator '%.*s' not supported for operand types %s and %s\n",
 		op.line, op.length, op.lexeme, left, right);
+	c->hadError = true;
+}
+static void castNotSupported(CarbonValueType from, CarbonToken to,
+							 CarbonCompiler *c) {
+
+	fprintf(stderr, "[Line %d] Cannot cast from type %s to %.*s\n", to.line,
+			CarbonValueTypeName[from], to.length, to.lexeme);
 	c->hadError = true;
 }
 
@@ -190,6 +214,47 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 			}
 			typecheck(group->expression, c);
 			expr->evalsTo = group->expression->evalsTo;
+			return;
+		}
+		case ExprCast: {
+			CarbonExprCast *cast = (CarbonExprCast *) expr;
+			if (cast->expression == NULL) {
+				expr->evalsTo = ValueUnresolved;
+				return;
+			}
+			typecheck(cast->expression, c);
+			if (cast->expression->evalsTo == ValueUnresolved) {
+				expr->evalsTo = ValueUnresolved;
+				return;
+			}
+
+			if (!canCast(cast->expression->evalsTo, cast->to)) {
+				castNotSupported(cast->expression->evalsTo, cast->to, c);
+				expr->evalsTo = ValueUnresolved;
+				return;
+			}
+			CarbonValueType et;
+			switch (cast->to.type) {
+				case TokenUInt:
+					et = ValueUInt;
+					break;
+				case TokenInt:
+					et = ValueInt;
+					break;
+				case TokenDouble:
+					et = ValueDouble;
+					break;
+				case TokenBool:
+					et = ValueBool;
+					break;
+				case TokenIdentifier:
+					et = ValueInstance;
+				default:
+					et = ValueUnresolved; // Should never reach here
+					break;
+			}
+
+			expr->evalsTo = et;
 			return;
 		}
 		default:
@@ -392,9 +457,9 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 			uint16_t index = carbon_addConstant(chunk, value);
 			if (index > UINT8_MAX) {
 				carbon_writeToChunk(chunk, OpLoadConstant16, lit->token.line);
-				carbon_writeToChunk(chunk, (uint8_t) (index >> 8),
+				carbon_writeToChunk(chunk, (uint8_t)(index >> 8),
 									lit->token.line);
-				carbon_writeToChunk(chunk, (uint8_t) (index & 0xFF),
+				carbon_writeToChunk(chunk, (uint8_t)(index & 0xFF),
 									lit->token.line);
 			} else {
 				carbon_writeToChunk(chunk, OpLoadConstant, lit->token.line);
@@ -405,6 +470,35 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 		case ExprGrouping: {
 			CarbonExprGrouping *group = (CarbonExprGrouping *) expr;
 			carbon_compileExpression(group->expression, chunk, c);
+			break;
+		}
+		case ExprCast: {
+			CarbonExprCast *cast = (CarbonExprCast *) expr;
+			carbon_compileExpression(cast->expression, chunk, c);
+			CarbonValueType from = cast->expression->evalsTo;
+			switch (cast->expr.evalsTo) {
+				case ValueInt:
+					if (from == ValueDouble)
+						carbon_writeToChunk(chunk, OpDoubleToInt,
+											cast->to.line);
+					break;
+				case ValueUInt:
+					if (from == ValueDouble)
+						carbon_writeToChunk(chunk, OpDoubleToUInt,
+											cast->to.line);
+					break;
+				case ValueDouble:
+					if (from == ValueInt)
+						carbon_writeToChunk(chunk, OpIntToDouble,
+											cast->to.line);
+					else if (from == ValueUInt)
+						carbon_writeToChunk(chunk, OpUIntToDouble,
+											cast->to.line);
+					break;
+				default: // should never reach here
+					break;
+			}
+
 			break;
 		}
 	}

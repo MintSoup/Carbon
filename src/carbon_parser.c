@@ -1,8 +1,10 @@
 #include "ast/carbon_expressions.h"
 #include "carbon_lexer.h"
 #include "carbon_token.h"
+#include "carbon_value.h"
 #include "utils/carbon_commons.h"
 #include "carbon_parser.h"
+#include "utils/carbon_memory.h"
 #include <stdio.h>
 
 static void error(CarbonToken at, char *msg, CarbonParser *p) {
@@ -32,23 +34,28 @@ static void error(CarbonToken at, char *msg, CarbonParser *p) {
 	fprintf(stderr, "\n");
 }
 
-static void errorAtCurrent(char *msg, CarbonParser *p) {
-	error(p->current, msg, p);
+static inline void errorAtCurrent(char *msg, CarbonParser *p) {
+	error(p->tokens[p->currentToken], msg, p);
 }
 
-static CarbonToken next(CarbonParser *p) {
-	p->previous = p->current;
-	while (true) {
-		p->current = carbon_scanToken(p->lexer);
-		if (p->current.type != TokenError)
-			break;
-		errorAtCurrent(p->current.lexeme, p);
-	}
-	return p->previous;
+static inline CarbonToken next(CarbonParser *p) {
+	return p->tokens[p->currentToken++];
+}
+
+static inline CarbonToken peekn(uint32_t n, CarbonParser *p) {
+	return p->tokens[p->currentToken + n];
+}
+
+static inline CarbonToken peek(CarbonParser *p) {
+	return p->tokens[p->currentToken];
+}
+
+static inline CarbonToken previous(CarbonParser *p) {
+	return p->tokens[p->currentToken - 1];
 }
 
 static bool match(CarbonTokenType t, CarbonParser *p) {
-	if (p->current.type == t) {
+	if (peek(p).type == t) {
 		next(p);
 		return true;
 	}
@@ -56,7 +63,7 @@ static bool match(CarbonTokenType t, CarbonParser *p) {
 }
 
 static bool consume(CarbonTokenType t, char *msg, CarbonParser *p) {
-	if (p->current.type == t) {
+	if (peek(p).type == t) {
 		next(p);
 		return true;
 	}
@@ -65,10 +72,46 @@ static bool consume(CarbonTokenType t, char *msg, CarbonParser *p) {
 }
 
 void carbon_initParser(CarbonParser *parser, CarbonLexer *lexer) {
-	parser->lexer = lexer;
+
+	parser->currentToken = 0;
+	parser->totalTokens = 8;
+	parser->tokens =
+		carbon_reallocate(0, parser->totalTokens * sizeof(CarbonToken), NULL);
+	while (true) {
+		CarbonToken p;
+		while (true) {
+			p = carbon_scanToken(lexer);
+			if (p.type != TokenError)
+				break;
+			error(p, NULL, parser);
+		}
+
+		if (parser->currentToken == parser->totalTokens) {
+			uint32_t oldSize = parser->totalTokens * sizeof(CarbonToken);
+			parser->totalTokens *= 2;
+			uint32_t newSize = parser->totalTokens * sizeof(CarbonToken);
+			parser->tokens =
+				carbon_reallocate(oldSize, newSize, parser->tokens);
+		}
+		parser->tokens[parser->currentToken] = p;
+		parser->currentToken++;
+		if (p.type == TokenEOF) {
+			uint32_t oldSize = parser->totalTokens * sizeof(CarbonToken);
+			uint32_t newSize = parser->currentToken * sizeof(CarbonToken);
+			parser->tokens =
+				carbon_reallocate(oldSize, newSize, parser->tokens);
+			parser->totalTokens = parser->currentToken;
+			parser->currentToken = 0;
+			break;
+		}
+	}
+
 	parser->panic = false;
 	parser->hadError = false;
-	next(parser);
+}
+
+void carbon_freeParser(CarbonParser *p) {
+	carbon_reallocate(p->totalTokens * sizeof(CarbonToken), 0, p->tokens);
 }
 
 static CarbonExpr *equality(CarbonParser *p);
@@ -89,7 +132,7 @@ CarbonExpr *carbon_parseExpression(CarbonParser *p) {
 static CarbonExpr *equality(CarbonParser *p) {
 	CarbonExpr *expr = comparison(p);
 	while (match(TokenEqualsEquals, p) || match(TokenBangEquals, p)) {
-		CarbonToken tok = p->previous;
+		CarbonToken tok = previous(p);
 		expr = (CarbonExpr *) carbon_newBinaryExpr(expr, comparison(p), tok);
 	}
 	return expr;
@@ -99,7 +142,7 @@ static CarbonExpr *comparison(CarbonParser *p) {
 	CarbonExpr *expr = addition(p);
 	while (match(TokenGreaterThan, p) || match(TokenLessThan, p) ||
 		   match(TokenLEQ, p) || match(TokenGEQ, p)) {
-		CarbonToken tok = p->previous;
+		CarbonToken tok = previous(p);
 		expr = (CarbonExpr *) carbon_newBinaryExpr(expr, addition(p), tok);
 	}
 	return expr;
@@ -108,7 +151,7 @@ static CarbonExpr *comparison(CarbonParser *p) {
 static CarbonExpr *addition(CarbonParser *p) {
 	CarbonExpr *expr = multiplication(p);
 	while (match(TokenPlus, p) || match(TokenMinus, p)) {
-		CarbonToken tok = p->previous;
+		CarbonToken tok = previous(p);
 		expr =
 			(CarbonExpr *) carbon_newBinaryExpr(expr, multiplication(p), tok);
 	}
@@ -118,7 +161,7 @@ static CarbonExpr *addition(CarbonParser *p) {
 static CarbonExpr *multiplication(CarbonParser *p) {
 	CarbonExpr *expr = unary(p);
 	while (match(TokenStar, p) || match(TokenSlash, p)) {
-		CarbonToken tok = p->previous;
+		CarbonToken tok = previous(p);
 		expr = (CarbonExpr *) carbon_newBinaryExpr(expr, unary(p), tok);
 	}
 	return expr;
@@ -126,14 +169,29 @@ static CarbonExpr *multiplication(CarbonParser *p) {
 
 static CarbonExpr *unary(CarbonParser *p) {
 	if (match(TokenBang, p) || match(TokenMinus, p)) {
-		CarbonToken tok = p->previous;
+		CarbonToken tok = previous(p);
 		return (CarbonExpr *) carbon_newUnaryExpr(unary(p), tok);
+	}
+	if (peek(p).type == TokenLeftParen && peekn(2, p).type == TokenRightParen) {
+		switch (peekn(1, p).type) {
+			case TokenBool:
+			case TokenInt:
+			case TokenUInt:
+			case TokenDouble: {
+				next(p);
+				CarbonToken to = next(p);
+				next(p);
+				return (CarbonExpr *) carbon_newCastExpr(to, unary(p));
+			}
+			default:
+				break;
+		}
 	}
 	return primary(p);
 }
 
 static CarbonExpr *primary(CarbonParser *p) {
-	switch (p->current.type) {
+	switch (peek(p).type) {
 		case TokenStringLiteral:
 		case TokenInteger:
 		case TokenDecimal:
