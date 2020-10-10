@@ -11,6 +11,21 @@
 
 extern char *CarbonValueTypeName[];
 
+static CarbonToken v2token[] = {
+	[ValueDouble] = {.type = TokenDouble,
+					 .lexeme = NULL,
+					 .line = UINT32_MAX,
+					 .length = 0},
+	[ValueInt] = {
+		.type = TokenInt, .lexeme = NULL, .line = UINT32_MAX, .length = 0}};
+
+static CarbonValueType t2value[] = {
+	[TokenInt] = ValueInt,
+	[TokenUInt] = ValueUInt,
+	[TokenDouble] = ValueDouble,
+	[TokenIdentifier] = ValueInstance,
+};
+
 static bool canUnary(CarbonTokenType op, CarbonValueType operand) {
 	switch (operand) {
 		case ValueDouble:
@@ -43,13 +58,11 @@ static bool canCast(CarbonValueType from, CarbonToken to) {
 
 static bool canBinary(CarbonTokenType op, CarbonValueType left,
 					  CarbonValueType right) {
-	if (left != right) {
-		if ((left == ValueUInt && right == ValueInt) ||
-			(left == ValueInt && right == ValueUInt))
-			;
-		else
-			return false;
-	}
+
+	bool leftNumeric =
+		(left == ValueInt) || (left == ValueUInt) || (left == ValueDouble);
+	bool rightNumeric =
+		(right == ValueInt) || (right == ValueUInt) || (right == ValueDouble);
 
 	switch (op) {
 		case TokenPlus:
@@ -60,11 +73,10 @@ static bool canBinary(CarbonTokenType op, CarbonValueType left,
 		case TokenLessThan:
 		case TokenGEQ:
 		case TokenLEQ:
-			return (left == ValueUInt) || (left == ValueInt) ||
-				   (left == ValueDouble);
+			return leftNumeric && rightNumeric;
 		case TokenAnd:
 		case TokenOr:
-			return left == ValueBool;
+			return (left == ValueBool) && (right == ValueBool);
 		default: // TokenEqualsEquals, TokenBangEquals
 			return true;
 	}
@@ -137,11 +149,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 			CarbonValueType leftType = bin->left->evalsTo;
 			CarbonValueType rightType = bin->right->evalsTo;
 
-			if (leftType == ValueUnresolved) {
-				expr->evalsTo = ValueUnresolved;
-				return;
-			}
-			if (rightType == ValueUnresolved) {
+			if (leftType == ValueUnresolved || rightType == ValueUnresolved) {
 				expr->evalsTo = ValueUnresolved;
 				return;
 			}
@@ -152,13 +160,32 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 				expr->evalsTo = ValueUnresolved;
 				return;
 			}
+
+			CarbonValueType higherType = leftType;
+			if (rightType > leftType) {
+				higherType = rightType;
+
+				bin->left = (CarbonExpr *) carbon_newCastExpr(
+					v2token[higherType], bin->left);
+				bin->left->evalsTo = higherType;
+			} else if (leftType > rightType) {
+				bin->right = (CarbonExpr *) carbon_newCastExpr(
+					v2token[higherType], bin->right);
+				bin->right->evalsTo = higherType;
+			}
+
 			switch (bin->op.type) {
-				case TokenPlus:
 				case TokenMinus:
+					if (higherType == ValueUInt) {
+						expr->evalsTo = ValueInt;
+						return;
+					}
+				case TokenPlus:
 				case TokenSlash:
-				case TokenStar:
-					expr->evalsTo = leftType;
+				case TokenStar: {
+					expr->evalsTo = higherType;
 					return;
+				}
 				case TokenLessThan:
 				case TokenGreaterThan:
 				case TokenLEQ:
@@ -233,28 +260,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 				expr->evalsTo = ValueUnresolved;
 				return;
 			}
-			CarbonValueType et;
-			switch (cast->to.type) {
-				case TokenUInt:
-					et = ValueUInt;
-					break;
-				case TokenInt:
-					et = ValueInt;
-					break;
-				case TokenDouble:
-					et = ValueDouble;
-					break;
-				case TokenBool:
-					et = ValueBool;
-					break;
-				case TokenIdentifier:
-					et = ValueInstance;
-				default:
-					et = ValueUnresolved; // Should never reach here
-					break;
-			}
-
-			expr->evalsTo = et;
+			expr->evalsTo = t2value[cast->to.type];
 			return;
 		}
 		default:
@@ -336,8 +342,10 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 		carbon_writeToChunk(chunk, instruction, bin->op.line)
 
 			CarbonExprBinary *bin = (CarbonExprBinary *) expr;
+
 			carbon_compileExpression(bin->left, chunk, c);
 			carbon_compileExpression(bin->right, chunk, c);
+
 			switch (bin->op.type) {
 				case TokenPlus:
 					switch (bin->left->evalsTo) {

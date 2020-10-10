@@ -3,10 +3,10 @@
 #include "utils/carbon_commons.h"
 
 typedef enum {
-	ValueInt,
-	ValueUInt,
+	ValueUInt,	 // The order of these three is important
+	ValueInt,	 // The order of these three is important
+	ValueDouble, // The order of these three is important
 	ValueString,
-	ValueDouble,
 	ValueBool,
 	ValueInstance,
 	ValueHashtable,
@@ -24,21 +24,20 @@ typedef union {
 } CarbonValue;
 
 typedef struct {
-	CarbonValue* arr;
+	CarbonValue *arr;
 	uint32_t count;
 	uint32_t capacity;
 } CarbonValueArray;
 
-
-uint16_t carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val) ;
-void carbon_initValueArray(CarbonValueArray *arr); 
+uint16_t carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val);
+void carbon_initValueArray(CarbonValueArray *arr);
 void carbon_freeCarbonValueArray(CarbonValueArray *arr);
 
 #define CarbonInt(x)                                                           \
 	(CarbonValue) { .sint = x }
-#define CarbonUInt(x)                                                           \
+#define CarbonUInt(x)                                                          \
 	(CarbonValue) { .uint = x }
-#define CarbonDouble(x)                                                           \
+#define CarbonDouble(x)                                                        \
 	(CarbonValue) { .dbl = x }
-#define CarbonBool(x)                                                           \
+#define CarbonBool(x)                                                          \
 	(CarbonValue) { .boolean = x }

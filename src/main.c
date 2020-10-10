@@ -61,7 +61,6 @@ int main(int argc, char *argv[]) {
 		carbon_freeVM(&vm);
 	}
 
-
 	free(t);
 
 	return 0;
