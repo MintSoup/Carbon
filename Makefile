@@ -18,8 +18,8 @@ flags := -O3 -Wall -std=c99
 debugflags := -g -O0 -Wall -std=c99 -DDebug
 
 
-$(obj)/%.o: $(src)/%.c $(obj)
-	mkdir -p $(objdirs)
+$(obj)/%.o: $(src)/%.c
+	@mkdir -p $(objdirs)
 	$(CC) $(flags) -I$(inc) -c -o $@ $<
 	
 $(executable): $(objf)
