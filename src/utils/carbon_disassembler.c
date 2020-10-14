@@ -43,7 +43,8 @@ static char *names[] = {
 	[OpGreater] = "grt",
 	[OpLess] = "less",
 	[OpGEQ] = "geq",
-	[OpLEQ] = "leq"
+	[OpLEQ] = "leq",
+	[OpConcat] = "concat"
 
 };
 
@@ -85,6 +86,7 @@ void carbon_disassemble(CarbonChunk *chunk) {
 			case OpLess:
 			case OpGEQ:
 			case OpLEQ:
+			case OpConcat:
 				ip++;
 				break;
 			case OpLoadConstant:

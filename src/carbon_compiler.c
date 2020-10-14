@@ -1,6 +1,7 @@
 #include "carbon_compiler.h"
 #include "vm/carbon_chunk.h"
 #include "ast/carbon_expressions.h"
+#include "carbon_object.h"
 #include "carbon_token.h"
 #include "carbon_value.h"
 #include "vm/carbon_chunk.h"
@@ -64,8 +65,11 @@ static bool canBinary(CarbonTokenType op, CarbonValueType left,
 	bool rightNumeric =
 		(right == ValueInt) || (right == ValueUInt) || (right == ValueDouble);
 
+	bool bothStrings = left == ValueString && right == ValueString;
+
 	switch (op) {
 		case TokenPlus:
+			if(bothStrings) return true;
 		case TokenMinus:
 		case TokenSlash:
 		case TokenStar:
@@ -162,16 +166,19 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 			}
 
 			CarbonValueType higherType = leftType;
-			if (rightType > leftType) {
-				higherType = rightType;
+			if(leftType < ValueString && rightType < ValueString)
+			{
+				if (rightType > leftType) {
+					higherType = rightType;
 
-				bin->left = (CarbonExpr *) carbon_newCastExpr(
-					v2token[higherType], bin->left);
-				bin->left->evalsTo = higherType;
-			} else if (leftType > rightType) {
-				bin->right = (CarbonExpr *) carbon_newCastExpr(
-					v2token[higherType], bin->right);
-				bin->right->evalsTo = higherType;
+					bin->left = (CarbonExpr *) carbon_newCastExpr(
+							v2token[higherType], bin->left);
+					bin->left->evalsTo = higherType;
+				} else if (leftType > rightType) {
+					bin->right = (CarbonExpr *) carbon_newCastExpr(
+							v2token[higherType], bin->right);
+					bin->right->evalsTo = higherType;
+				}
 			}
 
 			switch (bin->op.type) {
@@ -203,34 +210,24 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 		}
 		case ExprLiteral: {
 			CarbonExprLiteral *lit = (CarbonExprLiteral *) expr;
-			if (lit->token.lexeme[0] == '\'') {
-				expr->evalsTo = ValueString;
-				return;
-			}
-			if (lit->token.length == 4) {
-				if (memcmp(lit->token.lexeme, "null", 4) == 0) {
-					expr->evalsTo = ValueInstance;
-					return;
-				}
-				if (memcmp(lit->token.lexeme, "true", 4) == 0) {
+			switch (lit->token.type) {
+				case TokenTrue:
+				case TokenFalse:
 					expr->evalsTo = ValueBool;
 					return;
-				}
-			}
-			if (lit->token.length == 5) {
-				if (memcmp(lit->token.lexeme, "false", 5) == 0) {
-					expr->evalsTo = ValueBool;
+				case TokenInteger:
+					expr->evalsTo = ValueUInt;
 					return;
-				}
-			}
-
-			for (uint32_t i = 0; i < lit->token.length; i++) {
-				if (lit->token.lexeme[i] == '.') {
+				case TokenDecimal:
 					expr->evalsTo = ValueDouble;
 					return;
-				}
+				case TokenNull:
+					expr->evalsTo = ValueInstance;
+				case TokenStringLiteral:
+					expr->evalsTo = ValueString;
+				default:
+					return; // Should never reach here
 			}
-			expr->evalsTo = ValueUInt;
 			return;
 		}
 		case ExprGrouping: {
@@ -270,7 +267,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 	}
 }
 
-static CarbonValue getLiteralValue(CarbonExprLiteral *lit) {
+static CarbonValue getLiteralValue(CarbonExprLiteral *lit, CarbonVM *vm) {
 	switch (lit->expr.evalsTo) {
 		case ValueBool: {
 			if (lit->token.length == 4)
@@ -298,13 +295,18 @@ static CarbonValue getLiteralValue(CarbonExprLiteral *lit) {
 			free(lex);
 			return CarbonDouble(result);
 		}
+		case ValueString: {
+			CarbonString *str =
+				carbon_copyString(lit->token.lexeme + 1, lit->token.length - 2, vm);
+			return CarbonObject((CarbonObj *) str);
+		}
 		default:
 			return CarbonInt(0);
 	}
 }
 
 void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
-							  CarbonCompiler *c) {
+							  CarbonCompiler *c, CarbonVM *vm) {
 
 	typecheck(expr, c);
 	if (expr->evalsTo == ValueUnresolved)
@@ -315,7 +317,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 	switch (expr->type) {
 		case ExprUnary: {
 			CarbonExprUnary *un = (CarbonExprUnary *) expr;
-			carbon_compileExpression(un->operand, chunk, c);
+			carbon_compileExpression(un->operand, chunk, c, vm);
 			if (un->op.type == TokenMinus)
 				switch (un->operand->evalsTo) {
 					case ValueUInt:
@@ -343,8 +345,8 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 
 			CarbonExprBinary *bin = (CarbonExprBinary *) expr;
 
-			carbon_compileExpression(bin->left, chunk, c);
-			carbon_compileExpression(bin->right, chunk, c);
+			carbon_compileExpression(bin->left, chunk, c, vm);
+			carbon_compileExpression(bin->right, chunk, c, vm);
 
 			switch (bin->op.type) {
 				case TokenPlus:
@@ -354,6 +356,8 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 						binInstruction(ValueUInt, OpAddInt);
 						break;
 						binInstruction(ValueDouble, OpAddDouble);
+						break;
+						binInstruction(ValueString, OpConcat);
 						break;
 						default:
 							break;
@@ -461,7 +465,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 		}
 		case ExprLiteral: {
 			CarbonExprLiteral *lit = (CarbonExprLiteral *) expr;
-			CarbonValue value = getLiteralValue(lit);
+			CarbonValue value = getLiteralValue(lit, vm);
 			uint16_t index = carbon_addConstant(chunk, value);
 			if (index > UINT8_MAX) {
 				carbon_writeToChunk(chunk, OpLoadConstant16, lit->token.line);
@@ -477,12 +481,12 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 		}
 		case ExprGrouping: {
 			CarbonExprGrouping *group = (CarbonExprGrouping *) expr;
-			carbon_compileExpression(group->expression, chunk, c);
+			carbon_compileExpression(group->expression, chunk, c, vm);
 			break;
 		}
 		case ExprCast: {
 			CarbonExprCast *cast = (CarbonExprCast *) expr;
-			carbon_compileExpression(cast->expression, chunk, c);
+			carbon_compileExpression(cast->expression, chunk, c, vm);
 			CarbonValueType from = cast->expression->evalsTo;
 			switch (cast->expr.evalsTo) {
 				case ValueInt:

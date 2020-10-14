@@ -2,6 +2,8 @@
 
 #include "utils/carbon_commons.h"
 
+typedef struct carbon_object CarbonObj;
+
 typedef enum {
 	ValueUInt,	 // The order of these three is important
 	ValueInt,	 // The order of these three is important
@@ -21,6 +23,7 @@ typedef union {
 	uint64_t uint;
 	int64_t sint;
 	bool boolean;
+	CarbonObj *obj;
 } CarbonValue;
 
 typedef struct {
@@ -41,3 +44,5 @@ void carbon_freeCarbonValueArray(CarbonValueArray *arr);
 	(CarbonValue) { .dbl = x }
 #define CarbonBool(x)                                                          \
 	(CarbonValue) { .boolean = x }
+#define CarbonObject(x)                                                        \
+	(CarbonValue) { .obj = x }

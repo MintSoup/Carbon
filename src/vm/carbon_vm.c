@@ -1,14 +1,21 @@
 #include "vm/carbon_vm.h"
+#include "carbon_object.h"
 #include "carbon_value.h"
+#include "utils/carbon_memory.h"
 #include "vm/carbon_chunk.h"
-#include <sys/types.h>
+#include <string.h>
 
 void carbon_initVM(CarbonVM *vm) {
 	vm->stackTop = 0;
+	vm->objects = NULL;
 	carbon_initChunk(&vm->chunk);
 }
 void carbon_freeVM(CarbonVM *vm) {
 	carbon_freeChunk(&vm->chunk);
+	while (vm->objects != NULL) {
+		CarbonObj *obj = vm->objects;
+		carbon_freeObject(obj, vm);
+	}
 }
 
 static inline CarbonValue pop(CarbonVM *vm) {
@@ -215,6 +222,20 @@ void carbon_run(CarbonVM *vm) {
 				push(ReadConstant16());
 				ip += 2;
 				break;
+
+			case OpConcat: {
+				CarbonString *b = (CarbonString *) pop().obj;
+				CarbonString *a = (CarbonString *) pop().obj;
+				size_t length = a->length + b->length;
+				char *concat = carbon_reallocate(0, length + 1, NULL);
+				concat[length] = 0;
+				memcpy(concat, a->chars, a->length);
+				memcpy(concat + a->length, b->chars, b->length);
+				CarbonString *out = carbon_takeString(concat, length, vm);
+				push(CarbonObject((CarbonObj *) out));
+				ip++;
+				break;
+			}
 		}
 	}
 #undef ReadByte

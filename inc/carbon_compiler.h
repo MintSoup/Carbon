@@ -10,6 +10,6 @@ typedef struct{
 } CarbonCompiler;
 
 
-void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk, CarbonCompiler* c);
+void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk, CarbonCompiler* c, CarbonVM* vm);
 void carbon_initCompiler(CarbonCompiler* compiler, CarbonParser* parser);
 void carbon_freeCompiler(CarbonCompiler* compiler);

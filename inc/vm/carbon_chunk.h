@@ -8,6 +8,7 @@ typedef enum {
 	OpLoadConstant,
 	OpLoadConstant16,
 	OpReturn,
+	OpConcat,
 
 	// Binary Operations
 	OpAddInt,
@@ -43,6 +44,8 @@ typedef enum {
 	OpLess,
 	OpGEQ,
 	OpLEQ
+
+	
 
 	
 

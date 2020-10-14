@@ -3,6 +3,7 @@
 #include "ast/carbon_expressions.h"
 #include "carbon_compiler.h"
 #include "carbon_lexer.h"
+#include "carbon_object.h"
 #include "carbon_parser.h"
 #include "carbon_token.h"
 #include "carbon_value.h"
@@ -10,10 +11,6 @@
 #include "utils/carbon_disassembler.h"
 #include "vm/carbon_chunk.h"
 #include "vm/carbon_vm.h"
-
-uint8_t instructions[] = {
-	OpLoadConstant, 0, OpLoadConstant, 1,		OpAddInt, OpIntToDouble,
-	OpLoadConstant, 2, OpDivDouble,	   OpReturn};
 
 extern size_t heapSize;
 int main(int argc, char *argv[]) {
@@ -36,17 +33,20 @@ int main(int argc, char *argv[]) {
 	fread(t, size, 1, f);
 	fclose(f);
 
+	printf("heapsize before running: %lu\n", heapSize);
+
 	CarbonParser parser;
 	CarbonLexer lexer = carbon_initLexer(t, size);
 	carbon_initParser(&parser, &lexer);
 	CarbonExpr *expr = carbon_parseExpression(&parser);
 	carbon_freeParser(&parser);
+
 	if (expr != NULL) {
 		CarbonVM vm;
 		carbon_initVM(&vm);
 		CarbonCompiler c;
 		carbon_initCompiler(&c, &parser);
-		carbon_compileExpression(expr, &vm.chunk, &c);
+		carbon_compileExpression(expr, &vm.chunk, &c, &vm);
 		carbon_freeExpr(expr);
 		if (!c.hadError && !c.parserHadError) {
 			carbon_writeToChunk(&vm.chunk, OpReturn, 9999);
@@ -57,10 +57,13 @@ int main(int argc, char *argv[]) {
 			printf("Signed: %ld\n", vm.stack[vm.stackTop - 1].sint);
 			printf("Unsigned: %lu\n", vm.stack[vm.stackTop - 1].uint);
 			printf("Double: %lf\n", vm.stack[vm.stackTop - 1].dbl);
+			printf("String: %s\n",
+				   ((CarbonString *)vm.stack[vm.stackTop - 1].obj)->chars);
 		}
 		carbon_freeVM(&vm);
 	}
 
+	printf("heapsize after running: %lu\n", heapSize);
 	free(t);
 
 	return 0;
