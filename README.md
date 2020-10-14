@@ -6,9 +6,9 @@ Carbon is an interpreted, object oriented, VM-based, statically typed scripting 
 
 # Building
 The unix `find` utility is required to be on your path. If you're on windows you can install it using scoop<br>
-`
+```
 git clone https://github.com/MintSoup/Carbon.git
 cd Carbon
 make
-`
+```
 Refer to the makefile for further instructions.
