@@ -284,16 +284,7 @@ static CarbonValue getLiteralValue(CarbonExprLiteral *lit, CarbonVM *vm) {
 			return CarbonUInt(returnValue);
 		}
 		case ValueDouble: {
-			// I hate my life
-			// Why didn't I do this in the lexer
-			// Note to self: make all token lexemes null-terminated if you
-			// have to do this again
-			char *lex = malloc(lit->token.length + 1);
-			memcpy(lex, lit->token.lexeme, lit->token.length);
-			lex[lit->token.length] = 0;
-			double result = strtod(lex, NULL);
-			free(lex);
-			return CarbonDouble(result);
+			return CarbonDouble(strtod(lit->token.lexeme, NULL));
 		}
 		case ValueString: {
 			CarbonString *str =
