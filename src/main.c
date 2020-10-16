@@ -33,8 +33,6 @@ int main(int argc, char *argv[]) {
 	fread(t, size, 1, f);
 	fclose(f);
 
-	printf("heapsize before running: %lu\n", heapSize);
-
 	CarbonParser parser;
 	CarbonLexer lexer = carbon_initLexer(t, size);
 	carbon_initParser(&parser, &lexer);
@@ -58,12 +56,14 @@ int main(int argc, char *argv[]) {
 			printf("Unsigned: %lu\n", vm.stack[vm.stackTop - 1].uint);
 			printf("Double: %lf\n", vm.stack[vm.stackTop - 1].dbl);
 			printf("String: %s\n",
-				   ((CarbonString *)vm.stack[vm.stackTop - 1].obj)->chars);
+				   ((CarbonString *) vm.stack[vm.stackTop - 1].obj)->chars);
 		}
 		carbon_freeVM(&vm);
+		if (heapSize != 0 || vm.objectHeapSize != 0) {
+			printf("-----HEAPSIZE != 0------\n");
+		}
 	}
 
-	printf("heapsize after running: %lu\n", heapSize);
 	free(t);
 
 	return 0;

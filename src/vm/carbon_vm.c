@@ -8,6 +8,7 @@
 void carbon_initVM(CarbonVM *vm) {
 	vm->stackTop = 0;
 	vm->objects = NULL;
+	vm->objectHeapSize = 0;
 	carbon_initChunk(&vm->chunk);
 }
 void carbon_freeVM(CarbonVM *vm) {
@@ -227,7 +228,7 @@ void carbon_run(CarbonVM *vm) {
 				CarbonString *b = (CarbonString *) pop().obj;
 				CarbonString *a = (CarbonString *) pop().obj;
 				size_t length = a->length + b->length;
-				char *concat = carbon_reallocate(0, length + 1, NULL);
+				char *concat = (char*) carbon_reallocateObj(0, length + 1, NULL, vm);
 				concat[length] = 0;
 				memcpy(concat, a->chars, a->length);
 				memcpy(concat + a->length, b->chars, b->length);

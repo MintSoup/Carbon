@@ -12,6 +12,7 @@ typedef struct {
 	CarbonValue stack[StackSize];
 	uint16_t stackTop;
 	CarbonObj* objects;	
+	size_t objectHeapSize;
 } CarbonVM;
 
 void carbon_initVM(CarbonVM *vm);
