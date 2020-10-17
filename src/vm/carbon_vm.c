@@ -1,4 +1,5 @@
 #include "vm/carbon_vm.h"
+#include "carbon.h"
 #include "carbon_object.h"
 #include "carbon_value.h"
 #include "utils/carbon_memory.h"
@@ -38,7 +39,7 @@ static inline CarbonValue c16(CarbonVM *vm, uint8_t *ip) {
 	return vm->chunk.constants.arr[index];
 }
 
-void carbon_run(CarbonVM *vm) {
+CarbonRunResult carbon_run(CarbonVM *vm) {
 
 #define ReadByte() *(ip++)
 #define push(x) push(x, vm)
@@ -77,7 +78,7 @@ void carbon_run(CarbonVM *vm) {
 	while (true) {
 		switch (*ip) {
 			case OpReturn:
-				return;
+				return Carbon_OK;
 
 			// Signed integer binary ops
 			case OpAddInt:

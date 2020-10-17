@@ -8,6 +8,7 @@
 
 
 typedef struct carbon_object CarbonObj;
+typedef enum carbon_runresult CarbonRunResult;
 
 typedef struct {
 	CarbonChunk chunk;
@@ -20,5 +21,5 @@ typedef struct {
 
 void carbon_initVM(CarbonVM *vm);
 void carbon_freeVM(CarbonVM *vm);
-void carbon_run(CarbonVM *vm);
+CarbonRunResult carbon_run(CarbonVM *vm);
 

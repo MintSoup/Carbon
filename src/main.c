@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ast/carbon_expressions.h"
+#include "carbon.h"
 #include "carbon_compiler.h"
 #include "carbon_lexer.h"
 #include "carbon_object.h"
@@ -32,37 +33,11 @@ int main(int argc, char *argv[]) {
 	t[size] = 0;
 	fread(t, size, 1, f);
 	fclose(f);
+	
+	CarbonInstance instance;
+	carbon_init(&instance);
 
-	CarbonParser parser;
-	CarbonLexer lexer = carbon_initLexer(t, size);
-	carbon_initParser(&parser, &lexer);
-	CarbonExpr *expr = carbon_parseExpression(&parser);
-	carbon_freeParser(&parser);
-
-	if (expr != NULL) {
-		CarbonVM vm;
-		carbon_initVM(&vm);
-		CarbonCompiler c;
-		carbon_initCompiler(&c, &parser);
-		carbon_compileExpression(expr, &vm.chunk, &c, &vm);
-		carbon_freeExpr(expr);
-		if (!c.hadError && !c.parserHadError) {
-			carbon_writeToChunk(&vm.chunk, OpReturn, 9999);
-			carbon_disassemble(&vm.chunk);
-			carbon_run(&vm);
-			puts("--------------------EXECUTION OVER--------------------");
-			puts("Stack top");
-			printf("Signed: %ld\n", vm.stack[vm.stackTop - 1].sint);
-			printf("Unsigned: %lu\n", vm.stack[vm.stackTop - 1].uint);
-			printf("Double: %lf\n", vm.stack[vm.stackTop - 1].dbl);
-			printf("String: %s\n",
-				   ((CarbonString *) vm.stack[vm.stackTop - 1].obj)->chars);
-		}
-		carbon_freeVM(&vm);
-		if (heapSize != 0 || vm.objectHeapSize != 0) {
-			printf("-----HEAPSIZE != 0------\n");
-		}
-	}
+	carbon_execute(&instance, t, size);
 
 	free(t);
 
