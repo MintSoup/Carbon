@@ -2,6 +2,7 @@
 #include "carbon_object.h"
 #include "carbon_value.h"
 #include "utils/carbon_memory.h"
+#include "utils/carbon_table.h"
 #include "vm/carbon_chunk.h"
 #include <string.h>
 
@@ -10,6 +11,7 @@ void carbon_initVM(CarbonVM *vm) {
 	vm->objects = NULL;
 	vm->objectHeapSize = 0;
 	carbon_initChunk(&vm->chunk);
+	carbon_tableInit(&vm->strings);
 }
 void carbon_freeVM(CarbonVM *vm) {
 	carbon_freeChunk(&vm->chunk);
@@ -17,6 +19,7 @@ void carbon_freeVM(CarbonVM *vm) {
 		CarbonObj *obj = vm->objects;
 		carbon_freeObject(obj, vm);
 	}
+	carbon_tableFree(&vm->strings);
 }
 
 static inline CarbonValue pop(CarbonVM *vm) {

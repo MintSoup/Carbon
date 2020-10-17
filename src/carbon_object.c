@@ -1,6 +1,7 @@
 #include "carbon_object.h"
 #include "carbon_value.h"
 #include "utils/carbon_memory.h"
+#include "utils/carbon_table.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -21,20 +22,45 @@ static CarbonObj *createObject(size_t size, CarbonObjectType type,
 	return obj;
 }
 
-// TODO: after hashtables are implemented, do string interning here
+static uint32_t hashString(char *str, uint32_t length) {
+	uint32_t hash = 2166136261u;
+	for (int i = 0; i < length; i++) {
+		hash ^= str[i];
+		hash *= 16777619;
+	}
+	return hash;
+}
 
 CarbonString *carbon_copyString(char *chars, uint32_t length, CarbonVM *vm) {
+	uint32_t hashCode = hashString(chars, length);
+	CarbonString *interned =
+		carbon_tableFindString(&vm->strings, chars, length, hashCode);
+	if (interned != NULL)
+		return interned;
+
 	CarbonString *str = (CarbonString *) ALLOC(CarbonString, CrbnObjString);
 	str->chars = carbon_reallocateObj(0, length + 1, NULL, vm);
 	str->chars[length] = 0;
 	memcpy(str->chars, chars, length);
 	str->length = length;
+	str->obj.hashCode = hashCode;
+	carbon_tableSet(&vm->strings, (CarbonObj *) str, CarbonUInt(0));
 	return str;
 }
 CarbonString *carbon_takeString(char *chars, uint32_t length, CarbonVM *vm) {
+	uint32_t hashCode = hashString(chars, length);
+	CarbonString *interned =
+		carbon_tableFindString(&vm->strings, chars, length, hashCode);
+	if (interned != NULL) {
+		carbon_reallocateObj(length + 1, 0, chars, vm);
+		return interned;
+	}
+
 	CarbonString *str = (CarbonString *) ALLOC(CarbonString, CrbnObjString);
 	str->chars = chars;
 	str->length = length;
+	str->obj.hashCode = hashCode;
+	carbon_tableSet(&vm->strings, (CarbonObj *) str, CarbonUInt(0));
 	return str;
 }
 

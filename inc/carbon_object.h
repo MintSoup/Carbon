@@ -2,6 +2,7 @@
 
 #include "carbon_value.h"
 #include "utils/carbon_commons.h"
+#include "vm/carbon_chunk.h"
 #include "vm/carbon_vm.h"
 
 typedef enum { CrbnObjString } CarbonObjectType;
@@ -9,9 +10,10 @@ typedef enum { CrbnObjString } CarbonObjectType;
 typedef struct carbon_object {
 	CarbonObjectType type;
 	struct carbon_object *next;
+	uint32_t hashCode;
 } CarbonObj;
 
-typedef struct {
+typedef struct carbon_string {
 	CarbonObj obj;
 	char *chars;
 	uint32_t length;
