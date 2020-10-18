@@ -49,8 +49,8 @@ void carbon_tableAddAll(CarbonTable *from, CarbonTable *to) {
 }
 
 void adjustCapacity(CarbonTable *table, uint32_t newCapacity) {
-	CarbonEntry *entries =
-		carbon_reallocate(0, newCapacity * sizeof(CarbonEntry), NULL);
+	CarbonEntry *entries = (CarbonEntry *) carbon_reallocate(
+		0, newCapacity * sizeof(CarbonEntry), NULL);
 	for (uint32_t i = 0; i < newCapacity; i++) {
 		entries[i].key = NULL;
 		entries[i].value.uint = 0;
