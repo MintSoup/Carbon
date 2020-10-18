@@ -1,4 +1,1 @@
-print(
-	'Hello, ' +
-	'world' +
-	'!')
+print (!true)
