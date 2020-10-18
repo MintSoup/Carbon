@@ -39,6 +39,8 @@ int main(int argc, char *argv[]) {
 
 	carbon_execute(&instance, t, size);
 
+	carbon_free(&instance);	
+
 	free(t);
 
 	return 0;

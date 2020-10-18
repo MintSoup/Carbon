@@ -3,6 +3,7 @@
 #include "carbon_compiler.h"
 #include "carbon_parser.h"
 #include "utils/carbon_disassembler.h"
+#include "vm/carbon_vm.h"
 
 void carbon_init(CarbonInstance *instance) {
 	carbon_initVM(&instance->vm);
@@ -27,4 +28,7 @@ CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
 		return carbon_run(&instance->vm);
 	} else
 		return Carbon_Parser_Error;
+}
+void carbon_free(CarbonInstance *instance){
+	carbon_freeVM(&instance->vm);
 }

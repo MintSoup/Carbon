@@ -22,3 +22,4 @@ typedef enum carbon_runresult {
 CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
 							   uint32_t length);
 void carbon_init(CarbonInstance *instance);
+void carbon_free(CarbonInstance *instance);
