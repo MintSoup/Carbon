@@ -9,6 +9,7 @@ static char *names[] = {
 	[OpLoadConstant] = "load",
 	[OpLoadConstant16] = "load16",
 	[OpReturn] = "return",
+	[OpPop] = "pop",
 
 	// Binary Operations
 	[OpAddInt] = "iadd",
@@ -44,7 +45,13 @@ static char *names[] = {
 	[OpLess] = "less",
 	[OpGEQ] = "geq",
 	[OpLEQ] = "leq",
-	[OpConcat] = "concat"
+	[OpConcat] = "concat",
+
+	[OpPrintInt] = "iprint",
+	[OpPrintUInt] = "uprint",
+	[OpPrintDouble] = "dprint",
+	[OpPrintBool] = "bprint",
+	[OpPrintObj] = "oprint"
 
 };
 
@@ -53,9 +60,8 @@ void carbon_disassemble(CarbonChunk *chunk) {
 	uint8_t *ip = chunk->code;
 
 	while (ip < chunk->code + chunk->count) {
-		printf("%04d %04d|0x%04lx  %s",
-			   chunk->lines[ip - chunk->code], instructionNumber,
-			   ip - chunk->code, names[*ip]);
+		printf("%04d %04d|0x%04lx  %s", chunk->lines[ip - chunk->code],
+			   instructionNumber, ip - chunk->code, names[*ip]);
 
 		switch (*ip) {
 			case OpReturn:
@@ -87,6 +93,12 @@ void carbon_disassemble(CarbonChunk *chunk) {
 			case OpGEQ:
 			case OpLEQ:
 			case OpConcat:
+			case OpPrintInt:
+			case OpPrintUInt:
+			case OpPrintDouble:
+			case OpPrintObj:
+			case OpPrintBool:
+			case OpPop:
 				ip++;
 				break;
 			case OpLoadConstant:

@@ -5,6 +5,8 @@
 #include "utils/carbon_memory.h"
 #include "utils/carbon_table.h"
 #include "vm/carbon_chunk.h"
+#include "utils/carbon_commons.h"
+#include <stdio.h>
 #include <string.h>
 
 void carbon_initVM(CarbonVM *vm) {
@@ -37,6 +39,16 @@ static inline CarbonValue c16(CarbonVM *vm, uint8_t *ip) {
 	uint8_t lower = *ip;
 	uint16_t index = (higher << 8) | lower;
 	return vm->chunk.constants.arr[index];
+}
+
+static void printObject(CarbonObj *obj) {
+	switch (obj->type) {
+		case CrbnObjString: {
+			CarbonString *str = (CarbonString *) obj;
+			printf("%s", str->chars);
+			break;
+		}
+	}
 }
 
 CarbonRunResult carbon_run(CarbonVM *vm) {
@@ -79,6 +91,10 @@ CarbonRunResult carbon_run(CarbonVM *vm) {
 		switch (*ip) {
 			case OpReturn:
 				return Carbon_OK;
+			case OpPop:
+				pop();
+				ip++;
+				break;
 
 			// Signed integer binary ops
 			case OpAddInt:
@@ -232,7 +248,8 @@ CarbonRunResult carbon_run(CarbonVM *vm) {
 				CarbonString *b = (CarbonString *) pop().obj;
 				CarbonString *a = (CarbonString *) pop().obj;
 				size_t length = a->length + b->length;
-				char *concat = (char*) carbon_reallocateObj(0, length + 1, NULL, vm);
+				char *concat =
+					(char *) carbon_reallocateObj(0, length + 1, NULL, vm);
 				concat[length] = 0;
 				memcpy(concat, a->chars, a->length);
 				memcpy(concat + a->length, b->chars, b->length);
@@ -241,6 +258,27 @@ CarbonRunResult carbon_run(CarbonVM *vm) {
 				ip++;
 				break;
 			}
+
+			case OpPrintInt:
+				printf("%" PRId64 "\n", pop().sint);
+				ip++;
+				break;
+			case OpPrintUInt:
+				printf("%" PRIu64 "\n", pop().uint);
+				ip++;
+				break;
+			case OpPrintDouble:
+				printf("%lf\n", pop().dbl);
+				ip++;
+				break;
+			case OpPrintBool:
+				printf("%s\n", pop().uint ? "true" : "false");
+				ip++;
+				break;
+			case OpPrintObj:
+				printObject(pop().obj);
+				ip++;
+				break;
 		}
 	}
 #undef ReadByte

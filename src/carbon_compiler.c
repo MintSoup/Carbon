@@ -1,6 +1,7 @@
 #include "carbon_compiler.h"
 #include "vm/carbon_chunk.h"
 #include "ast/carbon_expressions.h"
+#include "ast/carbon_statements.h"
 #include "carbon_object.h"
 #include "carbon_token.h"
 #include "carbon_value.h"
@@ -69,7 +70,8 @@ static bool canBinary(CarbonTokenType op, CarbonValueType left,
 
 	switch (op) {
 		case TokenPlus:
-			if(bothStrings) return true;
+			if (bothStrings)
+				return true;
 		case TokenMinus:
 		case TokenSlash:
 		case TokenStar:
@@ -166,17 +168,16 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 			}
 
 			CarbonValueType higherType = leftType;
-			if(leftType < ValueString && rightType < ValueString)
-			{
+			if (leftType < ValueString && rightType < ValueString) {
 				if (rightType > leftType) {
 					higherType = rightType;
 
 					bin->left = (CarbonExpr *) carbon_newCastExpr(
-							v2token[higherType], bin->left);
+						v2token[higherType], bin->left);
 					bin->left->evalsTo = higherType;
 				} else if (leftType > rightType) {
 					bin->right = (CarbonExpr *) carbon_newCastExpr(
-							v2token[higherType], bin->right);
+						v2token[higherType], bin->right);
 					bin->right->evalsTo = higherType;
 				}
 			}
@@ -287,8 +288,8 @@ static CarbonValue getLiteralValue(CarbonExprLiteral *lit, CarbonVM *vm) {
 			return CarbonDouble(strtod(lit->token.lexeme, NULL));
 		}
 		case ValueString: {
-			CarbonString *str =
-				carbon_copyString(lit->token.lexeme + 1, lit->token.length - 2, vm);
+			CarbonString *str = carbon_copyString(lit->token.lexeme + 1,
+												  lit->token.length - 2, vm);
 			return CarbonObject((CarbonObj *) str);
 		}
 		default:
@@ -502,6 +503,48 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 					break;
 			}
 
+			break;
+		}
+	}
+}
+
+void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
+							 CarbonCompiler *c, CarbonVM *vm) {
+	switch (stmt->type) {
+		case StmtPrint: {
+			CarbonStmtPrint *print = (CarbonStmtPrint *) stmt;
+			if (print->expression == NULL)
+				break;
+			carbon_compileExpression(print->expression, chunk, c, vm);
+			CarbonOpCode op;
+
+			switch (print->expression->evalsTo) {
+				case ValueInt:
+					op = OpPrintInt;
+					break;
+				case ValueUInt:
+					op = OpPrintUInt;
+					break;
+				case ValueDouble:
+					op = OpPrintDouble;
+					break;
+				case ValueBool:
+					op = OpPrintBool;
+					break;
+				default:
+					op = OpPrintObj;
+					break;
+			}
+			if (!c->parserHadError)
+				carbon_writeToChunk(chunk, op, print->token.line);
+			break;
+		}
+		case StmtExpr: {
+			CarbonStmtExpr *expr = (CarbonStmtExpr *) stmt;
+			if (expr->expression == NULL)
+				break;
+			carbon_compileExpression(expr->expression, chunk, c, vm);
+			carbon_writeToChunk(chunk, OpPop, expr->last.line);
 			break;
 		}
 	}

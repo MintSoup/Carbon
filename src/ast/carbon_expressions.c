@@ -134,3 +134,5 @@ void carbon_printExpr(CarbonExpr *expr) {
 		}
 	}
 }
+
+#undef allocateNode

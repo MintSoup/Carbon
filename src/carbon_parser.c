@@ -1,10 +1,12 @@
 #include "ast/carbon_expressions.h"
+#include "ast/carbon_statements.h"
 #include "carbon_lexer.h"
 #include "carbon_token.h"
 #include "carbon_value.h"
 #include "utils/carbon_commons.h"
 #include "carbon_parser.h"
 #include "utils/carbon_memory.h"
+#include "ast/carbon_statements.h"
 #include <stdio.h>
 
 static void error(CarbonToken at, char *msg, CarbonParser *p) {
@@ -114,6 +116,9 @@ void carbon_freeParser(CarbonParser *p) {
 	carbon_reallocate(p->totalTokens * sizeof(CarbonToken), 0, p->tokens);
 }
 
+static CarbonStmtPrint *printStatement(CarbonParser *p);
+static CarbonStmtExpr *expressionStatement(CarbonParser *p);
+
 static CarbonExpr *equality(CarbonParser *p);
 static CarbonExpr *comparison(CarbonParser *p);
 static CarbonExpr *addition(CarbonParser *p);
@@ -125,8 +130,35 @@ static CarbonExpr *expression(CarbonParser *p) {
 	return (CarbonExpr *) equality(p);
 }
 
+static CarbonStmt *statement(CarbonParser *p) {
+	switch (peek(p).type) {
+		case TokenPrint:
+			return (CarbonStmt *) printStatement(p);
+		default:
+			return (CarbonStmt *) expressionStatement(p);
+	}
+}
+
+CarbonStmt *carbon_parseStatement(CarbonParser *p) {
+	return statement(p);
+}
+
 CarbonExpr *carbon_parseExpression(CarbonParser *p) {
 	return expression(p);
+}
+
+static CarbonStmtPrint *printStatement(CarbonParser *p) {
+	CarbonToken print = next(p);
+	consume(TokenLeftParen, "Expected '(' after print", p);
+	CarbonExpr* expr = expression(p);
+	consume(TokenRightParen, "Expected ')' after print expression", p);
+	consume(TokenEOS, "Expected EOS after print statement", p);
+	return carbon_newPrintStmt(expr, print);
+}
+static CarbonStmtExpr *expressionStatement(CarbonParser *p) {
+	CarbonExpr *expr = expression(p);
+	consume(TokenEOS, "Expected EOS after expression statement", p);
+	return carbon_newExprStmt(expr, previous(p));
 }
 
 static CarbonExpr *equality(CarbonParser *p) {

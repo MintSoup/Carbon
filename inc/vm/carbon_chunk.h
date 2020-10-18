@@ -9,6 +9,7 @@ typedef enum {
 	OpLoadConstant16,
 	OpReturn,
 	OpConcat,
+	OpPop,
 
 	// Binary Operations
 	OpAddInt,
@@ -43,9 +44,14 @@ typedef enum {
 	OpGreater,
 	OpLess,
 	OpGEQ,
-	OpLEQ
-
+	OpLEQ,
 	
+	//Prints
+	OpPrintInt,
+	OpPrintUInt,
+	OpPrintDouble,
+	OpPrintBool,
+	OpPrintObj
 
 	
 

@@ -30,13 +30,13 @@ struct Identifier identifierList[] = {
 	{.name = "uint", .type = TokenUInt},
 	{.name = "while", .type = TokenWhile},
 	{.name = "self", .type = TokenSelf},
-	{.name = "continue", .type = TokenContinue},
 	{.name = "if", .type = TokenIf},
 	{.name = "else", .type = TokenElse},
 	{.name = "elif", .type = TokenElif},
 	{.name = "continue", .type = TokenContinue},
 	{.name = "false", .type = TokenFalse},
 	{.name = "true", .type = TokenTrue},
+	{.name = "print", .type = TokenPrint},
 	{.name = "null", .type = TokenNull}};
 
 static bool isAtEnd(CarbonLexer *lexer) {
