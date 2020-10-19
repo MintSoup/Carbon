@@ -1,1 +1,9 @@
+string name = 'Areg'
+print('Hello, my name is '+ name)
+int a = -5
+print(a / 2)
+print(5 > 7)
+print((bool) 1)
+double b = (double) 5 / 2
+print(b)
 

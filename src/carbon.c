@@ -56,7 +56,7 @@ CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
 		return Carbon_Parser_Error;
 	if (instance->compiler.hadError)
 		return Carbon_Compiler_Error;
-	carbon_disassemble(&instance->vm.chunk);
+  	//carbon_disassemble(&instance->vm.chunk);
 	return carbon_run(&instance->vm);
 }
 void carbon_free(CarbonInstance *instance) {
