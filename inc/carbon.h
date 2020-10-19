@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ast/carbon_statements.h"
 #include "carbon_compiler.h"
 #include "carbon_lexer.h"
 #include "carbon_parser.h"
@@ -10,6 +11,11 @@ typedef struct {
 	CarbonParser parser;
 	CarbonCompiler compiler;
 	CarbonVM vm;
+	struct {
+		CarbonStmt** arr;
+		uint32_t count;
+		uint32_t capacity;
+	} statements;
 } CarbonInstance;
 
 typedef enum carbon_runresult {

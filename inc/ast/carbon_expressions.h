@@ -8,7 +8,8 @@ typedef enum {
 	ExprUnary,
 	ExprGrouping,
 	ExprLiteral,
-	ExprCast
+	ExprCast,
+	ExprVar
 } CarbonExprType;
 
 typedef struct {
@@ -48,6 +49,11 @@ typedef struct {
 	CarbonExpr *expression;
 } CarbonExprCast;
 
+typedef struct {
+	CarbonExpr expr;
+	CarbonToken token;
+} CarbonExprVar;
+
 CarbonExprBinary *carbon_newBinaryExpr(CarbonExpr *left, CarbonExpr *right,
 									   CarbonToken op);
 
@@ -57,7 +63,7 @@ CarbonExprLiteral *carbon_newLiteralExpr(CarbonToken token);
 
 CarbonExprGrouping *carbon_newGroupingExpr(CarbonExpr *expr);
 
-CarbonExprCast *carbon_newCastExpr(CarbonToken to,CarbonExpr *expr);
+CarbonExprCast *carbon_newCastExpr(CarbonToken to, CarbonExpr *expr);
+CarbonExprVar *carbon_newVarExpr(CarbonToken token);
 
 void carbon_freeExpr(CarbonExpr *expr);
-void carbon_printExpr(CarbonExpr *expr);

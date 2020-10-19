@@ -98,6 +98,8 @@ static bool canEndStatement(CarbonTokenType type) {
 	case TokenContinue:
 	case TokenReturn:
 	case TokenSelf:
+	case TokenTrue:
+	case TokenFalse:
 		return true;
 	default:
 		return false;
@@ -155,7 +157,7 @@ static inline bool isNumeric(char i) {
 	return i >= '0' && i <= '9';
 }
 static inline bool isAlpha(char i) {
-	return (i >= 'a' && i <= 'z') || (i >= 'A' && i <= 'Z');
+	return (i >= 'a' && i <= 'z') || (i >= 'A' && i <= 'Z') || (i == '_');
 }
 
 CarbonToken carbon_scanToken(CarbonLexer *lexer) {

@@ -10,6 +10,8 @@ typedef enum {
 	OpReturn,
 	OpConcat,
 	OpPop,
+	OpPush0,
+	OpPush1,
 
 	// Binary Operations
 	OpAddInt,
@@ -51,8 +53,12 @@ typedef enum {
 	OpPrintUInt,
 	OpPrintDouble,
 	OpPrintBool,
-	OpPrintObj
+	OpPrintObj,
 
+
+	// Variables
+	OpSetGlobal,
+	OpGetGlobal
 	
 
 } CarbonOpCode;

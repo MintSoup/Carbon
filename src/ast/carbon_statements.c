@@ -26,6 +26,16 @@ CarbonStmtExpr *carbon_newExprStmt(CarbonExpr *expr, CarbonToken last) {
 	return stmt;
 }
 
+CarbonStmtVarDec *carbon_newVarDecStmt(CarbonToken identifier, CarbonToken type,
+									   CarbonExpr *initializer) {
+	CarbonStmtVarDec *vardec =
+		(CarbonStmtVarDec *) allocateNode(CarbonStmtVarDec, StmtVarDec);
+	vardec->identifier = identifier;
+	vardec->type = type;
+	vardec->initializer = initializer;
+	return vardec;
+}
+
 void carbon_freeStmt(CarbonStmt *stmt) {
 	switch (stmt->type) {
 		case StmtPrint: {
@@ -38,6 +48,12 @@ void carbon_freeStmt(CarbonStmt *stmt) {
 			CarbonStmtExpr *expr = (CarbonStmtExpr *) stmt;
 			carbon_freeExpr(expr->expression);
 			carbon_reallocate(sizeof(CarbonStmtExpr), 0, stmt);
+			break;
+		}
+		case StmtVarDec: {
+			CarbonStmtVarDec *vardec = (CarbonStmtVarDec *) stmt;
+			carbon_freeExpr(vardec->initializer);
+			carbon_reallocate(sizeof(CarbonStmtVarDec), 0, stmt);
 			break;
 		}
 	}

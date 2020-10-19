@@ -10,6 +10,8 @@ static char *names[] = {
 	[OpLoadConstant16] = "load16",
 	[OpReturn] = "return",
 	[OpPop] = "pop",
+	[OpPush0] = "false",
+	[OpPush1] = "true",
 
 	// Binary Operations
 	[OpAddInt] = "iadd",
@@ -51,7 +53,12 @@ static char *names[] = {
 	[OpPrintUInt] = "uprint",
 	[OpPrintDouble] = "dprint",
 	[OpPrintBool] = "bprint",
-	[OpPrintObj] = "oprint"
+	[OpPrintObj] = "oprint",
+
+
+
+	[OpSetGlobal] = "globset",
+	[OpGetGlobal] = "globget"
 
 };
 
@@ -99,6 +106,10 @@ void carbon_disassemble(CarbonChunk *chunk) {
 			case OpPrintObj:
 			case OpPrintBool:
 			case OpPop:
+			case OpPush0:
+			case OpPush1:
+			case OpGetGlobal:
+			case OpSetGlobal:
 				ip++;
 				break;
 			case OpLoadConstant:

@@ -21,7 +21,7 @@ static void error(CarbonToken at, char *msg, CarbonParser *p) {
 			break;
 		}
 		case TokenError: {
-			fprintf(stderr, ": Unexpected charater '%c'", at.length);
+			fprintf(stderr, " Unexpected charater '%c'", at.length);
 			break;
 		}
 		case TokenEOS: {
@@ -29,7 +29,7 @@ static void error(CarbonToken at, char *msg, CarbonParser *p) {
 			break;
 		}
 		default: {
-			fprintf(stderr, ": %s", msg);
+			fprintf(stderr, " %s", msg);
 			break;
 		}
 	}
@@ -71,6 +71,38 @@ static bool consume(CarbonTokenType t, char *msg, CarbonParser *p) {
 	}
 	errorAtCurrent(msg, p);
 	return false;
+}
+
+static void sync(CarbonParser *p) {
+	CarbonTokenType pk;
+	while ((pk = peek(p).type) != TokenEOF) {
+		switch (pk) {
+			case TokenFor:
+			case TokenWhile:
+			case TokenIf:
+			case TokenPrint:
+			case TokenReturn:
+			case TokenClass:
+				p->panic = false;
+				return;
+			case TokenEnd:
+			case TokenEOS:
+				next(p);
+				p->panic = false;
+				return;
+			case TokenUInt:
+			case TokenInt:
+			case TokenDouble:
+			case TokenString:
+			case TokenBool:
+				if(peekn(1, p).type != TokenLeftParen){
+					p->panic = false;
+					return;
+				}
+			default:
+				next(p);
+		}
+	}
 }
 
 void carbon_initParser(CarbonParser *parser, CarbonLexer *lexer) {
@@ -118,6 +150,7 @@ void carbon_freeParser(CarbonParser *p) {
 
 static CarbonStmtPrint *printStatement(CarbonParser *p);
 static CarbonStmtExpr *expressionStatement(CarbonParser *p);
+static CarbonStmtVarDec *varDeclaration(CarbonParser *p);
 
 static CarbonExpr *equality(CarbonParser *p);
 static CarbonExpr *comparison(CarbonParser *p);
@@ -131,9 +164,17 @@ static CarbonExpr *expression(CarbonParser *p) {
 }
 
 static CarbonStmt *statement(CarbonParser *p) {
+	if (p->panic)
+		sync(p);
 	switch (peek(p).type) {
 		case TokenPrint:
 			return (CarbonStmt *) printStatement(p);
+		case TokenUInt:
+		case TokenInt:
+		case TokenString:
+		case TokenBool:
+		case TokenDouble:
+			return (CarbonStmt *) varDeclaration(p);
 		default:
 			return (CarbonStmt *) expressionStatement(p);
 	}
@@ -150,7 +191,7 @@ CarbonExpr *carbon_parseExpression(CarbonParser *p) {
 static CarbonStmtPrint *printStatement(CarbonParser *p) {
 	CarbonToken print = next(p);
 	consume(TokenLeftParen, "Expected '(' after print", p);
-	CarbonExpr* expr = expression(p);
+	CarbonExpr *expr = expression(p);
 	consume(TokenRightParen, "Expected ')' after print expression", p);
 	consume(TokenEOS, "Expected EOS after print statement", p);
 	return carbon_newPrintStmt(expr, print);
@@ -158,8 +199,30 @@ static CarbonStmtPrint *printStatement(CarbonParser *p) {
 static CarbonStmtExpr *expressionStatement(CarbonParser *p) {
 	CarbonExpr *expr = expression(p);
 	consume(TokenEOS, "Expected EOS after expression statement", p);
-	if(p->currentToken == 0) return NULL;
+	if (p->currentToken == 0)
+		return NULL;
 	return carbon_newExprStmt(expr, previous(p));
+}
+
+static CarbonStmtVarDec *varDeclaration(CarbonParser *p) {
+	CarbonToken type = next(p);
+	consume(TokenIdentifier, "Expected identifier after variable declaration",
+			p);
+	CarbonToken identifier = previous(p);
+	switch (peek(p).type) {
+		case TokenEOS:
+			next(p);
+			return carbon_newVarDecStmt(identifier, type, NULL);
+		case TokenEquals:
+			next(p);
+			CarbonExpr *init = expression(p);
+			consume(TokenEOS, "Expected EOS after variable initializer", p);
+			return carbon_newVarDecStmt(identifier, type, init);
+		default:
+			errorAtCurrent(
+				"Unexpected token after variable declaration identifier", p);
+			return NULL;
+	}
 }
 
 static CarbonExpr *equality(CarbonParser *p) {
@@ -229,9 +292,11 @@ static CarbonExpr *primary(CarbonParser *p) {
 		case TokenInteger:
 		case TokenDecimal:
 		case TokenTrue:
-		case TokenFalse: {
+		case TokenFalse:
 			return (CarbonExpr *) carbon_newLiteralExpr(next(p));
-		}
+		case TokenIdentifier:
+			return (CarbonExpr *) carbon_newVarExpr(next(p));
+
 		case TokenLeftParen: {
 			next(p);
 			CarbonExpr *expr = expression(p);

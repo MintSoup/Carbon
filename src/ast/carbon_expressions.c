@@ -57,6 +57,12 @@ CarbonExprCast *carbon_newCastExpr(CarbonToken to, CarbonExpr *expr) {
 	return cast;
 }
 
+CarbonExprVar *carbon_newVarExpr(CarbonToken token) {
+	CarbonExprVar *var = (CarbonExprVar *) allocateNode(CarbonExprVar, ExprVar);
+	var->token = token;
+	return var;
+}
+
 void carbon_freeExpr(CarbonExpr *expr) {
 	if (expr == NULL)
 		return;
@@ -90,46 +96,8 @@ void carbon_freeExpr(CarbonExpr *expr) {
 			carbon_reallocate(sizeof(CarbonExprCast), 0, expr);
 			break;
 		}
-	}
-}
-
-void carbon_printExpr(CarbonExpr *expr) {
-	switch (expr->type) {
-		case ExprUnary: {
-			CarbonExprUnary *un = (CarbonExprUnary *) expr;
-			printf("%c", *un->op.lexeme);
-			fflush(stdout);
-			carbon_printExpr(un->operand);
-			break;
-		}
-		case ExprBinary: {
-			CarbonExprBinary *bin = (CarbonExprBinary *) expr;
-			carbon_printExpr(bin->left);
-			printf(" %c ", *bin->op.lexeme);
-			fflush(stdout);
-			carbon_printExpr(bin->right);
-			break;
-		}
-		case ExprGrouping: {
-			CarbonExprGrouping *group = (CarbonExprGrouping *) expr;
-			printf("(");
-			fflush(stdout);
-			carbon_printExpr(group->expression);
-			printf(")");
-			fflush(stdout);
-			break;
-		}
-		case ExprLiteral: {
-			CarbonExprLiteral *lit = (CarbonExprLiteral *) expr;
-			printf("%.*s", lit->token.length, lit->token.lexeme);
-			fflush(stdout);
-			break;
-		}
-		case ExprCast: {
-			CarbonExprCast *cast = (CarbonExprCast *) expr;
-			printf("(%.*s) ", cast->to.length, cast->to.lexeme);
-			carbon_printExpr(cast->expression);
-			fflush(stdout);
+		case ExprVar: {
+			carbon_reallocate(sizeof(CarbonExprVar), 0, expr);
 			break;
 		}
 	}

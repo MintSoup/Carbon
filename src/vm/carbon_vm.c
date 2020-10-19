@@ -15,6 +15,7 @@ void carbon_initVM(CarbonVM *vm) {
 	vm->objectHeapSize = 0;
 	carbon_initChunk(&vm->chunk);
 	carbon_tableInit(&vm->strings);
+	carbon_tableInit(&vm->globals);
 }
 void carbon_freeVM(CarbonVM *vm) {
 	carbon_freeChunk(&vm->chunk);
@@ -23,6 +24,7 @@ void carbon_freeVM(CarbonVM *vm) {
 		carbon_freeObject(obj, vm);
 	}
 	carbon_tableFree(&vm->strings);
+	carbon_tableFree(&vm->globals);
 }
 
 static inline CarbonValue pop(CarbonVM *vm) {
@@ -45,7 +47,7 @@ static void printObject(CarbonObj *obj) {
 	switch (obj->type) {
 		case CrbnObjString: {
 			CarbonString *str = (CarbonString *) obj;
-			printf("%s", str->chars);
+			printf("%s\n", str->chars);
 			break;
 		}
 	}
@@ -279,6 +281,31 @@ CarbonRunResult carbon_run(CarbonVM *vm) {
 				printObject(pop().obj);
 				ip++;
 				break;
+
+			case OpPush1:
+				push(CarbonUInt(1));
+				ip++;
+				break;
+			case OpPush0:
+				push(CarbonUInt(0));
+				ip++;
+				break;
+
+			case OpGetGlobal: {
+				CarbonObj *name = pop().obj;
+				CarbonValue value;
+				carbon_tableGet(&vm->globals, name, &value);	
+				push(value);
+				ip++;
+				break;
+			}
+			case OpSetGlobal: {
+				CarbonObj *name = pop().obj;
+				CarbonValue value = peek();
+				carbon_tableSet(&vm->globals, name, value);	
+				ip++;
+				break;
+			}
 		}
 	}
 #undef ReadByte

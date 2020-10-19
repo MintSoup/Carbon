@@ -7,6 +7,7 @@
 typedef struct{
 	bool parserHadError;
 	bool hadError;
+	CarbonTable globals;
 } CarbonCompiler;
 
 

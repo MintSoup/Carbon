@@ -17,6 +17,7 @@ typedef struct {
 	CarbonObj* objects;	
 	size_t objectHeapSize;
 	CarbonTable strings;
+	CarbonTable globals;
 } CarbonVM;
 
 void carbon_initVM(CarbonVM *vm);

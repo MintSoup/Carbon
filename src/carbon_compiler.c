@@ -2,9 +2,11 @@
 #include "vm/carbon_chunk.h"
 #include "ast/carbon_expressions.h"
 #include "ast/carbon_statements.h"
+#include "carbon.h"
 #include "carbon_object.h"
 #include "carbon_token.h"
 #include "carbon_value.h"
+#include "utils/carbon_table.h"
 #include "vm/carbon_chunk.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -26,6 +28,8 @@ static CarbonValueType t2value[] = {
 	[TokenUInt] = ValueUInt,
 	[TokenDouble] = ValueDouble,
 	[TokenIdentifier] = ValueInstance,
+	[TokenBool] = ValueBool,
+	[TokenString] = ValueString
 };
 
 static bool canUnary(CarbonTokenType op, CarbonValueType operand) {
@@ -111,7 +115,13 @@ static void castNotSupported(CarbonValueType from, CarbonToken to,
 	c->hadError = true;
 }
 
-static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
+static void globalNotFound(CarbonToken token, CarbonCompiler *c) {
+	fprintf(stderr, "[Line %d] Could not resolve global %.*s\n", token.line,
+			token.length, token.lexeme);
+	c->hadError = true;
+}
+
+static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 	switch (expr->type) {
 		case ExprUnary: {
 			CarbonExprUnary *un = (CarbonExprUnary *) expr;
@@ -119,7 +129,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 				expr->evalsTo = ValueUnresolved;
 				return;
 			}
-			typecheck(un->operand, c);
+			typecheck(un->operand, c, vm);
 			CarbonValueType operandType = un->operand->evalsTo;
 			if (operandType == ValueUnresolved) {
 				expr->evalsTo = ValueUnresolved;
@@ -150,8 +160,8 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 				expr->evalsTo = ValueUnresolved;
 				return;
 			}
-			typecheck(bin->left, c);
-			typecheck(bin->right, c);
+			typecheck(bin->left, c, vm);
+			typecheck(bin->right, c, vm);
 			CarbonValueType leftType = bin->left->evalsTo;
 			CarbonValueType rightType = bin->right->evalsTo;
 
@@ -237,7 +247,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 				expr->evalsTo = ValueUnresolved;
 				return;
 			}
-			typecheck(group->expression, c);
+			typecheck(group->expression, c, vm);
 			expr->evalsTo = group->expression->evalsTo;
 			return;
 		}
@@ -247,7 +257,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 				expr->evalsTo = ValueUnresolved;
 				return;
 			}
-			typecheck(cast->expression, c);
+			typecheck(cast->expression, c, vm);
 			if (cast->expression->evalsTo == ValueUnresolved) {
 				expr->evalsTo = ValueUnresolved;
 				return;
@@ -261,6 +271,20 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 			expr->evalsTo = t2value[cast->to.type];
 			return;
 		}
+		case ExprVar: {
+			CarbonExprVar *var = (CarbonExprVar *) expr;
+			CarbonString *name =
+				carbon_copyString(var->token.lexeme, var->token.length, vm);
+
+			CarbonValue out;
+			if (carbon_tableGet(&c->globals, (CarbonObj *) name, &out)) {
+				expr->evalsTo = out.uint;
+				return;
+			}
+			globalNotFound(var->token, c);
+			expr->evalsTo = ValueUnresolved;
+			return;
+		}
 		default:
 			fprintf(stderr, "COMPILER BUG: UNKNOWN EXPRESSION TYPE");
 			expr->evalsTo = ValueUnresolved;
@@ -268,39 +292,67 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c) {
 	}
 }
 
-static CarbonValue getLiteralValue(CarbonExprLiteral *lit, CarbonVM *vm) {
+static void pushValue(CarbonValue value, CarbonChunk *chunk,
+					  CarbonToken token) {
+	uint16_t index = carbon_addConstant(chunk, value);
+	if (index > UINT8_MAX) {
+		carbon_writeToChunk(chunk, OpLoadConstant16, token.line);
+		carbon_writeToChunk(chunk, (uint8_t)(index >> 8), token.line);
+		carbon_writeToChunk(chunk, (uint8_t)(index & 0xFF), token.line);
+	} else {
+		carbon_writeToChunk(chunk, OpLoadConstant, token.line);
+		carbon_writeToChunk(chunk, index, token.line);
+	}
+}
+
+static void pushLiteral(CarbonExprLiteral *lit, CarbonChunk *chunk,
+						CarbonVM *vm) {
+	CarbonValue toPush;
 	switch (lit->expr.evalsTo) {
-		case ValueBool: {
-			if (lit->token.length == 4)
-				return CarbonBool(true);
-			return CarbonBool(false); // lmao
-		}
+		case ValueBool:
+			if (lit->token.type == TokenTrue)
+				carbon_writeToChunk(chunk, OpPush1, lit->token.line);
+			else
+				carbon_writeToChunk(chunk, OpPush0, lit->token.line);
+			return;
 		case ValueInstance:
-			return CarbonUInt(0); // Null
+			carbon_writeToChunk(chunk, OpPush0, lit->token.line);
+			return;
 		case ValueUInt: {
 			uint64_t returnValue = 0;
 			for (uint32_t i = 0; i < lit->token.length; i++) {
 				returnValue = returnValue * 10 + lit->token.lexeme[i] - '0';
 			}
-			return CarbonUInt(returnValue);
+			if (returnValue == 0) {
+				carbon_writeToChunk(chunk, OpPush0, lit->token.line);
+				return;
+			} else if (returnValue == 1) {
+				carbon_writeToChunk(chunk, OpPush1, lit->token.line);
+				return;
+			}
+			toPush = CarbonUInt(returnValue);
+			break;
 		}
 		case ValueDouble: {
-			return CarbonDouble(strtod(lit->token.lexeme, NULL));
+			toPush = CarbonDouble(strtod(lit->token.lexeme, NULL));
+			break;
 		}
 		case ValueString: {
 			CarbonString *str = carbon_copyString(lit->token.lexeme + 1,
 												  lit->token.length - 2, vm);
-			return CarbonObject((CarbonObj *) str);
+			toPush = CarbonObject((CarbonObj *) str);
+			break;
 		}
 		default:
-			return CarbonInt(0);
+			return; // should never reach here
 	}
+	pushValue(toPush, chunk, lit->token);
 }
 
 void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 							  CarbonCompiler *c, CarbonVM *vm) {
 
-	typecheck(expr, c);
+	typecheck(expr, c, vm);
 	if (expr->evalsTo == ValueUnresolved)
 		return;
 	if (c->parserHadError)
@@ -457,18 +509,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 		}
 		case ExprLiteral: {
 			CarbonExprLiteral *lit = (CarbonExprLiteral *) expr;
-			CarbonValue value = getLiteralValue(lit, vm);
-			uint16_t index = carbon_addConstant(chunk, value);
-			if (index > UINT8_MAX) {
-				carbon_writeToChunk(chunk, OpLoadConstant16, lit->token.line);
-				carbon_writeToChunk(chunk, (uint8_t)(index >> 8),
-									lit->token.line);
-				carbon_writeToChunk(chunk, (uint8_t)(index & 0xFF),
-									lit->token.line);
-			} else {
-				carbon_writeToChunk(chunk, OpLoadConstant, lit->token.line);
-				carbon_writeToChunk(chunk, index, lit->token.line);
-			}
+			pushLiteral(lit, chunk, vm);
 			break;
 		}
 		case ExprGrouping: {
@@ -505,11 +546,36 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 
 			break;
 		}
+		case ExprVar: {
+			CarbonExprVar *var = (CarbonExprVar *) expr;
+			CarbonString *name =
+				carbon_copyString(var->token.lexeme, var->token.length, vm);
+			pushValue(CarbonObject((CarbonObj *) name), chunk, var->token);
+			carbon_writeToChunk(chunk, OpGetGlobal, var->token.line);
+			break;
+		}
 	}
+}
+
+static bool canAssign(CarbonValueType to, CarbonValueType from) {
+	return to == from;
+}
+
+static void cantAssign(CarbonValueType to, CarbonValueType from, uint32_t line,
+					   CarbonCompiler *c) {
+	if (from != ValueUnresolved)
+		fprintf(stderr, "[Line %d] Cannot assign type %s to type %s\n", line,
+				CarbonValueTypeName[from], CarbonValueTypeName[to]);
+	c->hadError = true;
 }
 
 void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 							 CarbonCompiler *c, CarbonVM *vm) {
+
+#define emit(opcode, line)                                                     \
+	if (!(c->parserHadError || c->hadError))                                   \
+	carbon_writeToChunk(chunk, opcode, line)
+
 	switch (stmt->type) {
 		case StmtPrint: {
 			CarbonStmtPrint *print = (CarbonStmtPrint *) stmt;
@@ -535,8 +601,7 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 					op = OpPrintObj;
 					break;
 			}
-			if (!c->parserHadError)
-				carbon_writeToChunk(chunk, op, print->token.line);
+			emit(op, print->token.line);
 			break;
 		}
 		case StmtExpr: {
@@ -544,17 +609,45 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 			if (expr->expression == NULL)
 				break;
 			carbon_compileExpression(expr->expression, chunk, c, vm);
-			carbon_writeToChunk(chunk, OpPop, expr->last.line);
+			emit(OpPop, expr->last.line);
+			break;
+		}
+		case StmtVarDec: {
+			CarbonStmtVarDec *vardec = (CarbonStmtVarDec *) stmt;
+			CarbonValueType vartype = t2value[vardec->type.type];
+			CarbonString *name = carbon_copyString(
+				vardec->identifier.lexeme, vardec->identifier.length, vm);
+			if (vardec->initializer != NULL) {
+				carbon_compileExpression(vardec->initializer, chunk, c, vm);
+				if (!canAssign(vartype, vardec->initializer->evalsTo)) {
+					cantAssign(vartype, vardec->initializer->evalsTo,
+							   vardec->identifier.line, c);
+					carbon_tableSet(&c->globals, (CarbonObj *) name,
+									CarbonUInt(vartype));
+					break;
+				}
+			} else {
+				emit(OpPush0, vardec->identifier.line);
+			}
+			pushValue(CarbonObject((CarbonObj *) name), chunk,
+					  vardec->identifier);
+			emit(OpSetGlobal, vardec->identifier.line);
+			emit(OpPop, vardec->identifier.line);
+			carbon_tableSet(&c->globals, (CarbonObj *) name,
+							CarbonUInt(vartype));
 			break;
 		}
 	}
+#undef emit
 }
 
 void carbon_initCompiler(CarbonCompiler *compiler, CarbonParser *parser) {
 	compiler->hadError = false;
 	compiler->parserHadError = parser->hadError;
+	carbon_tableInit(&compiler->globals);
 }
 void carbon_freeCompiler(CarbonCompiler *compiler) {
 	compiler->hadError = false;
 	compiler->parserHadError = false;
+	carbon_tableFree(&compiler->globals);
 }
