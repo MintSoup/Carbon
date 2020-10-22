@@ -348,7 +348,7 @@ static void pushLiteral(CarbonExprLiteral *lit, CarbonChunk *chunk,
 void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 							  CarbonCompiler *c, CarbonVM *vm) {
 
-	if(expr->evalsTo == ValueUntypechecked)
+	if (expr->evalsTo == ValueUntypechecked)
 		typecheck(expr, c, vm);
 	if (expr->evalsTo == ValueUnresolved)
 		return;
@@ -566,6 +566,20 @@ static void cantAssign(CarbonValueType to, CarbonValueType from, uint32_t line,
 	c->hadError = true;
 }
 
+static bool inline isObject(CarbonValueType type) {
+	return type >= ValueString && type <= ValueError;
+}
+
+static CarbonValue defaultState(CarbonValueType type, CarbonVM *vm) {
+	switch (type) {
+		case ValueString:
+			return CarbonObject((CarbonObj *) carbon_copyString("", 0, vm));
+
+		default:
+			return CarbonUInt(0); // should never reach here;
+	}
+}
+
 void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 							 CarbonCompiler *c, CarbonVM *vm) {
 
@@ -633,7 +647,11 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 					carbon_compileExpression(vardec->initializer, chunk, c, vm);
 				}
 			} else {
-				emit(OpPush0, vardec->identifier.line);
+				if (isObject(vartype))
+					pushValue(defaultState(vartype, vm), chunk,
+							  vardec->identifier);
+				else
+					emit(OpPush0, vardec->identifier.line);
 			}
 			pushValue(CarbonObject((CarbonObj *) name), chunk,
 					  vardec->identifier);

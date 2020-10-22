@@ -1,2 +1,2 @@
-double a = -4
+int a = 5; 
 print(a)
