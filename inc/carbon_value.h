@@ -15,7 +15,8 @@ typedef enum {
 	ValueArray,
 	ValueFunction,
 	ValueError,
-	ValueUnresolved
+	ValueUnresolved,
+	ValueUntypechecked
 } CarbonValueType;
 
 typedef union {

@@ -9,6 +9,7 @@
 CarbonExpr *carbon_newExpr(size_t size, CarbonExprType type) {
 	CarbonExpr *expr = carbon_reallocate(0, size, NULL);
 	expr->type = type;
+	expr->evalsTo = ValueUntypechecked;
 	return expr;
 }
 

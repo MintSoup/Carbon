@@ -24,13 +24,9 @@ static CarbonToken v2token[] = {
 		.type = TokenInt, .lexeme = NULL, .line = UINT32_MAX, .length = 0}};
 
 static CarbonValueType t2value[] = {
-	[TokenInt] = ValueInt,
-	[TokenUInt] = ValueUInt,
-	[TokenDouble] = ValueDouble,
-	[TokenIdentifier] = ValueInstance,
-	[TokenBool] = ValueBool,
-	[TokenString] = ValueString
-};
+	[TokenInt] = ValueInt,		 [TokenUInt] = ValueUInt,
+	[TokenDouble] = ValueDouble, [TokenIdentifier] = ValueInstance,
+	[TokenBool] = ValueBool,	 [TokenString] = ValueString};
 
 static bool canUnary(CarbonTokenType op, CarbonValueType operand) {
 	switch (operand) {
@@ -352,7 +348,8 @@ static void pushLiteral(CarbonExprLiteral *lit, CarbonChunk *chunk,
 void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 							  CarbonCompiler *c, CarbonVM *vm) {
 
-	typecheck(expr, c, vm);
+	if(expr->evalsTo == ValueUntypechecked)
+		typecheck(expr, c, vm);
 	if (expr->evalsTo == ValueUnresolved)
 		return;
 	if (c->parserHadError)
@@ -558,7 +555,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 }
 
 static bool canAssign(CarbonValueType to, CarbonValueType from) {
-	return to == from;
+	return to <= ValueDouble && from <= to;
 }
 
 static void cantAssign(CarbonValueType to, CarbonValueType from, uint32_t line,
@@ -618,13 +615,22 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 			CarbonString *name = carbon_copyString(
 				vardec->identifier.lexeme, vardec->identifier.length, vm);
 			if (vardec->initializer != NULL) {
-				carbon_compileExpression(vardec->initializer, chunk, c, vm);
+				typecheck(vardec->initializer, c, vm);
 				if (!canAssign(vartype, vardec->initializer->evalsTo)) {
 					cantAssign(vartype, vardec->initializer->evalsTo,
 							   vardec->identifier.line, c);
 					carbon_tableSet(&c->globals, (CarbonObj *) name,
 									CarbonUInt(vartype));
 					break;
+				} else {
+					CarbonExpr *init = vardec->initializer;
+					if (init->evalsTo <= ValueDouble &&
+						init->evalsTo < vartype) {
+						vardec->initializer = (CarbonExpr *) carbon_newCastExpr(
+							v2token[vartype], init);
+						vardec->initializer->evalsTo = vartype;
+					}
+					carbon_compileExpression(vardec->initializer, chunk, c, vm);
 				}
 			} else {
 				emit(OpPush0, vardec->identifier.line);
