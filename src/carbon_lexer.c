@@ -67,7 +67,8 @@ CarbonLexer carbon_initLexer(char *source, uint32_t length) {
 
 static char next(CarbonLexer *lexer) {
 	char c = *lexer->current;
-	if (c == '\n') lexer->line++;
+	if (c == '\n')
+		lexer->line++;
 	lexer->current++;
 	return c;
 }
@@ -75,7 +76,8 @@ static char peek(CarbonLexer *lexer) {
 	return *lexer->current;
 }
 static bool match(char i, CarbonLexer *lexer) {
-	if (isAtEnd(lexer)) return false;
+	if (isAtEnd(lexer))
+		return false;
 	if (peek(lexer) == i) {
 		next(lexer);
 		return true;
@@ -85,24 +87,24 @@ static bool match(char i, CarbonLexer *lexer) {
 
 static bool canEndStatement(CarbonTokenType type) {
 	switch (type) {
-	case TokenRightParen:
-	case TokenRightBracket:
-	case TokenRightBrace:
-	case TokenPlusPlus:
-	case TokenMinusMinus:
-	case TokenStringLiteral:
-	case TokenInteger:
-	case TokenDecimal:
-	case TokenIdentifier:
-	case TokenBreak:
-	case TokenContinue:
-	case TokenReturn:
-	case TokenSelf:
-	case TokenTrue:
-	case TokenFalse:
-		return true;
-	default:
-		return false;
+		case TokenRightParen:
+		case TokenRightBracket:
+		case TokenRightBrace:
+		case TokenPlusPlus:
+		case TokenMinusMinus:
+		case TokenStringLiteral:
+		case TokenInteger:
+		case TokenDecimal:
+		case TokenIdentifier:
+		case TokenBreak:
+		case TokenContinue:
+		case TokenReturn:
+		case TokenSelf:
+		case TokenTrue:
+		case TokenFalse:
+			return true;
+		default:
+			return false;
 	}
 }
 
@@ -111,21 +113,22 @@ static bool skipWhitespace(CarbonLexer *lexer) {
 	while (true) {
 		char c = peek(lexer);
 		switch (c) {
-		case '\t':
-		case ' ':
-		case '\r':
-			next(lexer);
-			break;
-		case '\n':
-			if (canEndStatement(lexer->lastToken)) eos = true;
-			next(lexer);
-			break;
-		case '#':
-			while (peek(lexer) != '\n' && !isAtEnd(lexer))
+			case '\t':
+			case ' ':
+			case '\r':
 				next(lexer);
-			break;
-		default:
-			return eos;
+				break;
+			case '\n':
+				if (canEndStatement(lexer->lastToken))
+					eos = true;
+				next(lexer);
+				break;
+			case '#':
+				while (peek(lexer) != '\n' && !isAtEnd(lexer))
+					next(lexer);
+				break;
+			default:
+				return eos;
 		}
 	}
 }
@@ -161,86 +164,93 @@ static inline bool isAlpha(char i) {
 }
 
 CarbonToken carbon_scanToken(CarbonLexer *lexer) {
-	if (skipWhitespace(lexer)) return makeToken(TokenEOS, lexer);
+	if (skipWhitespace(lexer))
+		return makeToken(TokenEOS, lexer);
 
-	if (isAtEnd(lexer)) return makeToken(TokenEOF, lexer);
+	if (isAtEnd(lexer))
+		return makeToken(TokenEOF, lexer);
 
 	lexer->start = lexer->current;
 
 	char c = next(lexer);
 	switch (c) {
-	case '{':
-		return makeToken(TokenLeftBrace, lexer);
-	case '}':
-		return makeToken(TokenRightBrace, lexer);
-	case '(':
-		return makeToken(TokenLeftParen, lexer);
-	case ')':
-		return makeToken(TokenRightParen, lexer);
-	case '[':
-		return makeToken(TokenLeftBracket, lexer);
-	case ']':
-		return makeToken(TokenRightBracket, lexer);
-	case '?':
-		return makeToken(TokenQuestion, lexer);
-	case ':':
-		return makeToken(TokenColon, lexer);
-	case '%':
-		return makeToken(TokenPercent, lexer);
-	case '.':
-		return makeToken(TokenDot, lexer);
-	case ',':
-		return makeToken(TokenComma, lexer);
-	case ';':
-		return makeToken(TokenEOS, lexer);
-	case '+':
-		if (match('+', lexer)) return makeToken(TokenPlusPlus, lexer);
-		if (match('=', lexer)) return makeToken(TokenPlusEquals, lexer);
-		return makeToken(TokenPlus, lexer);
-	case '-':
-		if (match('-', lexer)) return makeToken(TokenMinusMinus, lexer);
-		if (match('=', lexer)) return makeToken(TokenMinusEquals, lexer);
-		return makeToken(TokenMinus, lexer);
-	case '*':
-		return makeToken(match('=', lexer) ? TokenStarEquals : TokenStar,
-						 lexer);
-	case '/':
-		return makeToken(match('=', lexer) ? TokenSlashEquals : TokenSlash,
-						 lexer);
-	case '=':
-		return makeToken(match('=', lexer) ? TokenEqualsEquals : TokenEquals,
-						 lexer);
-	case '!':
-		return makeToken(match('=', lexer) ? TokenBangEquals : TokenBang,
-						 lexer);
-	case '>':
-		return makeToken(match('=', lexer) ? TokenGEQ : TokenGreaterThan,
-						 lexer);
-	case '<':
-		return makeToken(match('=', lexer) ? TokenLEQ : TokenLessThan, lexer);
-	case '\'':
-		while (next(lexer) != '\'')
-			;
-		return makeToken(TokenStringLiteral, lexer);
-	default: {
-		if (isNumeric(c)) {
-			while (isNumeric(peek(lexer))) {
-				next(lexer);
-			}
-			if (match('.', lexer)) {
+		case '{':
+			return makeToken(TokenLeftBrace, lexer);
+		case '}':
+			return makeToken(TokenRightBrace, lexer);
+		case '(':
+			return makeToken(TokenLeftParen, lexer);
+		case ')':
+			return makeToken(TokenRightParen, lexer);
+		case '[':
+			return makeToken(TokenLeftBracket, lexer);
+		case ']':
+			return makeToken(TokenRightBracket, lexer);
+		case '?':
+			return makeToken(TokenQuestion, lexer);
+		case ':':
+			return makeToken(TokenColon, lexer);
+		case '%':
+			return makeToken(TokenPercent, lexer);
+		case '.':
+			return makeToken(TokenDot, lexer);
+		case ',':
+			return makeToken(TokenComma, lexer);
+		case ';':
+			return makeToken(TokenEOS, lexer);
+		case '+':
+			if (match('+', lexer))
+				return makeToken(TokenPlusPlus, lexer);
+			if (match('=', lexer))
+				return makeToken(TokenPlusEquals, lexer);
+			return makeToken(TokenPlus, lexer);
+		case '-':
+			if (match('-', lexer))
+				return makeToken(TokenMinusMinus, lexer);
+			if (match('=', lexer))
+				return makeToken(TokenMinusEquals, lexer);
+			return makeToken(TokenMinus, lexer);
+		case '*':
+			return makeToken(match('=', lexer) ? TokenStarEquals : TokenStar,
+							 lexer);
+		case '/':
+			return makeToken(match('=', lexer) ? TokenSlashEquals : TokenSlash,
+							 lexer);
+		case '=':
+			return makeToken(
+				match('=', lexer) ? TokenEqualsEquals : TokenEquals, lexer);
+		case '!':
+			return makeToken(match('=', lexer) ? TokenBangEquals : TokenBang,
+							 lexer);
+		case '>':
+			return makeToken(match('=', lexer) ? TokenGEQ : TokenGreaterThan,
+							 lexer);
+		case '<':
+			return makeToken(match('=', lexer) ? TokenLEQ : TokenLessThan,
+							 lexer);
+		case '\'':
+			while (next(lexer) != '\'')
+				;
+			return makeToken(TokenStringLiteral, lexer);
+		default: {
+			if (isNumeric(c)) {
 				while (isNumeric(peek(lexer))) {
 					next(lexer);
 				}
-				return makeToken(TokenDecimal, lexer);
-			} else
-				return makeToken(TokenInteger, lexer);
-		} else if (isAlpha(c)) {
-			while (isAlpha(peek(lexer)) || isNumeric(peek(lexer))) {
-				next(lexer);
+				if (match('.', lexer)) {
+					while (isNumeric(peek(lexer))) {
+						next(lexer);
+					}
+					return makeToken(TokenDecimal, lexer);
+				} else
+					return makeToken(TokenInteger, lexer);
+			} else if (isAlpha(c)) {
+				while (isAlpha(peek(lexer)) || isNumeric(peek(lexer))) {
+					next(lexer);
+				}
+				return makeToken(identifyToken(lexer), lexer);
 			}
-			return makeToken(identifyToken(lexer), lexer);
+			return errorToken(c, lexer);
 		}
-		return errorToken(c, lexer);
-	}
 	}
 }

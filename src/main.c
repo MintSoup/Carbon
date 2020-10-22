@@ -33,13 +33,13 @@ int main(int argc, char *argv[]) {
 	t[size] = 0;
 	fread(t, size, 1, f);
 	fclose(f);
-	
+
 	CarbonInstance instance;
 	carbon_init(&instance);
 
 	carbon_execute(&instance, t, size);
 
-	carbon_free(&instance);	
+	carbon_free(&instance);
 
 	free(t);
 

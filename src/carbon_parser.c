@@ -95,7 +95,7 @@ static void sync(CarbonParser *p) {
 			case TokenDouble:
 			case TokenString:
 			case TokenBool:
-				if(peekn(1, p).type != TokenLeftParen){
+				if (peekn(1, p).type != TokenRightParen) {
 					p->panic = false;
 					return;
 				}
@@ -109,15 +109,50 @@ void carbon_initParser(CarbonParser *parser, CarbonLexer *lexer) {
 
 	parser->currentToken = 0;
 	parser->totalTokens = 8;
+	parser->panic = false;
+	parser->hadError = false;
 	parser->tokens =
 		carbon_reallocate(0, parser->totalTokens * sizeof(CarbonToken), NULL);
 	while (true) {
-		CarbonToken p;
+		CarbonToken current;
+		CarbonToken prev;
 		while (true) {
-			p = carbon_scanToken(lexer);
-			if (p.type != TokenError)
+			current = carbon_scanToken(lexer);
+			if (current.type == TokenEOF)
 				break;
-			error(p, NULL, parser);
+			if (parser->panic) {
+				switch (current.type) {
+					case TokenFor:
+					case TokenWhile:
+					case TokenIf:
+					case TokenPrint:
+					case TokenReturn:
+					case TokenClass:
+						parser->panic = false;
+						break;
+					case TokenEnd:
+					case TokenEOS:
+						current = carbon_scanToken(lexer);
+						parser->panic = false;
+						break;
+					case TokenUInt:
+					case TokenInt:
+					case TokenDouble:
+					case TokenString:
+					case TokenBool:
+						if (prev.type != TokenLeftParen) {
+							parser->panic = false;
+							break;
+						}
+					default:
+						break;
+				}
+			}
+			prev = current;
+			if (current.type == TokenError)
+				parser->panic = true;
+			if (!parser->panic)
+				break;
 		}
 
 		if (parser->currentToken == parser->totalTokens) {
@@ -127,9 +162,9 @@ void carbon_initParser(CarbonParser *parser, CarbonLexer *lexer) {
 			parser->tokens =
 				carbon_reallocate(oldSize, newSize, parser->tokens);
 		}
-		parser->tokens[parser->currentToken] = p;
+		parser->tokens[parser->currentToken] = current;
 		parser->currentToken++;
-		if (p.type == TokenEOF) {
+		if (current.type == TokenEOF) {
 			uint32_t oldSize = parser->totalTokens * sizeof(CarbonToken);
 			uint32_t newSize = parser->currentToken * sizeof(CarbonToken);
 			parser->tokens =
@@ -139,9 +174,6 @@ void carbon_initParser(CarbonParser *parser, CarbonLexer *lexer) {
 			break;
 		}
 	}
-
-	parser->panic = false;
-	parser->hadError = false;
 }
 
 void carbon_freeParser(CarbonParser *p) {
@@ -167,6 +199,8 @@ static CarbonStmt *statement(CarbonParser *p) {
 	if (p->panic)
 		sync(p);
 	switch (peek(p).type) {
+		case TokenEOF:
+			return NULL;
 		case TokenPrint:
 			return (CarbonStmt *) printStatement(p);
 		case TokenUInt:
