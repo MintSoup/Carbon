@@ -14,22 +14,26 @@ static void error(CarbonToken at, char *msg, CarbonParser *p) {
 		return;
 	p->panic = true;
 	p->hadError = true;
-	fprintf(stderr, "[Line %d]", at.line);
+	fprintf(stderr, "[Line %d] ", at.line);
 	switch (at.type) {
 		case TokenEOF: {
-			fprintf(stderr, " EOF: %s", msg);
+			fprintf(stderr, "EOF: %s", msg);
 			break;
 		}
 		case TokenError: {
-			fprintf(stderr, " Unexpected charater '%c'", at.length);
+			if (at.length == '\'') {
+				fprintf(stderr, "Unterminated string");
+				break;
+			}
+			fprintf(stderr, "Unexpected charater '%c'", at.length);
 			break;
 		}
 		case TokenEOS: {
-			fprintf(stderr, " at end of statement: %s", msg);
+			fprintf(stderr, "at end of statement: %s", msg);
 			break;
 		}
 		default: {
-			fprintf(stderr, " %s", msg);
+			fprintf(stderr, "at '%.*s': %s", at.length, at.lexeme, msg);
 			break;
 		}
 	}
@@ -149,8 +153,9 @@ void carbon_initParser(CarbonParser *parser, CarbonLexer *lexer) {
 				}
 			}
 			prev = current;
-			if (current.type == TokenError)
-				parser->panic = true;
+			if (current.type == TokenError) {
+				error(current, NULL, parser);
+			}
 			if (!parser->panic)
 				break;
 		}

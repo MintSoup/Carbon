@@ -228,10 +228,20 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 		case '<':
 			return makeToken(match('=', lexer) ? TokenLEQ : TokenLessThan,
 							 lexer);
-		case '\'':
-			while (next(lexer) != '\'')
-				;
+		case '\'': {
+			uint32_t line = lexer->line;
+			while (next(lexer) != '\'') {
+				if (isAtEnd(lexer)) {
+					// Dirtiest trick ever
+					uint32_t current = lexer->line;
+					lexer->line = line;
+					CarbonToken err = errorToken('\'', lexer);
+					lexer->line = current;
+					return err;
+				}
+			}
 			return makeToken(TokenStringLiteral, lexer);
+		}
 		default: {
 			if (isNumeric(c)) {
 				while (isNumeric(peek(lexer))) {
