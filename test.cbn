@@ -1,2 +1,7 @@
-int a = 5; 
+string a
+string b
+string c
+a = b = c = 'lol'
 print(a)
+print(b)
+print(c)

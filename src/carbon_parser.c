@@ -189,6 +189,7 @@ static CarbonStmtPrint *printStatement(CarbonParser *p);
 static CarbonStmtExpr *expressionStatement(CarbonParser *p);
 static CarbonStmtVarDec *varDeclaration(CarbonParser *p);
 
+static CarbonExpr *assignment(CarbonParser *p);
 static CarbonExpr *equality(CarbonParser *p);
 static CarbonExpr *comparison(CarbonParser *p);
 static CarbonExpr *addition(CarbonParser *p);
@@ -197,7 +198,7 @@ static CarbonExpr *unary(CarbonParser *p);
 static CarbonExpr *primary(CarbonParser *p);
 
 static CarbonExpr *expression(CarbonParser *p) {
-	return (CarbonExpr *) equality(p);
+	return assignment(p);
 }
 
 static CarbonStmt *statement(CarbonParser *p) {
@@ -264,6 +265,23 @@ static CarbonStmtVarDec *varDeclaration(CarbonParser *p) {
 	}
 }
 
+static CarbonExpr *assignment(CarbonParser *p) {
+	CarbonExpr *target = equality(p);
+	if (match(TokenEquals, p)) {
+		CarbonToken equals = previous(p);
+		CarbonExpr *value = assignment(p);
+		switch (target->type) {
+			case ExprVar: {
+				CarbonExprVar *var = (CarbonExprVar *) target;
+				return (CarbonExpr *) carbon_newAssignmentExpr(var->token,
+															   value);
+			}
+			default:
+				error(equals, "Invalid assignment target", p);
+		}
+	}
+	return target;
+}
 static CarbonExpr *equality(CarbonParser *p) {
 	CarbonExpr *expr = comparison(p);
 	while (match(TokenEqualsEquals, p) || match(TokenBangEquals, p)) {

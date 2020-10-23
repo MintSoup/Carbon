@@ -64,6 +64,15 @@ CarbonExprVar *carbon_newVarExpr(CarbonToken token) {
 	return var;
 }
 
+CarbonExprAssignment *carbon_newAssignmentExpr(CarbonToken left,
+											   CarbonExpr *right) {
+	CarbonExprAssignment *assignment = (CarbonExprAssignment *) allocateNode(
+		CarbonExprAssignment, ExprAssignment);
+	assignment->left = left;
+	assignment->right = right;
+	return assignment;
+}
+
 void carbon_freeExpr(CarbonExpr *expr) {
 	if (expr == NULL)
 		return;
@@ -99,6 +108,12 @@ void carbon_freeExpr(CarbonExpr *expr) {
 		}
 		case ExprVar: {
 			carbon_reallocate(sizeof(CarbonExprVar), 0, expr);
+			break;
+		}
+		case ExprAssignment: {
+			CarbonExprAssignment *assignment = (CarbonExprAssignment *) expr;
+			carbon_freeExpr(assignment->right);
+			carbon_reallocate(sizeof(CarbonExprAssignment), 0, expr);
 			break;
 		}
 	}

@@ -88,6 +88,18 @@ static bool canBinary(CarbonTokenType op, CarbonValueType left,
 	}
 }
 
+static bool canAssign(CarbonValueType to, CarbonValueType from) {
+	return (to == from) || (to <= ValueDouble && from <= to);
+}
+
+static void cantAssign(CarbonValueType to, CarbonValueType from, uint32_t line,
+					   CarbonCompiler *c) {
+	if (from != ValueUnresolved)
+		fprintf(stderr, "[Line %d] Cannot assign type %s to type %s\n", line,
+				CarbonValueTypeName[from], CarbonValueTypeName[to]);
+	c->hadError = true;
+}
+
 static void unaryOpNotSupported(CarbonToken op, char *type, CarbonCompiler *c) {
 	fprintf(stderr,
 			"[Line %d] Operator '%.*s' not supported for operand type %s\n",
@@ -278,6 +290,36 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 				return;
 			}
 			globalNotFound(var->token, c);
+			expr->evalsTo = ValueUnresolved;
+			return;
+		}
+		case ExprAssignment: {
+			CarbonExprAssignment *assignment = (CarbonExprAssignment *) expr;
+			if (assignment->right == NULL){
+				expr->evalsTo = ValueUnresolved;
+				return;
+			}
+
+			typecheck(assignment->right, c, vm);
+			CarbonValue leftType;
+			CarbonString *name = carbon_copyString(assignment->left.lexeme,
+												   assignment->left.length, vm);
+			if (carbon_tableGet(&c->globals, (CarbonObj *) name, &leftType)) {
+				if (!canAssign(leftType.uint, assignment->right->evalsTo)) {
+					cantAssign(leftType.uint, assignment->right->evalsTo,
+							   assignment->left.line, c);
+					expr->evalsTo = ValueUnresolved;
+					return;
+				}
+				if (leftType.uint <= ValueDouble &&
+					assignment->right->evalsTo < leftType.uint) {
+					assignment->right = (CarbonExpr *) carbon_newCastExpr(
+						v2token[leftType.uint], assignment->right);
+				}
+				expr->evalsTo = leftType.uint;
+				return;
+			}
+			globalNotFound(assignment->left, c);
 			expr->evalsTo = ValueUnresolved;
 			return;
 		}
@@ -551,19 +593,17 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 			carbon_writeToChunk(chunk, OpGetGlobal, var->token.line);
 			break;
 		}
+		case ExprAssignment: {
+			CarbonExprAssignment *assignment = (CarbonExprAssignment *) expr;
+			CarbonString *name = carbon_copyString(assignment->left.lexeme,
+												   assignment->left.length, vm);
+			carbon_compileExpression(assignment->right, chunk, c, vm);
+			pushValue(CarbonObject((CarbonObj *) name), chunk,
+					  assignment->left);
+			carbon_writeToChunk(chunk, OpSetGlobal, assignment->left.line);
+			break;
+		}
 	}
-}
-
-static bool canAssign(CarbonValueType to, CarbonValueType from) {
-	return to <= ValueDouble && from <= to;
-}
-
-static void cantAssign(CarbonValueType to, CarbonValueType from, uint32_t line,
-					   CarbonCompiler *c) {
-	if (from != ValueUnresolved)
-		fprintf(stderr, "[Line %d] Cannot assign type %s to type %s\n", line,
-				CarbonValueTypeName[from], CarbonValueTypeName[to]);
-	c->hadError = true;
 }
 
 static bool inline isObject(CarbonValueType type) {
