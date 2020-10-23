@@ -273,6 +273,7 @@ static CarbonExpr *assignment(CarbonParser *p) {
 		switch (target->type) {
 			case ExprVar: {
 				CarbonExprVar *var = (CarbonExprVar *) target;
+				carbon_freeExpr(target);
 				return (CarbonExpr *) carbon_newAssignmentExpr(var->token,
 															   value);
 			}

@@ -321,6 +321,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 					assignment->right->evalsTo < leftType.uint) {
 					assignment->right = (CarbonExpr *) carbon_newCastExpr(
 						v2token[leftType.uint], assignment->right);
+					assignment->right->evalsTo = leftType.uint;
 				}
 				expr->evalsTo = leftType.uint;
 				return;

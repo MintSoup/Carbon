@@ -1,8 +1,3 @@
-string a
-string b
-string c
-a = b = c = 'lol'
-print(a)
+string b = '4'
 print(b)
-print(c)
-string c
+b = 5
