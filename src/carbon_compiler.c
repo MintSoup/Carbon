@@ -92,6 +92,12 @@ static bool canAssign(CarbonValueType to, CarbonValueType from) {
 	return (to == from) || (to <= ValueDouble && from <= to);
 }
 
+static void globalRedeclaration(CarbonToken name, CarbonCompiler *c) {
+	fprintf(stderr, "[Line %d] Global %.*s has already been declared.\n",
+			name.line, name.length, name.lexeme);
+	c->hadError = true;
+}
+
 static void cantAssign(CarbonValueType to, CarbonValueType from, uint32_t line,
 					   CarbonCompiler *c) {
 	if (from != ValueUnresolved)
@@ -295,7 +301,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 		}
 		case ExprAssignment: {
 			CarbonExprAssignment *assignment = (CarbonExprAssignment *) expr;
-			if (assignment->right == NULL){
+			if (assignment->right == NULL) {
 				expr->evalsTo = ValueUnresolved;
 				return;
 			}
@@ -668,6 +674,12 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 			CarbonValueType vartype = t2value[vardec->type.type];
 			CarbonString *name = carbon_copyString(
 				vardec->identifier.lexeme, vardec->identifier.length, vm);
+
+			CarbonValue dummy;
+			if (carbon_tableGet(&c->globals, (CarbonObj *) name, &dummy)) {
+				globalRedeclaration(vardec->identifier, c);
+			}
+
 			if (vardec->initializer != NULL) {
 				typecheck(vardec->initializer, c, vm);
 				if (!canAssign(vartype, vardec->initializer->evalsTo)) {

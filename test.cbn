@@ -5,3 +5,4 @@ a = b = c = 'lol'
 print(a)
 print(b)
 print(c)
+string c
