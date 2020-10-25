@@ -58,7 +58,9 @@ typedef enum {
 
 	// Variables
 	OpSetGlobal,
-	OpGetGlobal
+	OpGetGlobal,
+	OpSetGlobalInline,
+	OpGetGlobalInline
 	
 
 } CarbonOpCode;

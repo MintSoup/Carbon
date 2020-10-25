@@ -8,7 +8,6 @@
 #include "carbon_value.h"
 #include "utils/carbon_table.h"
 #include "vm/carbon_chunk.h"
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -337,9 +336,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 	}
 }
 
-static void pushValue(CarbonValue value, CarbonChunk *chunk,
-					  CarbonToken token) {
-	uint16_t index = carbon_addConstant(chunk, value);
+static void push(uint16_t index, CarbonChunk *chunk, CarbonToken token) {
 	if (index > UINT8_MAX) {
 		carbon_writeToChunk(chunk, OpLoadConstant16, token.line);
 		carbon_writeToChunk(chunk, (uint8_t)(index >> 8), token.line);
@@ -348,6 +345,12 @@ static void pushValue(CarbonValue value, CarbonChunk *chunk,
 		carbon_writeToChunk(chunk, OpLoadConstant, token.line);
 		carbon_writeToChunk(chunk, index, token.line);
 	}
+}
+
+static void pushValue(CarbonValue value, CarbonChunk *chunk,
+					  CarbonToken token) {
+	uint16_t index = carbon_addConstant(chunk, value);
+	push(index, chunk, token);
 }
 
 static void pushLiteral(CarbonExprLiteral *lit, CarbonChunk *chunk,
@@ -596,8 +599,15 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 			CarbonExprVar *var = (CarbonExprVar *) expr;
 			CarbonString *name =
 				carbon_copyString(var->token.lexeme, var->token.length, vm);
-			pushValue(CarbonObject((CarbonObj *) name), chunk, var->token);
-			carbon_writeToChunk(chunk, OpGetGlobal, var->token.line);
+			uint16_t index =
+				carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
+			if (index > UINT8_MAX) {
+				push(index, chunk, var->token);
+				carbon_writeToChunk(chunk, OpGetGlobal, var->token.line);
+				break;
+			}
+			carbon_writeToChunk(chunk, OpGetGlobalInline, var->token.line);
+			carbon_writeToChunk(chunk, index & 0xFF, var->token.line);
 			break;
 		}
 		case ExprAssignment: {
@@ -605,9 +615,16 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 			CarbonString *name = carbon_copyString(assignment->left.lexeme,
 												   assignment->left.length, vm);
 			carbon_compileExpression(assignment->right, chunk, c, vm);
-			pushValue(CarbonObject((CarbonObj *) name), chunk,
-					  assignment->left);
-			carbon_writeToChunk(chunk, OpSetGlobal, assignment->left.line);
+			uint16_t index =
+				carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
+			if (index > UINT8_MAX) {
+				push(index, chunk, assignment->left);
+				carbon_writeToChunk(chunk, OpSetGlobal, assignment->left.line);
+				break;
+			}
+			carbon_writeToChunk(chunk, OpSetGlobalInline,
+								assignment->left.line);
+			carbon_writeToChunk(chunk, index & 0xFF, assignment->left.line);
 			break;
 		}
 	}
@@ -706,9 +723,17 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 				else
 					emit(OpPush0, vardec->identifier.line);
 			}
-			pushValue(CarbonObject((CarbonObj *) name), chunk,
-					  vardec->identifier);
-			emit(OpSetGlobal, vardec->identifier.line);
+
+			uint16_t index =
+				carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
+			if (index > UINT8_MAX) {
+				push(index, chunk,
+						  vardec->identifier);
+				emit(OpSetGlobal, vardec->identifier.line);
+			} else {
+				emit(OpSetGlobalInline, vardec->identifier.line);
+				emit(index, vardec->identifier.line);
+			}
 			emit(OpPop, vardec->identifier.line);
 			carbon_tableSet(&c->globals, (CarbonObj *) name,
 							CarbonUInt(vartype));

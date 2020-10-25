@@ -53,7 +53,6 @@ CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
 	}
 	carbon_writeToChunk(&instance->vm.chunk, OpReturn, -1);
 
-
 	carbon_freeParser(&instance->parser);
 	carbon_freeCompiler(&instance->compiler);
 	for (uint32_t i = 0; i < instance->statements.count; i++) {
@@ -65,12 +64,11 @@ CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
 	instance->statements.capacity = 0;
 	instance->statements.capacity = 0;
 
-
 	if (instance->parser.hadError)
 		return Carbon_Parser_Error;
 	if (instance->compiler.hadError)
 		return Carbon_Compiler_Error;
-  	//carbon_disassemble(&instance->vm.chunk);
+	//carbon_disassemble(&instance->vm.chunk);
 	return carbon_run(&instance->vm);
 }
 void carbon_free(CarbonInstance *instance) {

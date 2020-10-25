@@ -1,5 +1,4 @@
-int a = 4
-int b = 4
-int c = 9
-a = b = c = a + b + c
-print(a - b + c)
+int a = 5
+print(a)
+int b = a = a + 8
+print(b + a)

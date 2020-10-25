@@ -294,7 +294,7 @@ CarbonRunResult carbon_run(CarbonVM *vm) {
 			case OpGetGlobal: {
 				CarbonObj *name = pop().obj;
 				CarbonValue value;
-				carbon_tableGet(&vm->globals, name, &value);	
+				carbon_tableGet(&vm->globals, name, &value);
 				push(value);
 				ip++;
 				break;
@@ -302,7 +302,24 @@ CarbonRunResult carbon_run(CarbonVM *vm) {
 			case OpSetGlobal: {
 				CarbonObj *name = pop().obj;
 				CarbonValue value = peek();
-				carbon_tableSet(&vm->globals, name, value);	
+				carbon_tableSet(&vm->globals, name, value);
+				ip++;
+				break;
+			}
+			case OpGetGlobalInline: {
+				ip++;
+				CarbonObj *name = ReadConstant8().obj;
+				CarbonValue value;
+				carbon_tableGet(&vm->globals, name, &value);
+				push(value);
+				ip++;
+				break;
+			}
+			case OpSetGlobalInline: {
+				ip++;
+				CarbonObj *name = ReadConstant8().obj;
+				CarbonValue value = peek();
+				carbon_tableSet(&vm->globals, name, value);
 				ip++;
 				break;
 			}

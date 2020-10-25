@@ -58,7 +58,9 @@ static char *names[] = {
 
 
 	[OpSetGlobal] = "globset",
-	[OpGetGlobal] = "globget"
+	[OpGetGlobal] = "globget",
+	[OpSetGlobalInline] = "nglobset",
+	[OpGetGlobalInline] = "nglobget"
 
 };
 
@@ -123,6 +125,12 @@ void carbon_disassemble(CarbonChunk *chunk) {
 				ip++;
 				uint8_t lower = *ip;
 				printf("\t%d", (higher << 8) | lower);
+				ip++;
+				break;
+			case OpGetGlobalInline:
+			case OpSetGlobalInline:
+				ip++;
+				printf("\t%d", *ip);
 				ip++;
 				break;
 		}
