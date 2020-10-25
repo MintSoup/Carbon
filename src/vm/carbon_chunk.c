@@ -37,5 +37,9 @@ void carbon_freeChunk(CarbonChunk *chunk) {
 	carbon_initChunk(chunk);
 }
 uint16_t carbon_addConstant(CarbonChunk *chunk, CarbonValue constant) {
+	for(uint32_t i = 0; i < chunk->constants.count; i++){
+		if(chunk->constants.arr[i].uint == constant.uint)
+			return i;
+	}
 	return carbon_writeToValueArray(&chunk->constants, constant);
 }
