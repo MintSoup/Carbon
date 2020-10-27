@@ -11,29 +11,9 @@
 
 void carbon_init(CarbonInstance *instance) {
 	carbon_initVM(&instance->vm);
-	instance->statements.arr = NULL;
-	instance->statements.count = 0;
-	instance->statements.capacity = 0;
+	carbon_stmtList_init(&instance->statements);
 }
 
-static void addStatement(CarbonInstance *i, CarbonStmt *stmt) {
-#define statements i->statements
-	if (statements.count == statements.capacity) {
-		uint32_t oldCapacity = statements.capacity * sizeof(CarbonStmt *);
-		if (statements.capacity == 0)
-			statements.capacity = 8;
-		else
-			statements.capacity *= 2;
-		uint32_t newCapacity = statements.capacity * sizeof(CarbonStmt *);
-
-		statements.arr =
-			carbon_reallocate(oldCapacity, newCapacity, statements.arr);
-	}
-	statements.arr[statements.count] = stmt;
-	statements.count++;
-
-#undef statements
-}
 
 CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
 							   uint32_t length) {
@@ -44,7 +24,7 @@ CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
 		   TokenEOF) {
 		CarbonStmt *stmt = carbon_parseStatement(&instance->parser);
 		if (stmt != NULL)
-			addStatement(instance, stmt);
+			carbon_stmtList_add(&instance->statements, stmt);
 	}
 	for (uint32_t i = 0; i < instance->statements.count; i++) {
 		CarbonStmt *stmt = instance->statements.arr[i];
@@ -53,22 +33,18 @@ CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
 	}
 	carbon_writeToChunk(&instance->vm.chunk, OpReturn, -1);
 
+	bool compilerHadError = instance->compiler.hadError;
+	bool parserHadError = instance->parser.hadError;
+
 	carbon_freeParser(&instance->parser);
 	carbon_freeCompiler(&instance->compiler);
-	for (uint32_t i = 0; i < instance->statements.count; i++) {
-		CarbonStmt *stmt = instance->statements.arr[i];
-		carbon_freeStmt(stmt);
-	}
-	carbon_reallocate(instance->statements.capacity * sizeof(CarbonStmt *), 0,
-					  instance->statements.arr);
-	instance->statements.capacity = 0;
-	instance->statements.capacity = 0;
+	carbon_stmtList_free(&instance->statements);
 
-	if (instance->parser.hadError)
+	if (parserHadError)
 		return Carbon_Parser_Error;
-	if (instance->compiler.hadError)
+	if (compilerHadError)
 		return Carbon_Compiler_Error;
-	//carbon_disassemble(&instance->vm.chunk);
+	carbon_disassemble(&instance->vm.chunk);
 	return carbon_run(&instance->vm);
 }
 void carbon_free(CarbonInstance *instance) {

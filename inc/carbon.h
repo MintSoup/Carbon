@@ -11,11 +11,7 @@ typedef struct {
 	CarbonParser parser;
 	CarbonCompiler compiler;
 	CarbonVM vm;
-	struct {
-		CarbonStmt** arr;
-		uint32_t count;
-		uint32_t capacity;
-	} statements;
+	StatementList statements;
 } CarbonInstance;
 
 typedef enum carbon_runresult {

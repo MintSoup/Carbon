@@ -59,4 +59,35 @@ void carbon_freeStmt(CarbonStmt *stmt) {
 	}
 }
 
+void carbon_stmtList_init(StatementList *sl) {
+	sl->arr = NULL;
+	sl->count = 0;
+	sl->capacity = 0;
+}
+void carbon_stmtList_add(StatementList *sl, CarbonStmt* stmt) {
+	if (sl->count == sl->capacity) {
+		uint32_t oldCapacity = sl->capacity * sizeof(CarbonStmt *);
+		if (sl->capacity == 0)
+			sl->capacity = 8;
+		else
+			sl->capacity *= 2;
+		uint32_t newCapacity = sl->capacity * sizeof(CarbonStmt *);
+
+		sl->arr =
+			carbon_reallocate(oldCapacity, newCapacity, sl->arr);
+	}
+	sl->arr[sl->count] = stmt;
+	sl->count++;
+}
+ 
+void carbon_stmtList_free(StatementList *sl) {
+	for (uint32_t i = 0; i < sl->count; i++) {
+		CarbonStmt *stmt = sl->arr[i];
+		carbon_freeStmt(stmt);
+	}
+	carbon_reallocate(sl->capacity * sizeof(CarbonStmt *), 0,
+					  sl->arr);
+	carbon_stmtList_init(sl);
+}
+
 #undef allocateNode
