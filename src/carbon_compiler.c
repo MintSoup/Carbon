@@ -7,11 +7,12 @@
 #include "carbon_token.h"
 #include "carbon_value.h"
 #include "utils/carbon_table.h"
+#include "utils/carbon_memory.h"
 #include "vm/carbon_chunk.h"
+#include "vm/carbon_vm.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 extern char *CarbonValueTypeName[];
 
 static CarbonToken v2token[] = {
@@ -25,7 +26,72 @@ static CarbonToken v2token[] = {
 static CarbonValueType t2value[] = {
 	[TokenInt] = ValueInt,		 [TokenUInt] = ValueUInt,
 	[TokenDouble] = ValueDouble, [TokenIdentifier] = ValueInstance,
-	[TokenBool] = ValueBool,	 [TokenString] = ValueString};
+	[TokenBool] = ValueBool,	 [TokenString] = ValueString,
+	[TokenVoid] = ValueVoid};
+
+typedef struct {
+	enum global_type { GlobalVariable, GlobalFunction } type;
+	bool declared;
+	CarbonString *name;
+	CarbonValueType valueType;
+} Global;
+
+typedef struct {
+	Global global;
+	CarbonValueType returnType;
+	uint8_t arity;
+	struct func_args {
+		CarbonString *name;
+		CarbonValueType type;
+	} * arguments;
+} GlobalFunc;
+
+#define global(name, valuetype, sizeType, type)                                \
+	newGlobal(name, valuetype, type, sizeof(sizeType))
+
+#define newVar(name, type) newGlobal(name, type, GlobalVariable, sizeof(Global))
+
+static Global *newGlobal(CarbonString *name, CarbonValueType valueType,
+						 enum global_type type, size_t size) {
+	Global *g = carbon_reallocate(0, size, NULL);
+	g->declared = false;
+	g->name = name;
+	g->type = type;
+	g->valueType = valueType;
+	return g;
+}
+
+static GlobalFunc *newFunc(CarbonString *name, CarbonValueType returnType,
+						   uint32_t arity) {
+	GlobalFunc *g =
+		(GlobalFunc *) global(name, ValueFunction, GlobalFunc, GlobalFunction);
+	g->arity = arity;
+	g->returnType = returnType;
+	g->arguments = carbon_reallocate(0, sizeof(struct func_args) * arity, NULL);
+	return g;
+}
+
+#undef global
+
+static CarbonValueType resolveLocalType(CarbonString *name, CarbonCompiler *c) {
+	for (int16_t i = c->localCount - 1; i >= 0; i--) {
+		CarbonLocal *l = &c->locals[i];
+		if (l->name == name) {
+			return l->type;
+		}
+	}
+	return ValueVoid;
+}
+
+static int16_t resolveLocal(CarbonString *name, CarbonCompiler *c) {
+	for (int16_t i = c->localCount - 1; i >= 0; i--) {
+		CarbonLocal *l = &c->locals[i];
+		if (l->name == name) {
+			return i;
+		}
+	}
+	return -1;
+}
 
 static bool canUnary(CarbonTokenType op, CarbonValueType operand) {
 	switch (operand) {
@@ -91,8 +157,76 @@ static bool canAssign(CarbonValueType to, CarbonValueType from) {
 	return (to == from) || (to <= ValueDouble && from <= to);
 }
 
+static void cantPrint(CarbonToken tok, CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Cannot print void values.\n", tok.line);
+	c->hadError = true;
+}
+
+static void expectedReturnStatement(CarbonToken func, CarbonCompiler *c) {
+	fprintf(stderr,
+			"[Line %u] Function '%.*s' needs at least one return statement.\n",
+			func.line, func.length, func.lexeme);
+	c->hadError = true;
+}
+
+static void noReturnWanted(CarbonToken tok, CarbonString *functionName,
+						   CarbonCompiler *c) {
+	fprintf(stderr,
+			"[Line %u] The function %s has a return type of void, it should "
+			"have no return statements.\n",
+			tok.line, functionName->chars);
+	c->hadError = true;
+}
+
+static void wrongReturnType(CarbonToken tok, CarbonValueType wanted,
+							CarbonValueType got, CarbonCompiler *c) {
+	fprintf(stderr,
+			"[Line %u] Wrong return type: function needs to return '%s', not "
+			"'%s'.\n",
+			tok.line, CarbonValueTypeName[wanted], CarbonValueTypeName[got]);
+	c->hadError = true;
+}
+
+static void invalidCallee(uint32_t line, CarbonExpr *expr, CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Type '%s' is not callable.\n", line,
+			CarbonValueTypeName[expr->evalsTo]);
+	c->hadError = true;
+}
+
+static void wrongArity(CarbonToken func, uint32_t wanted, uint32_t given,
+					   CarbonCompiler *c) {
+	fprintf(stderr,
+			"[Line %u] Wrong number of arguments while calling function %.*s: "
+			"Expected %u, got %u.\n",
+			func.line, func.length, func.lexeme, wanted, given);
+	c->hadError = true;
+}
+static void wrongArgumentType(CarbonToken argument, uint8_t n,
+							  CarbonValueType wanted, CarbonValueType given,
+							  CarbonCompiler *c) {
+	fprintf(stderr,
+			"[Line %u] Argument %u is of the wrong type: "
+			"Expected %s, got %s.\n",
+			argument.line, n, CarbonValueTypeName[wanted],
+			CarbonValueTypeName[given]);
+	c->hadError = true;
+}
+
+static void tooManyLocals(CarbonToken name, CarbonCompiler *c) {
+	fprintf(stderr,
+			"[Line %u] Too many locals: Not enough stack space for '%.*s'.\n",
+			name.line, name.length, name.lexeme);
+	c->hadError = true;
+}
+
+static void localRedeclaration(CarbonToken name, CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Redeclaration of local variale '%.*s'.\n",
+			name.line, name.length, name.lexeme);
+	c->hadError = true;
+}
+
 static void globalRedeclaration(CarbonToken name, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %d] Global %.*s has already been declared.\n",
+	fprintf(stderr, "[Line %u] Global %.*s has already been declared.\n",
 			name.line, name.length, name.lexeme);
 	c->hadError = true;
 }
@@ -100,14 +234,20 @@ static void globalRedeclaration(CarbonToken name, CarbonCompiler *c) {
 static void cantAssign(CarbonValueType to, CarbonValueType from, uint32_t line,
 					   CarbonCompiler *c) {
 	if (from != ValueUnresolved)
-		fprintf(stderr, "[Line %d] Cannot assign type %s to type %s\n", line,
+		fprintf(stderr, "[Line %u] Cannot assign type %s to type %s\n", line,
 				CarbonValueTypeName[from], CarbonValueTypeName[to]);
+	c->hadError = true;
+}
+static void globalFunctionAssignment(CarbonToken token, CarbonCompiler *c) {
+	fprintf(stderr,
+			"[Line %u] Global function(s) %.*s cannot be assigned to.\n",
+			token.line, token.length, token.lexeme);
 	c->hadError = true;
 }
 
 static void unaryOpNotSupported(CarbonToken op, char *type, CarbonCompiler *c) {
 	fprintf(stderr,
-			"[Line %d] Operator '%.*s' not supported for operand type %s\n",
+			"[Line %u] Operator '%.*s' not supported for operand type %s\n",
 			op.line, op.length, op.lexeme, type);
 	c->hadError = true;
 }
@@ -116,22 +256,66 @@ static void binaryOpNotSupported(CarbonToken op, char *left, char *right,
 								 CarbonCompiler *c) {
 	fprintf(
 		stderr,
-		"[Line %d] Operator '%.*s' not supported for operand types %s and %s\n",
+		"[Line %u] Operator '%.*s' not supported for operand types %s and %s\n",
 		op.line, op.length, op.lexeme, left, right);
 	c->hadError = true;
 }
 static void castNotSupported(CarbonValueType from, CarbonToken to,
 							 CarbonCompiler *c) {
 
-	fprintf(stderr, "[Line %d] Cannot cast from type %s to %.*s\n", to.line,
+	fprintf(stderr, "[Line %u] Cannot cast from type %s to %.*s\n", to.line,
 			CarbonValueTypeName[from], to.length, to.lexeme);
 	c->hadError = true;
 }
 
 static void globalNotFound(CarbonToken token, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %d] Could not resolve global %.*s\n", token.line,
+	fprintf(stderr, "[Line %u] Could not resolve global %.*s\n", token.line,
 			token.length, token.lexeme);
 	c->hadError = true;
+}
+
+void carbon_markGlobal(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
+	CarbonValue dummy;
+	switch (stmt->type) {
+		case StmtVarDec: {
+			CarbonStmtVarDec *vardec = (CarbonStmtVarDec *) stmt;
+			CarbonString *name = carbon_copyString(
+				vardec->identifier.lexeme, vardec->identifier.length, vm);
+			if (carbon_tableGet(&c->globals, (CarbonObj *) name, &dummy)) {
+				globalRedeclaration(vardec->identifier, c);
+				break;
+			}
+			Global *var = newVar(name, t2value[vardec->type.type]);
+			carbon_tableSet(&c->globals, (CarbonObj *) name,
+							CarbonObject((CarbonObj *) var));
+			break;
+		}
+		case StmtFunc: {
+			CarbonStmtFunc *func = (CarbonStmtFunc *) stmt;
+			CarbonString *name = carbon_copyString(func->identifier.lexeme,
+												   func->identifier.length, vm);
+			if (carbon_tableGet(&c->globals, (CarbonObj *) name, &dummy)) {
+				globalRedeclaration(func->identifier, c);
+				break;
+			}
+			CarbonValueType returnType = t2value[func->returnType.type];
+			GlobalFunc *g = newFunc(name, returnType, func->arity);
+			g->arity = func->arity;
+			for (uint32_t i = 0; i < func->arity; i++) {
+				struct carbon_arg argument = func->arguments[i];
+				CarbonValueType type = t2value[argument.type.type];
+				CarbonString *name = carbon_copyString(
+					argument.name.lexeme, argument.name.length, vm);
+				g->arguments[i].name = name;
+				g->arguments[i].type = type;
+			}
+			carbon_tableSet(&c->globals, (CarbonObj *) name,
+							CarbonObject((CarbonObj *) g));
+			break;
+		}
+		default:
+			break;
+	}
 }
 
 static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
@@ -289,11 +473,19 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			CarbonString *name =
 				carbon_copyString(var->token.lexeme, var->token.length, vm);
 
-			CarbonValue out;
-			if (carbon_tableGet(&c->globals, (CarbonObj *) name, &out)) {
-				expr->evalsTo = out.uint;
+			CarbonValueType l = resolveLocalType(name, c);
+			if (l != ValueVoid) {
+				expr->evalsTo = l;
 				return;
 			}
+
+			Global *out;
+			if (carbon_tableGet(&c->globals, (CarbonObj *) name,
+								(CarbonValue *) &out))
+				if (out->declared || c->compilingTo != NULL) {
+					expr->evalsTo = ((Global *) out)->valueType;
+					return;
+				}
 			globalNotFound(var->token, c);
 			expr->evalsTo = ValueUnresolved;
 			return;
@@ -306,28 +498,90 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			}
 
 			typecheck(assignment->right, c, vm);
-			CarbonValue leftType;
 			CarbonString *name = carbon_copyString(assignment->left.lexeme,
 												   assignment->left.length, vm);
-			if (carbon_tableGet(&c->globals, (CarbonObj *) name, &leftType)) {
-				if (!canAssign(leftType.uint, assignment->right->evalsTo)) {
-					cantAssign(leftType.uint, assignment->right->evalsTo,
+			CarbonValueType leftType;
+
+			CarbonValueType l = resolveLocalType(name, c);
+			bool found = false;
+			bool global;
+			if (l != ValueVoid) {
+				leftType = l;
+				found = true;
+				global = false;
+			} else {
+				Global *out;
+				carbon_tableGet(&c->globals, (CarbonObj *) name,
+								(CarbonValue *) &out);
+				leftType = out->valueType;
+				found = out->declared || c->compilingTo != NULL;
+				global = true;
+			}
+			if (found) {
+				if (leftType == ValueFunction && global) {
+					globalFunctionAssignment(assignment->left, c);
+				}
+				if (!canAssign(leftType, assignment->right->evalsTo)) {
+					cantAssign(leftType, assignment->right->evalsTo,
 							   assignment->left.line, c);
 					expr->evalsTo = ValueUnresolved;
 					return;
 				}
-				if (leftType.uint <= ValueDouble &&
-					assignment->right->evalsTo < leftType.uint) {
+				if (leftType <= ValueDouble &&
+					assignment->right->evalsTo < leftType) {
 					assignment->right = (CarbonExpr *) carbon_newCastExpr(
-						v2token[leftType.uint], assignment->right);
-					assignment->right->evalsTo = leftType.uint;
+						v2token[leftType], assignment->right);
+					assignment->right->evalsTo = leftType;
 				}
-				expr->evalsTo = leftType.uint;
+				expr->evalsTo = leftType;
 				return;
 			}
+
 			globalNotFound(assignment->left, c);
 			expr->evalsTo = ValueUnresolved;
+
 			return;
+		}
+		case ExprCall: {
+			CarbonExprCall *call = (CarbonExprCall *) expr;
+			if (call->callee == NULL)
+				return;
+			typecheck(call->callee, c, vm);
+			if (call->callee->evalsTo != ValueFunction &&
+				call->callee->evalsTo != ValueUnresolved) {
+				invalidCallee(call->line, call->callee, c);
+				break;
+			}
+			CarbonExprVar *var = (CarbonExprVar *) call->callee;
+			CarbonString *name =
+				carbon_copyString(var->token.lexeme, var->token.length, vm);
+			GlobalFunc *g;
+			if (!carbon_tableGet(&c->globals, (CarbonObj *) name,
+								 (CarbonValue *) &g))
+				break;
+
+			if (g->arity != call->arity) {
+				wrongArity(var->token, g->arity, call->arity, c);
+				break;
+			}
+
+			for (uint8_t i = 0; i < g->arity; i++) {
+				typecheck(call->arguments[i], c, vm);
+				if (!canAssign(g->arguments[i].type,
+							   call->arguments[i]->evalsTo)) {
+					wrongArgumentType(var->token, i, g->arguments[i].type,
+									  call->arguments[i]->evalsTo, c);
+					break;
+				}
+				CarbonValueType wants = g->arguments[i].type;
+				CarbonValueType given = call->arguments[i]->evalsTo;
+				if (wants <= ValueDouble && given < wants) {
+					call->arguments[i] = (CarbonExpr *) carbon_newCastExpr(
+						v2token[wants], call->arguments[i]);
+				}
+			}
+			expr->evalsTo = g->returnType;
+			break;
 		}
 		default:
 			fprintf(stderr, "COMPILER BUG: UNKNOWN EXPRESSION TYPE");
@@ -599,6 +853,14 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 			CarbonExprVar *var = (CarbonExprVar *) expr;
 			CarbonString *name =
 				carbon_copyString(var->token.lexeme, var->token.length, vm);
+
+			int16_t slot = resolveLocal(name, c);
+			if (slot != -1) {
+				carbon_writeToChunk(chunk, OpGetLocal, var->token.line);
+				carbon_writeToChunk(chunk, slot & 0xFF, var->token.line);
+				break;
+			}
+
 			uint16_t index =
 				carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
 			if (index > UINT8_MAX) {
@@ -615,6 +877,14 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 			CarbonString *name = carbon_copyString(assignment->left.lexeme,
 												   assignment->left.length, vm);
 			carbon_compileExpression(assignment->right, chunk, c, vm);
+
+			int16_t slot = resolveLocal(name, c);
+			if (slot != -1) {
+				carbon_writeToChunk(chunk, OpSetLocal, assignment->left.line);
+				carbon_writeToChunk(chunk, slot & 0xFF, assignment->left.line);
+				break;
+			}
+
 			uint16_t index =
 				carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
 			if (index > UINT8_MAX) {
@@ -625,6 +895,16 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 			carbon_writeToChunk(chunk, OpSetGlobalInline,
 								assignment->left.line);
 			carbon_writeToChunk(chunk, index & 0xFF, assignment->left.line);
+			break;
+		}
+		case ExprCall: {
+			CarbonExprCall *call = (CarbonExprCall *) expr;
+			carbon_compileExpression(call->callee, chunk, c, vm);
+			for (uint8_t i = 0; i < call->arity; i++) {
+				carbon_compileExpression(call->arguments[i], chunk, c, vm);
+			}
+			carbon_writeToChunk(chunk, OpCall, call->line);
+			carbon_writeToChunk(chunk, call->arity, call->line);
 			break;
 		}
 	}
@@ -672,6 +952,9 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 				case ValueBool:
 					op = OpPrintBool;
 					break;
+				case ValueVoid:
+					cantPrint(print->token, c);
+					break;
 				default:
 					op = OpPrintObj;
 					break;
@@ -684,27 +967,30 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 			if (expr->expression == NULL)
 				break;
 			carbon_compileExpression(expr->expression, chunk, c, vm);
-			emit(OpPop, expr->last.line);
+			if (expr->expression->evalsTo != ValueVoid)
+				emit(OpPop, expr->last.line);
 			break;
 		}
 		case StmtVarDec: {
 			CarbonStmtVarDec *vardec = (CarbonStmtVarDec *) stmt;
-			CarbonValueType vartype = t2value[vardec->type.type];
 			CarbonString *name = carbon_copyString(
 				vardec->identifier.lexeme, vardec->identifier.length, vm);
 
-			CarbonValue dummy;
-			if (carbon_tableGet(&c->globals, (CarbonObj *) name, &dummy)) {
-				globalRedeclaration(vardec->identifier, c);
-			}
+			bool isLocal = c->compilingTo != NULL;
+
+			Global *g;
+			carbon_tableGet(&c->globals, (CarbonObj *) name,
+							(CarbonValue *) &g);
+
+			CarbonValueType vartype = t2value[vardec->type.type];
 
 			if (vardec->initializer != NULL) {
 				typecheck(vardec->initializer, c, vm);
 				if (!canAssign(vartype, vardec->initializer->evalsTo)) {
 					cantAssign(vartype, vardec->initializer->evalsTo,
 							   vardec->identifier.line, c);
-					carbon_tableSet(&c->globals, (CarbonObj *) name,
-									CarbonUInt(vartype));
+					if (!isLocal)
+						g->declared = true;
 					break;
 				} else {
 					CarbonExpr *init = vardec->initializer;
@@ -724,19 +1010,109 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 					emit(OpPush0, vardec->identifier.line);
 			}
 
-			uint16_t index =
-				carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
-			if (index > UINT8_MAX) {
-				push(index, chunk,
-						  vardec->identifier);
-				emit(OpSetGlobal, vardec->identifier.line);
+			if (!isLocal) {
+				g->declared = true;
+				uint16_t index =
+					carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
+				if (index > UINT8_MAX) {
+					push(index, chunk, vardec->identifier);
+					emit(OpSetGlobal, vardec->identifier.line);
+				} else {
+					emit(OpSetGlobalInline, vardec->identifier.line);
+					emit(index, vardec->identifier.line);
+				}
+				emit(OpPop, vardec->identifier.line);
+				if (!isObject(vartype))
+					carbon_tableSet(&vm->primitives, (CarbonObj *) name,
+									CarbonUInt(0));
 			} else {
-				emit(OpSetGlobalInline, vardec->identifier.line);
-				emit(index, vardec->identifier.line);
+				int16_t depth = resolveLocal(name, c);
+				if (depth != c->depth) {
+					CarbonLocal l = {c->depth, name, vartype};
+					if (c->localCount != 255)
+						c->locals[c->localCount++] = l;
+					else {
+						tooManyLocals(vardec->identifier, c);
+					}
+				} else {
+					localRedeclaration(vardec->identifier, c);
+				}
 			}
-			emit(OpPop, vardec->identifier.line);
-			carbon_tableSet(&c->globals, (CarbonObj *) name,
-							CarbonUInt(vartype));
+			break;
+		}
+		case StmtFunc: {
+			CarbonStmtFunc *sfunc = (CarbonStmtFunc *) stmt;
+			CarbonString *name = carbon_copyString(
+				sfunc->identifier.lexeme, sfunc->identifier.length, vm);
+
+			Global *g;
+			carbon_tableGet(&c->globals, (CarbonObj *) name,
+							(CarbonValue *) &g);
+
+			CarbonValueType returnType = t2value[sfunc->returnType.type];
+			CarbonFunction *ofunc =
+				carbon_newFunction(name, sfunc->arity, returnType, vm);
+			c->compilingTo = ofunc;
+			g->declared = true;
+			c->localCount = sfunc->arity;
+			for (uint8_t i = 0; i < sfunc->arity; i++) {
+				CarbonToken name = sfunc->arguments[i].name;
+				c->locals[i].depth = 0;
+				c->locals[i].name =
+					carbon_copyString(name.lexeme, name.length, vm);
+				c->locals[i].type = t2value[sfunc->arguments[i].type.type];
+			}
+			bool hadReturn = false;
+
+			for (uint32_t i = 0; i < sfunc->statements.count; i++) {
+				if (sfunc->statements.arr[i]->type == StmtReturn)
+					hadReturn = true;
+				carbon_compileStatement(sfunc->statements.arr[i], &ofunc->chunk,
+										c, vm);
+			}
+			if (!hadReturn && c->compilingTo->returnType != ValueVoid) {
+				expectedReturnStatement(sfunc->identifier, c);
+			}
+
+			c->compilingTo = NULL;
+			c->localCount = 0;
+			if (returnType == ValueVoid) {
+				carbon_writeToChunk(&ofunc->chunk, OpReturnVoid, sfunc->end);
+			}
+			carbon_tableSet(&vm->globals, (CarbonObj *) name,
+							CarbonObject((CarbonObj *) ofunc));
+
+			break;
+		}
+		case StmtReturn: {
+			CarbonStmtReturn *ret = (CarbonStmtReturn *) stmt;
+			if (ret->expression != NULL) {
+				if (c->compilingTo->returnType == ValueVoid) {
+					noReturnWanted(ret->token, c->compilingTo->name, c);
+					break;
+				}
+				typecheck(ret->expression, c, vm);
+				if (ret->expression->evalsTo == ValueUnresolved)
+					break;
+				CarbonValueType wanted = c->compilingTo->returnType;
+				CarbonValueType given = ret->expression->evalsTo;
+				if (!canAssign(wanted, given)) {
+					wrongReturnType(ret->token, wanted, given, c);
+				}
+				if (wanted <= ValueDouble && given < wanted) {
+					ret->expression = (CarbonExpr *) carbon_newCastExpr(
+						v2token[wanted], ret->expression);
+				}
+				carbon_compileExpression(ret->expression, chunk, c, vm);
+				carbon_writeToChunk(chunk, OpReturn, ret->token.line);
+				break;
+			}
+			if (c->compilingTo->returnType != ValueVoid) {
+				wrongReturnType(ret->token, c->compilingTo->returnType,
+								ValueVoid, c);
+				break;
+			}
+			carbon_writeToChunk(chunk, OpReturnVoid, ret->token.line);
 			break;
 		}
 	}
@@ -746,10 +1122,28 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 void carbon_initCompiler(CarbonCompiler *compiler, CarbonParser *parser) {
 	compiler->hadError = false;
 	compiler->parserHadError = parser->hadError;
+	compiler->compilingTo = NULL;
+	compiler->localCount = 0;
+	compiler->depth = 0;
 	carbon_tableInit(&compiler->globals);
 }
 void carbon_freeCompiler(CarbonCompiler *compiler) {
 	compiler->hadError = false;
 	compiler->parserHadError = false;
+	for (uint32_t i = 0; i < compiler->globals.capacity; i++) {
+		if (compiler->globals.entries[i].key != NULL) {
+			Global *g = (Global *) compiler->globals.entries[i].value.obj;
+			if (g->type == GlobalVariable)
+				carbon_reallocate(sizeof(Global), 0, g);
+			else if (g->type == GlobalFunction) {
+				GlobalFunc *f = (GlobalFunc *) g;
+				carbon_reallocate(sizeof(struct func_args) * f->arity, 0,
+								  f->arguments);
+				carbon_reallocate(sizeof(GlobalFunc), 0, g);
+			}
+		}
+	}
 	carbon_tableFree(&compiler->globals);
 }
+
+#undef newVar

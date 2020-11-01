@@ -1,3 +1,8 @@
-int a = 6;
-print(a)
-print(3>false)
+void main():
+	print(add(3.4, 10 - 3.4))
+end
+
+double add(double a, double b):
+	return a + b
+end
+

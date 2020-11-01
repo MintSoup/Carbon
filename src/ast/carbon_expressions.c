@@ -73,6 +73,16 @@ CarbonExprAssignment *carbon_newAssignmentExpr(CarbonToken left,
 	return assignment;
 }
 
+CarbonExprCall *carbon_newCallExpr(CarbonExpr *callee, uint32_t line) {
+	CarbonExprCall *call =
+		(CarbonExprCall *) allocateNode(CarbonExprCall, ExprCall);
+	call->callee = callee;
+	call->arity = 0;
+	call->arguments = 0;
+	call->line = line;
+	return call;
+}
+
 void carbon_freeExpr(CarbonExpr *expr) {
 	if (expr == NULL)
 		return;
@@ -114,6 +124,17 @@ void carbon_freeExpr(CarbonExpr *expr) {
 			CarbonExprAssignment *assignment = (CarbonExprAssignment *) expr;
 			carbon_freeExpr(assignment->right);
 			carbon_reallocate(sizeof(CarbonExprAssignment), 0, expr);
+			break;
+		}
+		case ExprCall: {
+			CarbonExprCall* call = (CarbonExprCall*) expr;
+			for(uint8_t i = 0; i < call->arity; i++){
+				carbon_freeExpr(call->arguments[i]);
+			}
+			size_t oldSize = call->argumentCapacity * sizeof(CarbonExpr*);
+			carbon_reallocate(oldSize, 0, call->arguments);
+			carbon_freeExpr(call->callee);
+			carbon_reallocate(sizeof(CarbonExprCall), 0, expr);
 			break;
 		}
 	}

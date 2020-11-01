@@ -2,6 +2,7 @@
 #include "carbon_value.h"
 #include "utils/carbon_memory.h"
 #include "utils/carbon_table.h"
+#include "vm/carbon_chunk.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -64,6 +65,17 @@ CarbonString *carbon_takeString(char *chars, uint32_t length, CarbonVM *vm) {
 	return str;
 }
 
+CarbonFunction *carbon_newFunction(CarbonString *name, uint32_t arity, CarbonValueType returnType,
+								   CarbonVM *vm) {
+	CarbonFunction *func =
+		(CarbonFunction *) ALLOC(CarbonFunction, CrbnObjFunc);
+	func->arity = arity;
+	func->name = name;
+	func->returnType = returnType;
+	carbon_initChunk(&func->chunk);
+	return func;
+}
+
 void carbon_freeObject(CarbonObj *obj, CarbonVM *vm) {
 
 	CarbonObj *current = vm->objects;
@@ -83,7 +95,13 @@ void carbon_freeObject(CarbonObj *obj, CarbonVM *vm) {
 		case CrbnObjString: {
 			CarbonString *str = (CarbonString *) obj;
 			carbon_reallocateObj(str->length + 1, 0, str->chars, vm);
-			carbon_reallocateObj(sizeof(CarbonString), 0, str, vm);
+			carbon_reallocateObj(sizeof(CarbonString), 0, obj, vm);
+			break;
+		}
+		case CrbnObjFunc: {
+			CarbonFunction *func = (CarbonFunction *) obj;
+			carbon_freeChunk(&func->chunk);
+			carbon_reallocateObj(sizeof(CarbonFunction), 0, obj, vm);	
 			break;
 		}
 	}

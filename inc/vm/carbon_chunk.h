@@ -8,10 +8,12 @@ typedef enum {
 	OpLoadConstant,
 	OpLoadConstant16,
 	OpReturn,
+	OpReturnVoid,
 	OpConcat,
 	OpPop,
 	OpPush0,
 	OpPush1,
+	OpCall,
 
 	// Binary Operations
 	OpAddInt,
@@ -60,7 +62,9 @@ typedef enum {
 	OpSetGlobal,
 	OpGetGlobal,
 	OpSetGlobalInline,
-	OpGetGlobalInline
+	OpGetGlobalInline,
+	OpSetLocal,
+	OpGetLocal,
 	
 
 } CarbonOpCode;

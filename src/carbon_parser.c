@@ -7,6 +7,7 @@
 #include "carbon_parser.h"
 #include "utils/carbon_memory.h"
 #include "ast/carbon_statements.h"
+#include <string.h>
 #include <stdio.h>
 
 static void error(CarbonToken at, char *msg, CarbonParser *p) {
@@ -87,6 +88,7 @@ static void sync(CarbonParser *p) {
 			case TokenPrint:
 			case TokenReturn:
 			case TokenClass:
+			case TokenVoid:
 				p->panic = false;
 				return;
 			case TokenEnd:
@@ -185,6 +187,21 @@ void carbon_freeParser(CarbonParser *p) {
 	carbon_reallocate(p->totalTokens * sizeof(CarbonToken), 0, p->tokens);
 }
 
+static bool isTypename(CarbonToken token) {
+	switch (token.type) {
+		case TokenUInt:
+		case TokenInt:
+		case TokenString:
+		case TokenBool:
+		case TokenDouble:
+			return true;
+		default:
+			return false;
+	}
+}
+
+static CarbonStmtFunc *funcDeclaration(CarbonParser *p);
+static CarbonStmtReturn *returnStatement(CarbonParser *p);
 static CarbonStmtPrint *printStatement(CarbonParser *p);
 static CarbonStmtExpr *expressionStatement(CarbonParser *p);
 static CarbonStmtVarDec *varDeclaration(CarbonParser *p);
@@ -195,6 +212,7 @@ static CarbonExpr *comparison(CarbonParser *p);
 static CarbonExpr *addition(CarbonParser *p);
 static CarbonExpr *multiplication(CarbonParser *p);
 static CarbonExpr *unary(CarbonParser *p);
+static CarbonExpr *postfix(CarbonParser *p);
 static CarbonExpr *primary(CarbonParser *p);
 
 static CarbonExpr *expression(CarbonParser *p) {
@@ -204,28 +222,131 @@ static CarbonExpr *expression(CarbonParser *p) {
 static CarbonStmt *statement(CarbonParser *p) {
 	if (p->panic)
 		sync(p);
-	switch (peek(p).type) {
-		case TokenEOF:
-			return NULL;
-		case TokenPrint:
-			return (CarbonStmt *) printStatement(p);
-		case TokenUInt:
-		case TokenInt:
-		case TokenString:
-		case TokenBool:
-		case TokenDouble:
-			return (CarbonStmt *) varDeclaration(p);
-		default:
-			return (CarbonStmt *) expressionStatement(p);
-	}
+	CarbonToken n = peek(p);
+	if (n.type == TokenEOF)
+		return NULL;
+	else if (n.type == TokenPrint)
+		return (CarbonStmt *) printStatement(p);
+	else if (isTypename(n))
+		return (CarbonStmt *) varDeclaration(p);
+	else if (n.type == TokenReturn)
+		return (CarbonStmt *) returnStatement(p);
+	else
+		return (CarbonStmt *) expressionStatement(p);
 }
 
 CarbonStmt *carbon_parseStatement(CarbonParser *p) {
-	return statement(p);
+	if (p->panic)
+		sync(p);
+	CarbonToken n = peek(p);
+	if (n.type == TokenEOF)
+		return NULL;
+	else if (isTypename(n)) {
+		CarbonToken third = peekn(2, p);
+		if (third.type == TokenLeftParen)
+			return (CarbonStmt *) funcDeclaration(p);
+		return (CarbonStmt *) varDeclaration(p);
+	} else if (n.type == TokenVoid) {
+		return (CarbonStmt *) funcDeclaration(p);
+	} else {
+		next(p);
+		error(previous(p), "Only declarations are allowed in top-level code.",
+			  p);
+		return NULL;
+	}
 }
 
 CarbonExpr *carbon_parseExpression(CarbonParser *p) {
 	return expression(p);
+}
+
+static CarbonStmtFunc *funcDeclaration(CarbonParser *p) {
+	CarbonToken returnType = next(p);
+	CarbonToken identifier = next(p);
+	consume(TokenLeftParen, "Expected '(' after function identifier.", p);
+	CarbonStmtFunc *func = carbon_newFuncStmt(returnType, identifier);
+	bool tooMany = false;
+	if (!match(TokenRightParen, p)) {
+		do {
+			CarbonToken type = next(p);
+			CarbonToken name = next(p);
+			if (!isTypename(type) && type.type != TokenVoid) {
+				error(type, "Type name expected", p);
+			} else {
+				bool defined = false;
+				for (uint8_t i = 0; i < func->arity; i++) {
+					CarbonToken arg = func->arguments[i].name;
+					if (arg.length == name.length &&
+						memcmp(arg.lexeme, name.lexeme, arg.length) == 0) {
+						defined = true;
+						error(name,
+							  "Function argument with that name has already "
+							  "been defined",
+							  p);
+						break;
+					}
+				}
+				if (!defined) {
+					if (func->arity == 255) {
+						if (!tooMany)
+							error(name,
+								  "Functions can have a maximum of "
+								  "255 arguments.",
+								  p);
+						tooMany = true;
+					} else {
+						if (func->arity == func->argumentCapacity) {
+							uint32_t oldSize = sizeof(struct carbon_arg) *
+											   func->argumentCapacity;
+							if (func->argumentCapacity == 0)
+								func->argumentCapacity = 4;
+							else
+								func->argumentCapacity *= 2;
+							uint32_t newSize = func->argumentCapacity *
+											   sizeof(struct carbon_arg);
+							func->arguments = carbon_reallocate(
+								oldSize, newSize, func->arguments);
+						}
+						struct carbon_arg arg = {type, name};
+						func->arguments[func->arity] = arg;
+						func->arity++;
+					}
+				}
+			}
+		} while (match(TokenComma, p));
+		consume(TokenRightParen, "Expected ')' after function argument list",
+				p);
+	}
+	consume(TokenColon, "Expected ':' after function declaration", p);
+	while (peek(p).type != TokenEnd) {
+		if (peek(p).type == TokenEOF) {
+			errorAtCurrent("Unexpected EOF inside function", p);
+			return func;
+		}
+		CarbonStmt *stmt = statement(p);
+		if (stmt != NULL) {
+			if (stmt->type == StmtFunc) {
+				CarbonStmtFunc *f = (CarbonStmtFunc *) stmt;
+				error(f->identifier, "Nested functions are not supported", p);
+			} else {
+				carbon_stmtList_add(&func->statements, stmt);
+			}
+		}
+	}
+	consume(TokenEnd, "Expected 'end' after function body", p);
+	func->end = previous(p).line;
+	return func;
+}
+
+static CarbonStmtReturn *returnStatement(CarbonParser *p) {
+	CarbonToken tok = next(p);
+	CarbonStmtReturn *ret = carbon_newReturnStmt(tok);
+	if (match(TokenEOS, p)) {
+		return ret;
+	}
+	ret->expression = expression(p);
+	consume(TokenEOS, "Expected EOS after return statement", p);
+	return ret;
 }
 
 static CarbonStmtPrint *printStatement(CarbonParser *p) {
@@ -327,21 +448,56 @@ static CarbonExpr *unary(CarbonParser *p) {
 		return (CarbonExpr *) carbon_newUnaryExpr(unary(p), tok);
 	}
 	if (peek(p).type == TokenLeftParen && peekn(2, p).type == TokenRightParen) {
-		switch (peekn(1, p).type) {
-			case TokenBool:
-			case TokenInt:
-			case TokenUInt:
-			case TokenDouble: {
-				next(p);
-				CarbonToken to = next(p);
-				next(p);
-				return (CarbonExpr *) carbon_newCastExpr(to, unary(p));
-			}
-			default:
-				break;
+		if (isTypename(peekn(1, p))) {
+			next(p);
+			CarbonToken to = next(p);
+			next(p);
+			return (CarbonExpr *) carbon_newCastExpr(to, unary(p));
 		}
 	}
-	return primary(p);
+	return postfix(p);
+}
+
+static CarbonExpr *postfix(CarbonParser *p) {
+	CarbonExpr *expr = primary(p);
+	if (match(TokenLeftParen, p)) {
+		CarbonExprCall *call = carbon_newCallExpr(expr, previous(p).line);
+		bool tooMany = false;
+		if (!match(TokenRightParen, p)) {
+			do {
+				if (!tooMany && call->arity == 255) {
+					errorAtCurrent(
+						"Functions can have a maximum of 255 arguments.", p);
+					tooMany = true;
+				}
+				CarbonExpr *e = expression(p);
+				if (tooMany) {
+					carbon_freeExpr(e);
+					continue;
+				}
+				if (e != NULL) {
+					if (call->arity == call->argumentCapacity) {
+						uint32_t oldSize =
+							call->argumentCapacity * sizeof(CarbonExpr);
+						if (call->argumentCapacity == 0)
+							call->argumentCapacity = 8;
+						else
+							call->argumentCapacity *= 2;
+						uint32_t newSize =
+							call->argumentCapacity * sizeof(CarbonExpr *);
+						call->arguments = carbon_reallocate(oldSize, newSize,
+															call->arguments);
+					}
+					call->arguments[call->arity] = e;
+					call->arity++;
+				}
+			} while (match(TokenComma, p));
+			consume(TokenRightParen,
+					"Expected ')' after function call arguments.", p);
+		}
+		return (CarbonExpr *) call;
+	}
+	return expr;
 }
 
 static CarbonExpr *primary(CarbonParser *p) {

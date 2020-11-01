@@ -1,5 +1,6 @@
 #include "ast/carbon_statements.h"
 #include "ast/carbon_expressions.h"
+#include "carbon_object.h"
 #include "carbon_token.h"
 #include "utils/carbon_memory.h"
 
@@ -9,6 +10,19 @@ static CarbonStmt *allocate(size_t size, CarbonStmtType type) {
 	CarbonStmt *stmt = (CarbonStmt *) carbon_reallocate(0, size, NULL);
 	stmt->type = type;
 	return stmt;
+}
+
+CarbonStmtFunc *carbon_newFuncStmt(CarbonToken returnType,
+								   CarbonToken identifier) {
+	CarbonStmtFunc *func =
+		(CarbonStmtFunc *) allocateNode(CarbonStmtFunc, StmtFunc);
+	func->returnType = returnType;
+	func->identifier = identifier;
+	func->arguments = NULL;
+	func->arity = 0;
+	func->argumentCapacity = 0;
+	carbon_stmtList_init(&func->statements);
+	return func;
 }
 
 CarbonStmtPrint *carbon_newPrintStmt(CarbonExpr *expr, CarbonToken token) {
@@ -36,6 +50,13 @@ CarbonStmtVarDec *carbon_newVarDecStmt(CarbonToken identifier, CarbonToken type,
 	return vardec;
 }
 
+CarbonStmtReturn *carbon_newReturnStmt(CarbonToken token){
+	CarbonStmtReturn *ret =
+		(CarbonStmtReturn *) allocateNode(CarbonStmtReturn, StmtReturn);
+	ret->token = token;
+	return ret;
+}
+
 void carbon_freeStmt(CarbonStmt *stmt) {
 	switch (stmt->type) {
 		case StmtPrint: {
@@ -56,15 +77,30 @@ void carbon_freeStmt(CarbonStmt *stmt) {
 			carbon_reallocate(sizeof(CarbonStmtVarDec), 0, stmt);
 			break;
 		}
+		case StmtFunc: {
+			CarbonStmtFunc *func = (CarbonStmtFunc *) stmt;
+			carbon_reallocate(sizeof(struct carbon_arg) *
+								  func->argumentCapacity,
+							  0, func->arguments);
+			carbon_stmtList_free(&func->statements);
+			carbon_reallocate(sizeof(CarbonStmtFunc), 0, stmt);
+			break;
+		}
+		case StmtReturn: {
+			CarbonStmtReturn *ret = (CarbonStmtReturn *) stmt;
+			carbon_freeExpr(ret->expression);
+			carbon_reallocate(sizeof(CarbonStmtReturn), 0, stmt);
+			break;
+		}
 	}
 }
 
-void carbon_stmtList_init(StatementList *sl) {
+void carbon_stmtList_init(CarbonStmtList *sl) {
 	sl->arr = NULL;
 	sl->count = 0;
 	sl->capacity = 0;
 }
-void carbon_stmtList_add(StatementList *sl, CarbonStmt* stmt) {
+void carbon_stmtList_add(CarbonStmtList *sl, CarbonStmt *stmt) {
 	if (sl->count == sl->capacity) {
 		uint32_t oldCapacity = sl->capacity * sizeof(CarbonStmt *);
 		if (sl->capacity == 0)
@@ -73,20 +109,18 @@ void carbon_stmtList_add(StatementList *sl, CarbonStmt* stmt) {
 			sl->capacity *= 2;
 		uint32_t newCapacity = sl->capacity * sizeof(CarbonStmt *);
 
-		sl->arr =
-			carbon_reallocate(oldCapacity, newCapacity, sl->arr);
+		sl->arr = carbon_reallocate(oldCapacity, newCapacity, sl->arr);
 	}
 	sl->arr[sl->count] = stmt;
 	sl->count++;
 }
- 
-void carbon_stmtList_free(StatementList *sl) {
+
+void carbon_stmtList_free(CarbonStmtList *sl) {
 	for (uint32_t i = 0; i < sl->count; i++) {
 		CarbonStmt *stmt = sl->arr[i];
 		carbon_freeStmt(stmt);
 	}
-	carbon_reallocate(sl->capacity * sizeof(CarbonStmt *), 0,
-					  sl->arr);
+	carbon_reallocate(sl->capacity * sizeof(CarbonStmt *), 0, sl->arr);
 	carbon_stmtList_init(sl);
 }
 

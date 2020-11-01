@@ -63,6 +63,7 @@ typedef enum {
 	TokenTrue,
 	TokenFalse,
 	TokenPrint,
+	TokenVoid,
 	TokenNull,
 	TokenNone
 } CarbonTokenType;

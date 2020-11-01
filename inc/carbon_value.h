@@ -8,13 +8,14 @@ typedef enum {
 	ValueUInt,	 // The order of these three is important
 	ValueInt,	 // The order of these three is important
 	ValueDouble, // The order of these three is important
-	ValueString,
 	ValueBool,
+	ValueString,
 	ValueInstance,
 	ValueHashtable,
 	ValueArray,
 	ValueFunction,
 	ValueError,
+	ValueVoid,
 	ValueUnresolved,
 	ValueUntypechecked
 } CarbonValueType;

@@ -11,7 +11,7 @@ typedef struct {
 	CarbonParser parser;
 	CarbonCompiler compiler;
 	CarbonVM vm;
-	StatementList statements;
+	CarbonStmtList statements;
 } CarbonInstance;
 
 typedef enum carbon_runresult {
@@ -25,3 +25,5 @@ CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
 							   uint32_t length);
 void carbon_init(CarbonInstance *instance);
 void carbon_free(CarbonInstance *instance);
+bool carbon_isPrimitive(CarbonInstance *instance, char *name) ;
+bool carbon_getValue(CarbonInstance *instance, char *name, CarbonValue *out) ;

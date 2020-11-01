@@ -37,8 +37,23 @@ int main(int argc, char *argv[]) {
 	CarbonInstance instance;
 	carbon_init(&instance);
 
-	carbon_execute(&instance, t, size);
+	CarbonRunResult isOk = carbon_execute(&instance, t, size);
 
+	if (isOk == Carbon_OK) {
+		CarbonValue mainFunction;
+		bool success = false;
+		if (carbon_getValue(&instance, "main", &mainFunction))
+			if (!carbon_isPrimitive(&instance, "main"))
+				if (mainFunction.obj->type == CrbnObjFunc) {
+					CarbonFunction *func = (CarbonFunction *) mainFunction.obj;
+					if (func->arity == 0 && func->returnType == ValueVoid) {
+						carbon_run(&instance.vm, func);
+						success = true;
+					}
+				}
+		if (!success)
+			printf("Need void main() function in the code\n");
+	}
 	carbon_free(&instance);
 
 	free(t);

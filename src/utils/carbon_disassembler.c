@@ -9,9 +9,11 @@ static char *names[] = {
 	[OpLoadConstant] = "load",
 	[OpLoadConstant16] = "load16",
 	[OpReturn] = "return",
+	[OpReturnVoid] = "vreturn",
 	[OpPop] = "pop",
-	[OpPush0] = "false",
-	[OpPush1] = "true",
+	[OpPush0] = "push0",
+	[OpPush1] = "push1",
+	[OpCall] = "call",
 
 	// Binary Operations
 	[OpAddInt] = "iadd",
@@ -55,12 +57,12 @@ static char *names[] = {
 	[OpPrintBool] = "bprint",
 	[OpPrintObj] = "oprint",
 
-
-
 	[OpSetGlobal] = "globset",
 	[OpGetGlobal] = "globget",
 	[OpSetGlobalInline] = "nglobset",
-	[OpGetGlobalInline] = "nglobget"
+	[OpGetGlobalInline] = "nglobget",
+	[OpSetLocal] = "locset",
+	[OpGetLocal] = "locget"
 
 };
 
@@ -74,6 +76,7 @@ void carbon_disassemble(CarbonChunk *chunk) {
 
 		switch (*ip) {
 			case OpReturn:
+			case OpReturnVoid:
 			case OpAddInt:
 			case OpAddDouble:
 			case OpSubInt:
@@ -115,8 +118,13 @@ void carbon_disassemble(CarbonChunk *chunk) {
 				ip++;
 				break;
 			case OpLoadConstant:
+			case OpGetGlobalInline:
+			case OpSetGlobalInline:
+			case OpSetLocal:
+			case OpGetLocal:
+			case OpCall:
 				ip++;
-				printf("\t%d", *ip);
+				printf("\t%u", *ip);
 				ip++;
 				break;
 			case OpLoadConstant16:
@@ -125,12 +133,6 @@ void carbon_disassemble(CarbonChunk *chunk) {
 				ip++;
 				uint8_t lower = *ip;
 				printf("\t%d", (higher << 8) | lower);
-				ip++;
-				break;
-			case OpGetGlobalInline:
-			case OpSetGlobalInline:
-				ip++;
-				printf("\t%d", *ip);
 				ip++;
 				break;
 		}

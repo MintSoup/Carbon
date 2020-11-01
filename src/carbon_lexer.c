@@ -37,6 +37,7 @@ struct Identifier identifierList[] = {
 	{.name = "false", .type = TokenFalse},
 	{.name = "true", .type = TokenTrue},
 	{.name = "print", .type = TokenPrint},
+	{.name = "void", .type = TokenVoid},
 	{.name = "null", .type = TokenNull}};
 
 static bool isAtEnd(CarbonLexer *lexer) {
