@@ -279,8 +279,7 @@ void carbon_markGlobal(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
 	switch (stmt->type) {
 		case StmtVarDec: {
 			CarbonStmtVarDec *vardec = (CarbonStmtVarDec *) stmt;
-			CarbonString *name = carbon_copyString(
-				vardec->identifier.lexeme, vardec->identifier.length, vm);
+			CarbonString *name = carbon_strFromToken(vardec->identifier, vm);
 			if (carbon_tableGet(&c->globals, (CarbonObj *) name, &dummy)) {
 				globalRedeclaration(vardec->identifier, c);
 				break;
@@ -292,8 +291,7 @@ void carbon_markGlobal(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
 		}
 		case StmtFunc: {
 			CarbonStmtFunc *func = (CarbonStmtFunc *) stmt;
-			CarbonString *name = carbon_copyString(func->identifier.lexeme,
-												   func->identifier.length, vm);
+			CarbonString *name = carbon_strFromToken(func->identifier, vm);
 			if (carbon_tableGet(&c->globals, (CarbonObj *) name, &dummy)) {
 				globalRedeclaration(func->identifier, c);
 				break;
@@ -304,8 +302,7 @@ void carbon_markGlobal(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
 			for (uint32_t i = 0; i < func->arity; i++) {
 				struct carbon_arg argument = func->arguments[i];
 				CarbonValueType type = t2value[argument.type.type];
-				CarbonString *name = carbon_copyString(
-					argument.name.lexeme, argument.name.length, vm);
+				CarbonString *name = carbon_strFromToken(argument.name, vm);
 				g->arguments[i].name = name;
 				g->arguments[i].type = type;
 			}
@@ -470,8 +467,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 		}
 		case ExprVar: {
 			CarbonExprVar *var = (CarbonExprVar *) expr;
-			CarbonString *name =
-				carbon_copyString(var->token.lexeme, var->token.length, vm);
+			CarbonString *name = carbon_strFromToken(var->token, vm);
 
 			CarbonValueType l = resolveLocalType(name, c);
 			if (l != ValueVoid) {
@@ -498,8 +494,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			}
 
 			typecheck(assignment->right, c, vm);
-			CarbonString *name = carbon_copyString(assignment->left.lexeme,
-												   assignment->left.length, vm);
+			CarbonString *name = carbon_strFromToken(assignment->left, vm);
 			CarbonValueType leftType;
 
 			CarbonValueType l = resolveLocalType(name, c);
@@ -553,8 +548,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 				break;
 			}
 			CarbonExprVar *var = (CarbonExprVar *) call->callee;
-			CarbonString *name =
-				carbon_copyString(var->token.lexeme, var->token.length, vm);
+			CarbonString *name = carbon_strFromToken(var->token, vm);
 			GlobalFunc *g;
 			if (!carbon_tableGet(&c->globals, (CarbonObj *) name,
 								 (CarbonValue *) &g))
@@ -851,8 +845,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 		}
 		case ExprVar: {
 			CarbonExprVar *var = (CarbonExprVar *) expr;
-			CarbonString *name =
-				carbon_copyString(var->token.lexeme, var->token.length, vm);
+			CarbonString *name = carbon_strFromToken(var->token, vm);
 
 			int16_t slot = resolveLocal(name, c);
 			if (slot != -1) {
@@ -874,8 +867,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 		}
 		case ExprAssignment: {
 			CarbonExprAssignment *assignment = (CarbonExprAssignment *) expr;
-			CarbonString *name = carbon_copyString(assignment->left.lexeme,
-												   assignment->left.length, vm);
+			CarbonString *name = carbon_strFromToken(assignment->left, vm);
 			carbon_compileExpression(assignment->right, chunk, c, vm);
 
 			int16_t slot = resolveLocal(name, c);
@@ -973,8 +965,7 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 		}
 		case StmtVarDec: {
 			CarbonStmtVarDec *vardec = (CarbonStmtVarDec *) stmt;
-			CarbonString *name = carbon_copyString(
-				vardec->identifier.lexeme, vardec->identifier.length, vm);
+			CarbonString *name = carbon_strFromToken(vardec->identifier, vm);
 
 			bool isLocal = c->compilingTo != NULL;
 
@@ -1042,8 +1033,7 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 		}
 		case StmtFunc: {
 			CarbonStmtFunc *sfunc = (CarbonStmtFunc *) stmt;
-			CarbonString *name = carbon_copyString(
-				sfunc->identifier.lexeme, sfunc->identifier.length, vm);
+			CarbonString *name = carbon_strFromToken(sfunc->identifier, vm);
 
 			Global *g;
 			carbon_tableGet(&c->globals, (CarbonObj *) name,
@@ -1058,8 +1048,7 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 			for (uint8_t i = 0; i < sfunc->arity; i++) {
 				CarbonToken name = sfunc->arguments[i].name;
 				c->locals[i].depth = 0;
-				c->locals[i].name =
-					carbon_copyString(name.lexeme, name.length, vm);
+				c->locals[i].name = carbon_strFromToken(name, vm);
 				c->locals[i].type = t2value[sfunc->arguments[i].type.type];
 			}
 			bool hadReturn = false;

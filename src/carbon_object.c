@@ -3,6 +3,7 @@
 #include "utils/carbon_memory.h"
 #include "utils/carbon_table.h"
 #include "vm/carbon_chunk.h"
+#include "carbon_token.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -65,8 +66,12 @@ CarbonString *carbon_takeString(char *chars, uint32_t length, CarbonVM *vm) {
 	return str;
 }
 
-CarbonFunction *carbon_newFunction(CarbonString *name, uint32_t arity, CarbonValueType returnType,
-								   CarbonVM *vm) {
+CarbonString *carbon_strFromToken(CarbonToken token, CarbonVM *vm) {
+	return carbon_copyString(token.lexeme, token.length, vm);
+}
+
+CarbonFunction *carbon_newFunction(CarbonString *name, uint32_t arity,
+								   CarbonValueType returnType, CarbonVM *vm) {
 	CarbonFunction *func =
 		(CarbonFunction *) ALLOC(CarbonFunction, CrbnObjFunc);
 	func->arity = arity;
@@ -101,7 +106,7 @@ void carbon_freeObject(CarbonObj *obj, CarbonVM *vm) {
 		case CrbnObjFunc: {
 			CarbonFunction *func = (CarbonFunction *) obj;
 			carbon_freeChunk(&func->chunk);
-			carbon_reallocateObj(sizeof(CarbonFunction), 0, obj, vm);	
+			carbon_reallocateObj(sizeof(CarbonFunction), 0, obj, vm);
 			break;
 		}
 	}

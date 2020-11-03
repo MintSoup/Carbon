@@ -4,6 +4,7 @@
 #include "utils/carbon_commons.h"
 #include "vm/carbon_chunk.h"
 #include "vm/carbon_vm.h"
+#include "carbon_token.h"
 
 typedef enum { CrbnObjString, CrbnObjFunc } CarbonObjectType;
 
@@ -28,6 +29,8 @@ typedef struct carbon_function {
 
 CarbonString *carbon_copyString(char *chars, uint32_t length, CarbonVM *vm);
 CarbonString *carbon_takeString(char *chars, uint32_t length, CarbonVM *vm);
+CarbonString *carbon_strFromToken(CarbonToken token, CarbonVM *vm);
+
 CarbonFunction *carbon_newFunction(CarbonString *name, uint32_t arity,
 								   CarbonValueType returnType, CarbonVM *vm);
 
