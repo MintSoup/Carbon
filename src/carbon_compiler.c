@@ -93,6 +93,16 @@ static int16_t resolveLocal(CarbonString *name, CarbonCompiler *c) {
 	return -1;
 }
 
+static CarbonExpr *promoteNumerics(CarbonValueType wants, CarbonExpr *given) {
+	if (wants <= ValueDouble && given->evalsTo < wants) {
+		CarbonExpr *r =
+			(CarbonExpr *) carbon_newCastExpr(v2token[wants], given);
+		r->evalsTo = wants;
+		return r;
+	}
+	return given;
+}
+
 static bool canUnary(CarbonTokenType op, CarbonValueType operand) {
 	switch (operand) {
 		case ValueDouble:
@@ -372,7 +382,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			}
 
 			CarbonValueType higherType = leftType;
-			if (leftType < ValueString && rightType < ValueString) {
+			if (leftType <= ValueDouble && rightType <= ValueDouble) {
 				if (rightType > leftType) {
 					higherType = rightType;
 
@@ -522,12 +532,10 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 					expr->evalsTo = ValueUnresolved;
 					return;
 				}
-				if (leftType <= ValueDouble &&
-					assignment->right->evalsTo < leftType) {
-					assignment->right = (CarbonExpr *) carbon_newCastExpr(
-						v2token[leftType], assignment->right);
-					assignment->right->evalsTo = leftType;
-				}
+
+				assignment->right =
+					promoteNumerics(leftType, assignment->right);
+
 				expr->evalsTo = leftType;
 				return;
 			}
@@ -567,12 +575,10 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 									  call->arguments[i]->evalsTo, c);
 					break;
 				}
-				CarbonValueType wants = g->arguments[i].type;
-				CarbonValueType given = call->arguments[i]->evalsTo;
-				if (wants <= ValueDouble && given < wants) {
-					call->arguments[i] = (CarbonExpr *) carbon_newCastExpr(
-						v2token[wants], call->arguments[i]);
-				}
+				call->arguments[i] =
+					promoteNumerics(g->arguments[i].type, call->arguments[i]);
+				int x;
+				x++;
 			}
 			expr->evalsTo = g->returnType;
 			break;
@@ -984,13 +990,9 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 						g->declared = true;
 					break;
 				} else {
-					CarbonExpr *init = vardec->initializer;
-					if (init->evalsTo <= ValueDouble &&
-						init->evalsTo < vartype) {
-						vardec->initializer = (CarbonExpr *) carbon_newCastExpr(
-							v2token[vartype], init);
-						vardec->initializer->evalsTo = vartype;
-					}
+					vardec->initializer =
+						promoteNumerics(vartype, vardec->initializer);
+
 					carbon_compileExpression(vardec->initializer, chunk, c, vm);
 				}
 			} else {
@@ -1088,11 +1090,10 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 				if (!canAssign(wanted, given)) {
 					wrongReturnType(ret->token, wanted, given, c);
 				}
-				if (wanted <= ValueDouble && given < wanted) {
-					ret->expression = (CarbonExpr *) carbon_newCastExpr(
-						v2token[wanted], ret->expression);
-				}
+
+				ret->expression = promoteNumerics(wanted, ret->expression);
 				carbon_compileExpression(ret->expression, chunk, c, vm);
+
 				carbon_writeToChunk(chunk, OpReturn, ret->token.line);
 				break;
 			}

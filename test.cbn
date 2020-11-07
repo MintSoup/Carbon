@@ -1,14 +1,17 @@
-double areg = 7
+double g = 5
 
 void main():
-	print(add(3.4, 10 - 3.4))
-	int a = 3
-	a = 5
-	print(a + areg)
+	double f = 4
+	print(g * (f = -2))
+	print(add(4, f) * cringe())
+end
+
+
+double cringe():
+	return 4
 end
 
 double add(double a, double b):
 	return a + b
 end
-
 
