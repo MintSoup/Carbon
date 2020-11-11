@@ -107,7 +107,7 @@ CarbonString *carbon_tableFindString(CarbonTable *table, char *chars,
 									 uint32_t length, uint32_t hashCode) {
 	if (table->count == 0)
 		return NULL;
-	uint32_t index = hashCode % table->capacity;
+	uint32_t index = hashCode & (table->capacity - 1);
 	while (true) {
 		CarbonEntry *entry = &table->entries[index];
 		CarbonString *key = (CarbonString *) entry->key;
@@ -119,6 +119,6 @@ CarbonString *carbon_tableFindString(CarbonTable *table, char *chars,
 				   memcmp(key->chars, chars, length) == 0) {
 			return key;
 		}
-		index = (index + 1) % table->capacity;
+		index = (index + 1) & (table->capacity - 1);
 	}
 }

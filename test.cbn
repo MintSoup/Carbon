@@ -1,6 +1,6 @@
 void main():
 	int i = 2
-	while i < 100:
+	while i < 80000:
 		if isPrime(i):
 			print(i)
 		end
