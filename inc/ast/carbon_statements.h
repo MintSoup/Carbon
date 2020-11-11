@@ -8,7 +8,11 @@ typedef enum {
 	StmtExpr,
 	StmtVarDec,
 	StmtFunc,
-	StmtReturn
+	StmtReturn,
+	StmtBlock,
+	StmtIf,
+	StmtWhile,
+	StmtBreak
 } CarbonStmtType;
 
 typedef struct {
@@ -60,6 +64,34 @@ typedef struct {
 	CarbonExpr *expression;
 } CarbonStmtReturn;
 
+typedef struct {
+	CarbonStmt stmt;
+	CarbonStmtList statements;
+	uint8_t locals;
+	bool hasBreak;
+} CarbonStmtBlock;
+
+typedef struct {
+	CarbonStmt stmt;
+	CarbonExpr *condition;
+	CarbonStmt *then;
+	CarbonStmt *notThen; // else
+	CarbonToken token;
+	CarbonToken elseToken;
+} CarbonStmtIf;
+
+typedef struct {
+	CarbonStmt stmt;
+	CarbonExpr *condition;
+	CarbonStmtBlock *body;
+	CarbonToken token;
+} CarbonStmtWhile;
+
+typedef struct {
+	CarbonStmt *stmt;
+	CarbonToken token;
+} CarbonStmtBreak;
+
 void carbon_stmtList_init(CarbonStmtList *sl);
 void carbon_stmtList_add(CarbonStmtList *sl, CarbonStmt *stmt);
 void carbon_stmtList_free(CarbonStmtList *sl);
@@ -71,4 +103,10 @@ CarbonStmtExpr *carbon_newExprStmt(CarbonExpr *expr, CarbonToken last);
 CarbonStmtVarDec *carbon_newVarDecStmt(CarbonToken identifier, CarbonToken type,
 									   CarbonExpr *initializer);
 CarbonStmtReturn *carbon_newReturnStmt(CarbonToken token);
+CarbonStmtIf *carbon_newIfStmt(CarbonExpr *expr, CarbonToken token);
+CarbonStmtWhile *carbon_newWhileStmt(CarbonExpr *expr, CarbonToken tok);
+CarbonStmtBreak *carbon_newBreakStmt(CarbonToken token);
+
+CarbonStmtBlock *carbon_newBlockStmt();
+
 void carbon_freeStmt(CarbonStmt *stmt);

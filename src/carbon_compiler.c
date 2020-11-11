@@ -6,10 +6,12 @@
 #include "carbon_object.h"
 #include "carbon_token.h"
 #include "carbon_value.h"
+#include "utils/carbon_commons.h"
 #include "utils/carbon_table.h"
 #include "utils/carbon_memory.h"
 #include "vm/carbon_chunk.h"
 #include "vm/carbon_vm.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -155,6 +157,8 @@ static bool canBinary(CarbonTokenType op, CarbonValueType left,
 		case TokenGEQ:
 		case TokenLEQ:
 			return leftNumeric && rightNumeric;
+		case TokenPercent:
+			return (left <= ValueInt) && (right <= ValueInt);
 		case TokenAnd:
 		case TokenOr:
 			return (left == ValueBool) && (right == ValueBool);
@@ -167,6 +171,36 @@ static bool canAssign(CarbonValueType to, CarbonValueType from) {
 	return (to == from) || (to <= ValueDouble && from <= to);
 }
 
+static bool alwaysReturns(CarbonStmt *stmt) {
+	switch (stmt->type) {
+		case StmtReturn:
+			return true;
+		case StmtIf: {
+			CarbonStmtIf *sif = (CarbonStmtIf *) stmt;
+			if (sif->then == NULL)
+				return true;
+			if (sif->notThen == NULL)
+				return false;
+			return alwaysReturns(sif->then) && alwaysReturns(sif->notThen);
+		}
+		case StmtBlock: {
+			CarbonStmtBlock *blk = (CarbonStmtBlock *) stmt;
+			for (uint32_t i = 0; i < blk->statements.count; i++) {
+				if (alwaysReturns(blk->statements.arr[i]))
+					return true;
+			}
+			return false;
+		}
+		default:
+			return false;
+	}
+}
+
+static void jumpTooLong(CarbonToken tok, CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Too many lines to jump over.\n", tok.line);
+	c->hadError = true;
+}
+
 static void cantPrint(CarbonToken tok, CarbonCompiler *c) {
 	fprintf(stderr, "[Line %u] Cannot print void values.\n", tok.line);
 	c->hadError = true;
@@ -174,7 +208,7 @@ static void cantPrint(CarbonToken tok, CarbonCompiler *c) {
 
 static void expectedReturnStatement(CarbonToken func, CarbonCompiler *c) {
 	fprintf(stderr,
-			"[Line %u] Function '%.*s' needs at least one return statement.\n",
+			"[Line %u] Function '%.*s' misses a return statement.\n",
 			func.line, func.length, func.lexeme);
 	c->hadError = true;
 }
@@ -404,6 +438,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 					}
 				case TokenPlus:
 				case TokenSlash:
+				case TokenPercent:
 				case TokenStar: {
 					expr->evalsTo = higherType;
 					return;
@@ -577,8 +612,6 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 				}
 				call->arguments[i] =
 					promoteNumerics(g->arguments[i].type, call->arguments[i]);
-				int x;
-				x++;
 			}
 			expr->evalsTo = g->returnType;
 			break;
@@ -741,6 +774,16 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 						binInstruction(ValueUInt, OpMulUInt);
 						break;
 						binInstruction(ValueDouble, OpMulDouble);
+						break;
+						default:
+							break;
+					}
+					break;
+				case TokenPercent:
+					switch (bin->left->evalsTo) {
+						binInstruction(ValueInt, OpMod);
+						break;
+						binInstruction(ValueUInt, OpMod);
 						break;
 						default:
 							break;
@@ -922,6 +965,33 @@ static CarbonValue defaultState(CarbonValueType type, CarbonVM *vm) {
 	}
 }
 
+static uint32_t emitIf(CarbonChunk *chunk, uint32_t line) {
+	uint32_t position = chunk->count;
+	carbon_writeToChunk(chunk, OpIf, line);
+	carbon_writeToChunk(chunk, 0, line);
+	carbon_writeToChunk(chunk, 0, line);
+	return position;
+}
+
+static uint32_t emitJump(CarbonChunk *chunk, uint32_t line) {
+	uint32_t position = chunk->count;
+	carbon_writeToChunk(chunk, OpJump, line);
+	carbon_writeToChunk(chunk, 0, line);
+	carbon_writeToChunk(chunk, 0, line);
+	return position;
+}
+
+static void patchJump(CarbonChunk *chunk, uint32_t position, CarbonToken t,
+					  CarbonCompiler *c) {
+	uint32_t offset = chunk->count - position - 2;
+	if (offset > UINT16_MAX) {
+		jumpTooLong(t, c);
+		return;
+	}
+	chunk->code[position + 1] = offset >> 8;
+	chunk->code[position + 2] = offset & 0xFF;
+}
+
 void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 							 CarbonCompiler *c, CarbonVM *vm) {
 
@@ -1056,8 +1126,8 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 			bool hadReturn = false;
 
 			for (uint32_t i = 0; i < sfunc->statements.count; i++) {
-				if (sfunc->statements.arr[i]->type == StmtReturn)
-					hadReturn = true;
+				hadReturn =
+					hadReturn || alwaysReturns(sfunc->statements.arr[i]);
 				carbon_compileStatement(sfunc->statements.arr[i], &ofunc->chunk,
 										c, vm);
 			}
@@ -1105,6 +1175,124 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 			carbon_writeToChunk(chunk, OpReturnVoid, ret->token.line);
 			break;
 		}
+		case StmtBlock: {
+			CarbonStmtBlock *block = (CarbonStmtBlock *) stmt;
+			c->depth++;
+			for (uint32_t i = 0; i < block->statements.count; i++) {
+				carbon_compileStatement(block->statements.arr[i], chunk, c, vm);
+			}
+			if (block->locals == 1) {
+				carbon_writeToChunk(chunk, OpPop, block->locals);
+			} else if (block->locals >= 1) {
+				carbon_writeToChunk(chunk, OpPopn, block->locals);
+				carbon_writeToChunk(chunk, block->locals, block->locals);
+			}
+			c->depth--;
+			if (c->localCount > 0)
+				while (c->locals[c->localCount - 1].depth > c->depth)
+					c->localCount--;
+			break;
+		}
+		case StmtIf: {
+			CarbonStmtIf *sif = (CarbonStmtIf *) stmt;
+			if (sif->condition != NULL)
+				carbon_compileExpression(sif->condition, chunk, c, vm);
+			uint32_t first = emitIf(chunk, sif->token.line);
+			uint32_t second = 0;
+			if (sif->then != NULL) {
+				carbon_compileStatement(sif->then, chunk, c, vm);
+				if (sif->notThen != NULL)
+					second = emitJump(chunk, sif->token.line);
+				patchJump(chunk, first, sif->token, c);
+			}
+			if (sif->notThen != NULL) {
+				carbon_compileStatement(sif->notThen, chunk, c, vm);
+				patchJump(chunk, second, sif->elseToken, c);
+			}
+			break;
+		}
+		case StmtWhile: {
+			CarbonStmtWhile *whl = (CarbonStmtWhile *) stmt;
+			uint32_t backpos = chunk->count;
+			if (whl->condition != NULL)
+				carbon_compileExpression(whl->condition, chunk, c, vm);
+
+			uint32_t p = emitIf(chunk, whl->token.line);
+			uint32_t ejectExit;
+
+			if (whl->body != NULL) {
+				c->loopDepth++;
+				carbon_compileStatement((CarbonStmt *) whl->body, chunk, c, vm);
+				c->loopDepth--;
+				if (whl->body->hasBreak && whl->body->locals > 0) {
+					uint32_t eject = emitJump(chunk, whl->token.line);
+					for (uint8_t i = c->breaksCount - 1;
+						 c->breaks[i].depth == c->loopDepth + 1; i--) {
+						if (c->breaks[i].isBreak) {
+							patchJump(chunk, c->breaks[i].position,
+									  c->breaks[i].token, c);
+						}
+					}
+					if (whl->body->locals == 1) {
+						carbon_writeToChunk(chunk, OpPop, whl->body->locals);
+					} else if (whl->body->locals >= 1) {
+						carbon_writeToChunk(chunk, OpPopn, whl->body->locals);
+						carbon_writeToChunk(chunk, whl->body->locals,
+											whl->body->locals);
+					}
+					ejectExit = emitJump(chunk, whl->token.line);
+					patchJump(chunk, eject, whl->token, c);
+				}
+			}
+
+			for (uint8_t i = c->breaksCount - 1;
+				 c->breaks[i].depth == c->loopDepth + 1; i--) {
+				if (!c->breaks[i].isBreak) {
+					patchJump(chunk, c->breaks[i].position, c->breaks[i].token,
+							  c);
+				}
+			}
+
+			uint32_t offset = chunk->count - backpos + 2;
+			if (offset > UINT16_MAX) {
+				jumpTooLong(whl->token, c);
+				return;
+			}
+
+			carbon_writeToChunk(chunk, OpLoop, whl->token.line);
+			carbon_writeToChunk(chunk, offset >> 8, whl->token.line);
+			carbon_writeToChunk(chunk, offset, whl->token.line);
+
+			patchJump(chunk, p, whl->token, c);
+			if (whl->body != NULL && whl->body->hasBreak) {
+				if (whl->body->locals == 0)
+					for (uint8_t i = c->breaksCount - 1;
+						 c->breaks[i].depth == c->depth + 1; i--) {
+						if (c->breaks[i].isBreak) {
+							patchJump(chunk, c->breaks[i].position,
+									  c->breaks[i].token, c);
+						}
+					}
+				else
+					patchJump(chunk, ejectExit, whl->token, c);
+			}
+
+			if (c->breaksCount > 0)
+				while (c->breaks[c->breaksCount - 1].depth == c->loopDepth + 1)
+					c->breaksCount--;
+
+			break;
+		}
+		case StmtBreak: {
+			CarbonStmtBreak *brk = (CarbonStmtBreak *) stmt;
+			c->breaks[c->breaksCount].depth = c->loopDepth;
+			c->breaks[c->breaksCount].isBreak = brk->token.type == TokenBreak;
+			c->breaks[c->breaksCount].token = brk->token;
+			c->breaks[c->breaksCount].position =
+				emitJump(chunk, brk->token.line);
+			c->breaksCount++;
+			break;
+		}
 	}
 #undef emit
 }
@@ -1115,6 +1303,8 @@ void carbon_initCompiler(CarbonCompiler *compiler, CarbonParser *parser) {
 	compiler->compilingTo = NULL;
 	compiler->localCount = 0;
 	compiler->depth = 0;
+	compiler->breaksCount = 0;
+	compiler->loopDepth = 0;
 	carbon_tableInit(&compiler->globals);
 }
 void carbon_freeCompiler(CarbonCompiler *compiler) {

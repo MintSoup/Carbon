@@ -7,6 +7,7 @@
 #include "carbon_parser.h"
 #include "utils/carbon_memory.h"
 #include "ast/carbon_statements.h"
+#include "vm/carbon_vm.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -117,6 +118,7 @@ void carbon_initParser(CarbonParser *parser, CarbonLexer *lexer) {
 	parser->totalTokens = 8;
 	parser->panic = false;
 	parser->hadError = false;
+	parser->innermostLoop = NULL;
 	parser->tokens =
 		carbon_reallocate(0, parser->totalTokens * sizeof(CarbonToken), NULL);
 	while (true) {
@@ -200,6 +202,9 @@ static bool isTypename(CarbonToken token) {
 	}
 }
 
+static CarbonStmtBreak *breakStatement(CarbonParser *p);
+static CarbonStmtIf *ifStatement(CarbonParser *p);
+static CarbonStmtWhile *whileStatement(CarbonParser *p);
 static CarbonStmtFunc *funcDeclaration(CarbonParser *p);
 static CarbonStmtReturn *returnStatement(CarbonParser *p);
 static CarbonStmtPrint *printStatement(CarbonParser *p);
@@ -231,6 +236,12 @@ static CarbonStmt *statement(CarbonParser *p) {
 		return (CarbonStmt *) varDeclaration(p);
 	else if (n.type == TokenReturn)
 		return (CarbonStmt *) returnStatement(p);
+	else if (n.type == TokenIf)
+		return (CarbonStmt *) ifStatement(p);
+	else if (n.type == TokenWhile)
+		return (CarbonStmt *) whileStatement(p);
+	else if (n.type == TokenBreak || n.type == TokenContinue)
+		return (CarbonStmt *) breakStatement(p);
 	else
 		return (CarbonStmt *) expressionStatement(p);
 }
@@ -258,6 +269,91 @@ CarbonStmt *carbon_parseStatement(CarbonParser *p) {
 
 CarbonExpr *carbon_parseExpression(CarbonParser *p) {
 	return expression(p);
+}
+
+static CarbonStmtBreak *breakStatement(CarbonParser *p) {
+	CarbonToken tok = next(p);
+	char *msg;
+	if (previous(p).type == TokenBreak)
+		msg = "Expected EOS after break";
+	else
+		msg = "Expected EOS after 'continue'";
+	consume(TokenEOS, msg, p);
+	if (p->innermostLoop == NULL)
+		error(tok, "Cannot have break/continue statements outside loops.", p);
+	else
+		p->innermostLoop->hasBreak = true;
+	return carbon_newBreakStmt(tok);
+}
+
+static CarbonStmtBlock *block(CarbonParser *p, char *cmsg, char *eofmsg,
+							  bool isLoop) {
+	consume(TokenColon, cmsg, p);
+
+	CarbonStmtBlock *block = carbon_newBlockStmt();
+	CarbonStmtBlock *outerLoop;
+	if (isLoop) {
+		outerLoop = p->innermostLoop;
+		p->innermostLoop = block;
+	}
+	while (peek(p).type != TokenEnd && peek(p).type != TokenElif &&
+		   peek(p).type != TokenElse) {
+		if (peek(p).type == TokenEOF) {
+			errorAtCurrent(eofmsg, p);
+			return block;
+		}
+		CarbonStmt *stmt = statement(p);
+		if (stmt != NULL) {
+			if (stmt->type == StmtVarDec)
+				block->locals++;
+			carbon_stmtList_add(&block->statements, stmt);
+		}
+	}
+
+	if (isLoop) {
+		p->innermostLoop = outerLoop;
+	}
+
+	// We deliberately do not consume the 'end' token because if statement
+	// blocks can end with an 'else' and 'elif'
+	return block;
+}
+
+static CarbonStmtIf *ifStatement(CarbonParser *p) {
+	CarbonToken tok = next(p);
+	CarbonStmtIf *stmt = carbon_newIfStmt(expression(p), tok);
+	CarbonStmtIf *last = stmt;
+	stmt->then = (CarbonStmt *) block(p, "Expected ':' after if statement",
+									  "Unexpected EOF inside if block", false);
+	while (match(TokenElif, p) || match(TokenElse, p)) {
+		CarbonToken tok = previous(p);
+		if (tok.type == TokenElif) {
+			CarbonStmtIf *elif = carbon_newIfStmt(expression(p), tok);
+			elif->then = (CarbonStmt *) block(
+				p, "Expected ':' after elif",
+				"Unexpected EOF inside elif block ", false);
+			last->notThen = (CarbonStmt *) elif;
+			last->elseToken = tok;
+			last = elif;
+		} else {
+			last->notThen =
+				(CarbonStmt *) block(p, "Expected : after else",
+									 "Unexpected EOF inside else block", false);
+			last->elseToken = tok;
+			break;
+		}
+	}
+	consume(TokenEnd, "Expected 'end' after if block", p);
+	return stmt;
+}
+
+static CarbonStmtWhile *whileStatement(CarbonParser *p) {
+	CarbonToken tok = next(p);
+	CarbonStmtWhile *w = carbon_newWhileStmt(expression(p), tok);
+	w->body = block(p, "Expected ':' after while statement",
+					"Unexpected EOF inside while block", true);
+	consume(TokenEnd, "Expected 'end' after while block", p);
+	return w;
 }
 
 static CarbonStmtFunc *funcDeclaration(CarbonParser *p) {
@@ -325,12 +421,7 @@ static CarbonStmtFunc *funcDeclaration(CarbonParser *p) {
 		}
 		CarbonStmt *stmt = statement(p);
 		if (stmt != NULL) {
-			if (stmt->type == StmtFunc) {
-				CarbonStmtFunc *f = (CarbonStmtFunc *) stmt;
-				error(f->identifier, "Nested functions are not supported", p);
-			} else {
-				carbon_stmtList_add(&func->statements, stmt);
-			}
+			carbon_stmtList_add(&func->statements, stmt);
 		}
 	}
 	consume(TokenEnd, "Expected 'end' after function body", p);
@@ -435,7 +526,8 @@ static CarbonExpr *addition(CarbonParser *p) {
 
 static CarbonExpr *multiplication(CarbonParser *p) {
 	CarbonExpr *expr = unary(p);
-	while (match(TokenStar, p) || match(TokenSlash, p)) {
+	while (match(TokenStar, p) || match(TokenSlash, p) ||
+		   match(TokenPercent, p)) {
 		CarbonToken tok = previous(p);
 		expr = (CarbonExpr *) carbon_newBinaryExpr(expr, unary(p), tok);
 	}

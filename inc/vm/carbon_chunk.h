@@ -11,6 +11,7 @@ typedef enum {
 	OpReturnVoid,
 	OpConcat,
 	OpPop,
+	OpPopn,
 	OpPush0,
 	OpPush1,
 	OpCall,
@@ -26,6 +27,7 @@ typedef enum {
 	OpDivInt,
 	OpDivUInt,
 	OpDivDouble,
+	OpMod,
 
 	// Unary operations
 	OpNegateDouble,
@@ -65,6 +67,12 @@ typedef enum {
 	OpGetGlobalInline,
 	OpSetLocal,
 	OpGetLocal,
+
+	// Control flow
+	OpJumpOnFalse,
+	OpJump,
+	OpIf,
+	OpLoop
 	
 
 } CarbonOpCode;

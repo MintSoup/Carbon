@@ -142,6 +142,11 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				push(v);
 				break;
 			}
+			case OpPopn:
+				frame->ip++;
+				vm->stackTop -= ReadByte();
+				frame->ip++;
+				break;
 			case OpPop:
 				pop();
 				frame->ip++;
@@ -161,6 +166,10 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				break;
 			case OpMulInt:
 				binary(int64_t, *, CarbonInt, sint);
+				frame->ip++;
+				break;
+			case OpMod:
+				binary(int64_t, %, CarbonInt, sint);
 				frame->ip++;
 				break;
 
@@ -374,15 +383,15 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 			case OpSetLocal: {
 				frame->ip++;
 				uint8_t slot = ReadByte();
-				frame->slots[slot] = peek();
 				frame->ip++;
+				frame->slots[slot] = peek();
 				break;
 			}
 			case OpGetLocal: {
 				frame->ip++;
 				uint8_t slot = ReadByte();
-				push(frame->slots[slot]);
 				frame->ip++;
+				push(frame->slots[slot]);
 				break;
 			}
 			case OpCall: {
@@ -394,6 +403,48 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 					return Carbon_Runtime_Error;
 				}
 				frame = &vm->callStack[vm->callDepth - 1];
+				break;
+			}
+			case OpJumpOnFalse: {
+				frame->ip++;
+				uint8_t top = ReadByte();
+				frame->ip++;
+				uint8_t bottom = ReadByte();
+				uint16_t range = ((uint16_t) top << 8) | bottom;
+				if (!peek().boolean)
+					frame->ip += range;
+				else
+					frame->ip++;
+				break;
+			}
+			case OpJump: {
+				frame->ip++;
+				uint8_t top = ReadByte();
+				frame->ip++;
+				uint8_t bottom = ReadByte();
+				uint16_t range = ((uint16_t) top << 8) | bottom;
+				frame->ip += range;
+				break;
+			}
+			case OpIf: {
+				frame->ip++;
+				uint8_t top = ReadByte();
+				frame->ip++;
+				uint8_t bottom = ReadByte();
+				uint16_t range = ((uint16_t) top << 8) | bottom;
+				if (!pop().boolean)
+					frame->ip += range;
+				else
+					frame->ip++;
+				break;
+			}
+			case OpLoop: {
+				frame->ip++;
+				uint8_t top = ReadByte();
+				frame->ip++;
+				uint8_t bottom = ReadByte();
+				uint16_t range = ((uint16_t) top << 8) | bottom;
+				frame->ip -= range;
 				break;
 			}
 		}

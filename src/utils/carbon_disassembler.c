@@ -11,6 +11,7 @@ static char *names[] = {
 	[OpReturn] = "return",
 	[OpReturnVoid] = "vreturn",
 	[OpPop] = "pop",
+	[OpPopn] = "popn",
 	[OpPush0] = "push0",
 	[OpPush1] = "push1",
 	[OpCall] = "call",
@@ -26,6 +27,7 @@ static char *names[] = {
 	[OpDivInt] = "idiv",
 	[OpDivUInt] = "udiv",
 	[OpDivDouble] = "ddiv",
+	[OpMod] = "mod",
 
 	// Unary operations
 	[OpNegateDouble] = "dneg",
@@ -62,7 +64,12 @@ static char *names[] = {
 	[OpSetGlobalInline] = "nglobset",
 	[OpGetGlobalInline] = "nglobget",
 	[OpSetLocal] = "locset",
-	[OpGetLocal] = "locget"
+	[OpGetLocal] = "locget",
+
+	[OpJumpOnFalse] = "jz",
+	[OpJump] = "jmp",
+	[OpIf] = "if",
+	[OpLoop] = "loop",
 
 };
 
@@ -71,7 +78,7 @@ void carbon_disassemble(CarbonChunk *chunk) {
 	uint8_t *ip = chunk->code;
 
 	while (ip < chunk->code + chunk->count) {
-		printf("%04d %04d|0x%04lx  %s", chunk->lines[ip - chunk->code],
+		printf("%04d %04d|%04ld  %s", chunk->lines[ip - chunk->code],
 			   instructionNumber, ip - chunk->code, names[*ip]);
 
 		switch (*ip) {
@@ -95,6 +102,7 @@ void carbon_disassemble(CarbonChunk *chunk) {
 			case OpDoubleToInt:
 			case OpUIntToDouble:
 			case OpDoubleToUInt:
+			case OpMod:
 			case OpCompareInt:
 			case OpCompareUInt:
 			case OpCompareDouble:
@@ -123,11 +131,16 @@ void carbon_disassemble(CarbonChunk *chunk) {
 			case OpSetLocal:
 			case OpGetLocal:
 			case OpCall:
+			case OpPopn:
 				ip++;
 				printf("\t%u", *ip);
 				ip++;
 				break;
 			case OpLoadConstant16:
+			case OpJumpOnFalse:
+			case OpIf:
+			case OpLoop:
+			case OpJump:
 				ip++;
 				uint8_t higher = *ip;
 				ip++;

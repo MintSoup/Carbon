@@ -19,6 +19,16 @@ typedef struct{
 	CarbonLocal locals[256];
 	uint8_t localCount;
 	uint8_t depth;
+
+	struct {
+		uint32_t position;
+		uint8_t depth;
+		CarbonToken token;
+		bool isBreak;
+	} breaks[256];
+	uint8_t breaksCount;
+	uint8_t loopDepth;
+
 } CarbonCompiler;
 
 

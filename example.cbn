@@ -43,7 +43,7 @@ int main():
 	# If a function can throw an error, it should be checked first before doing anything with its return value
 	# If a function errorrs out, its return value should be discarded
 
-	Error e # Since we don't support null pointers, all objects are automatically initialized.
+	Error e # Since we discourage null pointers, all objects are automatically initialized.
 	int age = toInt(s,
 						e) 
 	# Statements can be split across lines, as long as the last token on each line
@@ -84,8 +84,7 @@ int main():
 	end
 
 	# Arrays are heap allocated
-	# An initial size must be given
-	# Uninitialized arrays will be filled with random content
+	# An initial size must be given, or it will be inferred from the initializer
 	int[4] arr = { 3, 6, 
 							9, 5 }
 
@@ -103,7 +102,14 @@ int main():
 	end
 
 	# Builtin hashtables
+	# Key must be an object type
 	Hashtable g<string, int>()
+	g.set("John Smith", 30000)
+	Error e
+	int salary = g.get("John Smith", e)
+	if e.code == 0:
+		print(salary)
+	end
 	
 	# Instances can be created like this
 	Vector a = Vector(1,2)
@@ -146,5 +152,5 @@ class Animal:
 	abstract void Eat()
 end
 
-class Dog < Animal, Cringe:
+class Dog < Animal:
 end

@@ -40,6 +40,39 @@ CarbonStmtExpr *carbon_newExprStmt(CarbonExpr *expr, CarbonToken last) {
 	return stmt;
 }
 
+CarbonStmtBlock *carbon_newBlockStmt() {
+	CarbonStmtBlock *block =
+		(CarbonStmtBlock *) allocateNode(CarbonStmtBlock, StmtBlock);
+	carbon_stmtList_init(&block->statements);
+	block->hasBreak = false;
+	block->locals = 0;
+	return block;
+}
+
+CarbonStmtIf *carbon_newIfStmt(CarbonExpr *expr, CarbonToken token) {
+	CarbonStmtIf *stmt = (CarbonStmtIf *) allocateNode(CarbonStmtIf, StmtIf);
+	stmt->condition = expr;
+	stmt->then = NULL;
+	stmt->notThen = NULL;
+	stmt->token = token;
+	return stmt;
+}
+
+CarbonStmtWhile *carbon_newWhileStmt(CarbonExpr *expr, CarbonToken token) {
+	CarbonStmtWhile *stmt =
+		(CarbonStmtWhile *) allocateNode(CarbonStmtWhile, StmtWhile);
+	stmt->condition = expr;
+	stmt->body = NULL;
+	stmt->token = token;
+	return stmt;
+}
+CarbonStmtBreak *carbon_newBreakStmt(CarbonToken token) {
+	CarbonStmtBreak *brk =
+		(CarbonStmtBreak *) allocateNode(CarbonStmtBreak, StmtBreak);
+	brk->token = token;
+	return brk;
+}
+
 CarbonStmtVarDec *carbon_newVarDecStmt(CarbonToken identifier, CarbonToken type,
 									   CarbonExpr *initializer) {
 	CarbonStmtVarDec *vardec =
@@ -50,7 +83,7 @@ CarbonStmtVarDec *carbon_newVarDecStmt(CarbonToken identifier, CarbonToken type,
 	return vardec;
 }
 
-CarbonStmtReturn *carbon_newReturnStmt(CarbonToken token){
+CarbonStmtReturn *carbon_newReturnStmt(CarbonToken token) {
 	CarbonStmtReturn *ret =
 		(CarbonStmtReturn *) allocateNode(CarbonStmtReturn, StmtReturn);
 	ret->token = token;
@@ -90,6 +123,32 @@ void carbon_freeStmt(CarbonStmt *stmt) {
 			CarbonStmtReturn *ret = (CarbonStmtReturn *) stmt;
 			carbon_freeExpr(ret->expression);
 			carbon_reallocate(sizeof(CarbonStmtReturn), 0, stmt);
+			break;
+		}
+		case StmtBlock: {
+			CarbonStmtBlock *block = (CarbonStmtBlock *) stmt;
+			carbon_stmtList_free(&block->statements);
+			carbon_reallocate(sizeof(CarbonStmtBlock), 0, stmt);
+			break;
+		}
+		case StmtIf: {
+			CarbonStmtIf *sif = (CarbonStmtIf *) stmt;
+			carbon_freeStmt((CarbonStmt *) sif->then);
+			if (sif->notThen != NULL)
+				carbon_freeStmt((CarbonStmt *) sif->notThen);
+			carbon_freeExpr(sif->condition);
+			carbon_reallocate(sizeof(CarbonStmtIf), 0, stmt);
+			break;
+		}
+		case StmtWhile: {
+			CarbonStmtWhile *swhl = (CarbonStmtWhile *) stmt;
+			carbon_freeExpr(swhl->condition);
+			carbon_freeStmt((CarbonStmt *) swhl->body);
+			carbon_reallocate(sizeof(CarbonStmtWhile), 0, stmt);
+			break;
+		}
+		case StmtBreak: {
+			carbon_reallocate(sizeof(CarbonStmtBreak), 0, stmt);
 			break;
 		}
 	}
