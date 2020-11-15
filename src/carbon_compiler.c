@@ -168,7 +168,8 @@ static bool canBinary(CarbonTokenType op, CarbonValueType left,
 }
 
 static bool canAssign(CarbonValueType to, CarbonValueType from) {
-	return (to == from) || (to <= ValueDouble && from <= to);
+	return (to == from) || (to <= ValueDouble && from <= to) ||
+		   (from == ValueNull && to >= ValueString);
 }
 
 static bool alwaysReturns(CarbonStmt *stmt) {
@@ -207,8 +208,7 @@ static void cantPrint(CarbonToken tok, CarbonCompiler *c) {
 }
 
 static void expectedReturnStatement(CarbonToken func, CarbonCompiler *c) {
-	fprintf(stderr,
-			"[Line %u] Function '%.*s' misses a return statement.\n",
+	fprintf(stderr, "[Line %u] Function '%.*s' misses a return statement.\n",
 			func.line, func.length, func.lexeme);
 	c->hadError = true;
 }
@@ -472,9 +472,11 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 					expr->evalsTo = ValueDouble;
 					return;
 				case TokenNull:
-					expr->evalsTo = ValueInstance;
+					expr->evalsTo = ValueNull;
+					return;
 				case TokenStringLiteral:
 					expr->evalsTo = ValueString;
+					return;
 				default:
 					return; // Should never reach here
 			}
@@ -650,7 +652,7 @@ static void pushLiteral(CarbonExprLiteral *lit, CarbonChunk *chunk,
 			else
 				carbon_writeToChunk(chunk, OpPush0, lit->token.line);
 			return;
-		case ValueInstance:
+		case ValueNull:
 			carbon_writeToChunk(chunk, OpPush0, lit->token.line);
 			return;
 		case ValueUInt: {
@@ -679,7 +681,7 @@ static void pushLiteral(CarbonExprLiteral *lit, CarbonChunk *chunk,
 			break;
 		}
 		default:
-			return; // should never reach here
+			return;
 	}
 	pushValue(toPush, chunk, lit->token);
 }

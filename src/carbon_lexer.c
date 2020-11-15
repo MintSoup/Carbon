@@ -93,7 +93,7 @@ static bool canEndStatement(CarbonTokenType type) {
 		case TokenRightBrace:
 		case TokenPlusPlus:
 		case TokenMinusMinus:
-		case TokenStringLiteral:
+		case TokenStringLiteral:	
 		case TokenInteger:
 		case TokenDecimal:
 		case TokenIdentifier:
@@ -103,6 +103,7 @@ static bool canEndStatement(CarbonTokenType type) {
 		case TokenSelf:
 		case TokenTrue:
 		case TokenFalse:
+		case TokenNull:
 			return true;
 		default:
 			return false;

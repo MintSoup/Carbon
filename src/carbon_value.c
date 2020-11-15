@@ -39,4 +39,5 @@ char *CarbonValueTypeName[] = {
 	[ValueError] = "Error",
 	[ValueUnresolved] = "unresolved",
 	[ValueVoid] = "void",
+	[ValueNull] = "Null",
 };

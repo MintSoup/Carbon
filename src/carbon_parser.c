@@ -599,6 +599,7 @@ static CarbonExpr *primary(CarbonParser *p) {
 		case TokenDecimal:
 		case TokenTrue:
 		case TokenFalse:
+		case TokenNull:
 			return (CarbonExpr *) carbon_newLiteralExpr(next(p));
 		case TokenIdentifier:
 			return (CarbonExpr *) carbon_newVarExpr(next(p));

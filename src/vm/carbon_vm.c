@@ -82,6 +82,14 @@ static uint8_t call(CarbonObj *obj, CarbonVM *vm) {
 	return 0; // should never reach here
 }
 
+static CarbonRunResult runtimeError(char *msg, CarbonVM *vm) {
+	CarbonCallframe *frame = &vm->callStack[vm->callDepth - 1];
+	CarbonChunk *chunk = &frame->func->chunk;
+	uint32_t line = chunk->lines[frame->ip - chunk->code];
+	printf("[Line %d] %s.", line, msg);
+	return Carbon_Runtime_Error;
+}
+
 CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 
 #define ReadByte() *(frame->ip)
@@ -334,10 +342,15 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				printf("%s\n", pop().uint ? "true" : "false");
 				frame->ip++;
 				break;
-			case OpPrintObj:
+			case OpPrintObj: {
+				CarbonObj *o = pop().obj;
+				if (o == NULL)
+					return runtimeError("Cannot print a null object", vm);
+
 				printObject(pop().obj);
 				frame->ip++;
 				break;
+			}
 
 			case OpPush1:
 				push(CarbonUInt(1));

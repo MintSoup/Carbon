@@ -1,20 +1,4 @@
 void main():
-	int i = 2
-	while i < 80000:
-		if isPrime(i):
-			print(i)
-		end
-		i = i + 1
-	end
+	print(1/0)
 end
 
-bool isPrime(int x):
-	int a = 2
-	while a <= x / 2:
-		if x % a == 0:
-			return false
-		end
-		a = a + 1
-	end
-	return true
-end
