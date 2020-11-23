@@ -1,4 +1,17 @@
+bool b():
+	print('b')
+	return false
+end
+
+
+uint a():
+	print('a')
+	return 4
+end
+
+
+
 void main():
-	print(1/0)
+	print(a() or b())
 end
 

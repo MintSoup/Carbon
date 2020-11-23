@@ -347,7 +347,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				if (o == NULL)
 					return runtimeError("Cannot print a null object", vm);
 
-				printObject(pop().obj);
+				printObject(o);
 				frame->ip++;
 				break;
 			}
@@ -425,6 +425,18 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				uint8_t bottom = ReadByte();
 				uint16_t range = ((uint16_t) top << 8) | bottom;
 				if (!peek().boolean)
+					frame->ip += range;
+				else
+					frame->ip++;
+				break;
+			}
+			case OpJumpOnTrue: {
+				frame->ip++;
+				uint8_t top = ReadByte();
+				frame->ip++;
+				uint8_t bottom = ReadByte();
+				uint16_t range = ((uint16_t) top << 8) | bottom;
+				if (peek().boolean)
 					frame->ip += range;
 				else
 					frame->ip++;

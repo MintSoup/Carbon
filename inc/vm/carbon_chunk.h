@@ -70,6 +70,7 @@ typedef enum {
 
 	// Control flow
 	OpJumpOnFalse,
+	OpJumpOnTrue,
 	OpJump,
 	OpIf,
 	OpLoop

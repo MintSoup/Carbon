@@ -318,6 +318,44 @@ static void globalNotFound(CarbonToken token, CarbonCompiler *c) {
 	c->hadError = true;
 }
 
+
+static uint32_t emitIf(CarbonChunk *chunk, uint32_t line) {
+	uint32_t position = chunk->count;
+	carbon_writeToChunk(chunk, OpIf, line);
+	carbon_writeToChunk(chunk, 0, line);
+	carbon_writeToChunk(chunk, 0, line);
+	return position;
+}
+
+static uint32_t emitJump(CarbonChunk *chunk, uint32_t line) {
+	uint32_t position = chunk->count;
+	carbon_writeToChunk(chunk, OpJump, line);
+	carbon_writeToChunk(chunk, 0, line);
+	carbon_writeToChunk(chunk, 0, line);
+	return position;
+}
+
+static uint32_t emitLogicalJump(CarbonChunk *chunk, uint32_t line,
+								CarbonOpCode opc) {
+	uint32_t position = chunk->count;
+	carbon_writeToChunk(chunk, opc, line);
+	carbon_writeToChunk(chunk, 0, line);
+	carbon_writeToChunk(chunk, 0, line);
+	return position;
+}
+
+static void patchJump(CarbonChunk *chunk, uint32_t position, CarbonToken t,
+					  CarbonCompiler *c) {
+	uint32_t offset = chunk->count - position - 2;
+	if (offset > UINT16_MAX) {
+		jumpTooLong(t, c);
+		return;
+	}
+	chunk->code[position + 1] = offset >> 8;
+	chunk->code[position + 2] = offset & 0xFF;
+}
+
+
 void carbon_markGlobal(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
 	CarbonValue dummy;
 	switch (stmt->type) {
@@ -727,6 +765,17 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 
 			CarbonExprBinary *bin = (CarbonExprBinary *) expr;
 
+			if (bin->op.type == TokenAnd || bin->op.type == TokenOr) {
+				carbon_compileExpression(bin->left, chunk, c, vm);
+				CarbonOpCode op =
+					bin->op.type == TokenAnd ? OpJumpOnFalse : OpJumpOnTrue;
+				uint32_t pos = emitLogicalJump(chunk, bin->op.line, op);
+				carbon_writeToChunk(chunk, OpPop, bin->op.line);
+				carbon_compileExpression(bin->right, chunk, c, vm);
+				patchJump(chunk, pos, bin->op, c);
+				break;
+			}
+
 			carbon_compileExpression(bin->left, chunk, c, vm);
 			carbon_compileExpression(bin->right, chunk, c, vm);
 
@@ -967,32 +1016,6 @@ static CarbonValue defaultState(CarbonValueType type, CarbonVM *vm) {
 	}
 }
 
-static uint32_t emitIf(CarbonChunk *chunk, uint32_t line) {
-	uint32_t position = chunk->count;
-	carbon_writeToChunk(chunk, OpIf, line);
-	carbon_writeToChunk(chunk, 0, line);
-	carbon_writeToChunk(chunk, 0, line);
-	return position;
-}
-
-static uint32_t emitJump(CarbonChunk *chunk, uint32_t line) {
-	uint32_t position = chunk->count;
-	carbon_writeToChunk(chunk, OpJump, line);
-	carbon_writeToChunk(chunk, 0, line);
-	carbon_writeToChunk(chunk, 0, line);
-	return position;
-}
-
-static void patchJump(CarbonChunk *chunk, uint32_t position, CarbonToken t,
-					  CarbonCompiler *c) {
-	uint32_t offset = chunk->count - position - 2;
-	if (offset > UINT16_MAX) {
-		jumpTooLong(t, c);
-		return;
-	}
-	chunk->code[position + 1] = offset >> 8;
-	chunk->code[position + 2] = offset & 0xFF;
-}
 
 void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 							 CarbonCompiler *c, CarbonVM *vm) {

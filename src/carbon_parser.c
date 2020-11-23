@@ -211,6 +211,10 @@ static CarbonStmtPrint *printStatement(CarbonParser *p);
 static CarbonStmtExpr *expressionStatement(CarbonParser *p);
 static CarbonStmtVarDec *varDeclaration(CarbonParser *p);
 
+
+
+static CarbonExpr *logicalOr(CarbonParser *p);
+static CarbonExpr *logicalAnd(CarbonParser *p);
 static CarbonExpr *assignment(CarbonParser *p);
 static CarbonExpr *equality(CarbonParser *p);
 static CarbonExpr *comparison(CarbonParser *p);
@@ -478,7 +482,7 @@ static CarbonStmtVarDec *varDeclaration(CarbonParser *p) {
 }
 
 static CarbonExpr *assignment(CarbonParser *p) {
-	CarbonExpr *target = equality(p);
+	CarbonExpr *target = logicalOr(p);
 	if (match(TokenEquals, p)) {
 		CarbonToken equals = previous(p);
 		CarbonExpr *value = assignment(p);
@@ -495,6 +499,25 @@ static CarbonExpr *assignment(CarbonParser *p) {
 	}
 	return target;
 }
+
+static CarbonExpr *logicalOr(CarbonParser *p) {
+	CarbonExpr *expr = logicalAnd(p);
+	while (match(TokenOr, p)) {
+		CarbonToken tok = previous(p);
+		expr = (CarbonExpr *) carbon_newBinaryExpr(expr, logicalAnd(p), tok);
+	}
+	return expr;
+}
+
+static CarbonExpr *logicalAnd(CarbonParser *p) {
+	CarbonExpr *expr = equality(p);
+	while (match(TokenAnd, p)) {
+		CarbonToken tok = previous(p);
+		expr = (CarbonExpr *) carbon_newBinaryExpr(expr, equality(p), tok);
+	}
+	return expr;
+}
+
 static CarbonExpr *equality(CarbonParser *p) {
 	CarbonExpr *expr = comparison(p);
 	while (match(TokenEqualsEquals, p) || match(TokenBangEquals, p)) {

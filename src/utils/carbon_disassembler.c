@@ -67,6 +67,7 @@ static char *names[] = {
 	[OpGetLocal] = "locget",
 
 	[OpJumpOnFalse] = "jz",
+	[OpJumpOnTrue] = "jnz",
 	[OpJump] = "jmp",
 	[OpIf] = "if",
 	[OpLoop] = "loop",
@@ -138,6 +139,7 @@ void carbon_disassemble(CarbonChunk *chunk) {
 				break;
 			case OpLoadConstant16:
 			case OpJumpOnFalse:
+			case OpJumpOnTrue:
 			case OpIf:
 			case OpLoop:
 			case OpJump:
