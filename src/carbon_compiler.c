@@ -1243,7 +1243,8 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 				carbon_compileExpression(whl->condition, chunk, c, vm);
 
 			uint32_t p = emitIf(chunk, whl->token.line);
-			uint32_t ejectExit;
+			uint32_t ejectExit = 0; // To suppress "may be unitialized" warning that arises
+									// Even though the variable is guaranteed to be inited if used
 
 			if (whl->body != NULL) {
 				c->loopDepth++;

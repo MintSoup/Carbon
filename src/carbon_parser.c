@@ -123,7 +123,9 @@ void carbon_initParser(CarbonParser *parser, CarbonLexer *lexer) {
 		carbon_reallocate(0, parser->totalTokens * sizeof(CarbonToken), NULL);
 	while (true) {
 		CarbonToken current;
-		CarbonToken prev;
+		CarbonToken prev = {}; // To suppress the "may be uninitialized" warning that otherwise
+							   // shows up on line 151, even though the variable is guaranteed
+							   // to be inited if used
 		while (true) {
 			current = carbon_scanToken(lexer);
 			if (current.type == TokenEOF)
