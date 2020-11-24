@@ -247,11 +247,11 @@ static void wrongArity(CarbonToken func, uint32_t wanted, uint32_t given,
 }
 static void wrongArgumentType(CarbonToken argument, uint8_t n,
 							  CarbonValueType wanted, CarbonValueType given,
-							  CarbonCompiler *c) {
+							  CarbonString *name, CarbonCompiler *c) {
 	fprintf(stderr,
-			"[Line %u] Argument %u is of the wrong type: "
+			"[Line %u] Argument %u of function call %s is of the wrong type: "
 			"Expected %s, got %s.\n",
-			argument.line, n, CarbonValueTypeName[wanted],
+			argument.line, n, name->chars, CarbonValueTypeName[wanted],
 			CarbonValueTypeName[given]);
 	c->hadError = true;
 }
@@ -318,7 +318,6 @@ static void globalNotFound(CarbonToken token, CarbonCompiler *c) {
 	c->hadError = true;
 }
 
-
 static uint32_t emitIf(CarbonChunk *chunk, uint32_t line) {
 	uint32_t position = chunk->count;
 	carbon_writeToChunk(chunk, OpIf, line);
@@ -354,7 +353,6 @@ static void patchJump(CarbonChunk *chunk, uint32_t position, CarbonToken t,
 	chunk->code[position + 1] = offset >> 8;
 	chunk->code[position + 2] = offset & 0xFF;
 }
-
 
 void carbon_markGlobal(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
 	CarbonValue dummy;
@@ -647,7 +645,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 				if (!canAssign(g->arguments[i].type,
 							   call->arguments[i]->evalsTo)) {
 					wrongArgumentType(var->token, i, g->arguments[i].type,
-									  call->arguments[i]->evalsTo, c);
+									  call->arguments[i]->evalsTo, name, c);
 					break;
 				}
 				call->arguments[i] =
@@ -1016,7 +1014,6 @@ static CarbonValue defaultState(CarbonValueType type, CarbonVM *vm) {
 	}
 }
 
-
 void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 							 CarbonCompiler *c, CarbonVM *vm) {
 
@@ -1243,8 +1240,9 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 				carbon_compileExpression(whl->condition, chunk, c, vm);
 
 			uint32_t p = emitIf(chunk, whl->token.line);
-			uint32_t ejectExit = 0; // To suppress "may be unitialized" warning that arises
-									// Even though the variable is guaranteed to be inited if used
+			uint32_t ejectExit = 0; // To suppress "may be unitialized" warning
+									// that arises Even though the variable is
+									// guaranteed to be inited if used
 
 			if (whl->body != NULL) {
 				c->loopDepth++;

@@ -1,17 +1,12 @@
-bool b():
-	print('b')
-	return false
-end
-
-
-uint a():
-	print('a')
-	return 4
-end
-
-
-
 void main():
-	print(a() or b())
+	print(fib(10))
+end
+
+
+uint fib(uint n):
+	if n == 1 or n == 2:
+		return 1
+	else:
+		return fib( (n - 1)) + fib( (n - 2))
 end
 
