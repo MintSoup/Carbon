@@ -20,7 +20,7 @@ void carbon_init(CarbonInstance *instance) {
 }
 
 CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
-							   uint32_t length) {
+							   uint32_t length, struct CarbonFlags flags) {
 	instance->lexer = carbon_initLexer(source, length);
 	carbon_initParser(&instance->parser, &instance->lexer);
 	carbon_initCompiler(&instance->compiler, &instance->parser);
@@ -59,7 +59,7 @@ CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
 	if (compilerHadError)
 		return Carbon_Compiler_Error;
 
-	if (1) { // disassembly
+	if (flags.disassemble) { // disassembly
 		printf("TOP-LEVEL CODE\n");
 		carbon_disassemble(&topLevel->chunk);
 
@@ -80,10 +80,11 @@ CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
 			}
 		}
 	}
-
-	return carbon_run(&instance->vm, topLevel);
+	if (!flags.norun)
+		return carbon_run(&instance->vm, topLevel);
+	else
+		return Carbon_OK;
 }
-
 
 bool carbon_isPrimitive(CarbonInstance *instance, char *name) {
 	CarbonString *str = carbon_copyString(name, strlen(name), &instance->vm);

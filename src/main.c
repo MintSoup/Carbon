@@ -12,17 +12,49 @@
 #include "utils/carbon_disassembler.h"
 #include "vm/carbon_chunk.h"
 #include "vm/carbon_vm.h"
+#include <string.h>
 
 extern size_t heapSize;
+
+struct CarbonFlags flags;
+
+static bool parseArguments(int argc, char *argv[]) {
+	uint16_t i = 0;
+	bool r = false;
+	for (i = 1; i < argc - 1; i++) {
+		if (argv[i][0] != '-' && argv[i][1] != '-') {
+			fprintf(stderr, "Flags must precede the filename\n");
+			return true;
+		}
+
+		if (!strcmp(argv[i], "--disassemble")) {
+			flags.disassemble = true;
+		} else if (!strcmp(argv[i], "--disassemble-only")) {
+			flags.disassemble = true;
+			flags.norun = true;
+		} else {
+			fprintf(stderr, "Unknown flag: %s\n", argv[i]);
+			r = true;
+		}
+	}
+	return r;
+}
+
 int main(int argc, char *argv[]) {
-	if (argc != 2) {
+	if (argc == 1) {
 		puts("Usage: carbon <filename>");
 		return 1;
 	}
-	FILE *f = fopen(argv[1], "rb");
 
-	if (!f)
+	if (parseArguments(argc, argv)) {
+		return 3;
+	}
+	FILE *f = fopen(argv[argc - 1], "rb");
+
+	if (!f) {
+		fprintf(stderr, "Cannot open file %s\n", argv[argc - 1]);
 		return 2;
+	}
 
 	fseek(f, 0, SEEK_END);
 	size_t size = ftell(f);
@@ -37,7 +69,7 @@ int main(int argc, char *argv[]) {
 	CarbonInstance instance;
 	carbon_init(&instance);
 
-	CarbonRunResult isOk = carbon_execute(&instance, t, size);
+	CarbonRunResult isOk = carbon_execute(&instance, t, size, flags);
 
 	if (isOk == Carbon_OK) {
 		CarbonValue mainFunction;
@@ -47,7 +79,8 @@ int main(int argc, char *argv[]) {
 				if (mainFunction.obj->type == CrbnObjFunc) {
 					CarbonFunction *func = (CarbonFunction *) mainFunction.obj;
 					if (func->arity == 0 && func->returnType == ValueVoid) {
-						carbon_run(&instance.vm, func);
+						if (!flags.norun)
+							carbon_run(&instance.vm, func);
 						success = true;
 					}
 				}

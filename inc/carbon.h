@@ -21,8 +21,13 @@ typedef enum carbon_runresult {
 	Carbon_Runtime_Error
 } CarbonRunResult;
 
+struct CarbonFlags {
+	bool disassemble;
+	bool norun;
+};
+
 CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
-							   uint32_t length);
+							   uint32_t length, struct CarbonFlags flags);
 void carbon_init(CarbonInstance *instance);
 void carbon_free(CarbonInstance *instance);
 bool carbon_isPrimitive(CarbonInstance *instance, char *name) ;
