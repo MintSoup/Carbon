@@ -723,6 +723,254 @@ static void pushLiteral(CarbonExprLiteral *lit, CarbonChunk *chunk,
 }
 
 void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
+							  CarbonCompiler *c, CarbonVM *vm);
+
+void carbon_compileUnaryExpression(CarbonExprUnary *un, CarbonChunk *chunk,
+								   CarbonCompiler *c, CarbonVM *vm) {
+	carbon_compileExpression(un->operand, chunk, c, vm);
+	if (un->op.type == TokenMinus)
+		switch (un->operand->evalsTo) {
+			case ValueUInt:
+				carbon_writeToChunk(chunk, OpNegateUInt, un->op.line);
+				break;
+			case ValueInt:
+				carbon_writeToChunk(chunk, OpNegateInt, un->op.line);
+				break;
+			case ValueDouble:
+				carbon_writeToChunk(chunk, OpNegateDouble, un->op.line);
+				break;
+			default:
+				break;
+		}
+	else if (un->op.type == TokenBang)
+		carbon_writeToChunk(chunk, OpNegateBool, un->op.line);
+}
+
+void carbon_compileBinaryExpression(CarbonExprBinary *bin, CarbonChunk *chunk,
+									CarbonCompiler *c, CarbonVM *vm) {
+#define binInstruction(type, instruction)                                      \
+	case type:                                                                 \
+		carbon_writeToChunk(chunk, instruction, bin->op.line)
+
+	if (bin->op.type == TokenAnd || bin->op.type == TokenOr) {
+		carbon_compileExpression(bin->left, chunk, c, vm);
+		CarbonOpCode op =
+			bin->op.type == TokenAnd ? OpJumpOnFalse : OpJumpOnTrue;
+		uint32_t pos = emitLogicalJump(chunk, bin->op.line, op);
+		carbon_writeToChunk(chunk, OpPop, bin->op.line);
+		carbon_compileExpression(bin->right, chunk, c, vm);
+		patchJump(chunk, pos, bin->op, c);
+		return;
+	}
+
+	carbon_compileExpression(bin->left, chunk, c, vm);
+	carbon_compileExpression(bin->right, chunk, c, vm);
+
+	switch (bin->op.type) {
+		case TokenPlus:
+			switch (bin->left->evalsTo) {
+				binInstruction(ValueInt, OpAddInt);
+				break;
+				binInstruction(ValueUInt, OpAddInt);
+				break;
+				binInstruction(ValueDouble, OpAddDouble);
+				break;
+				binInstruction(ValueString, OpConcat);
+				break;
+				default:
+					break;
+			}
+			break;
+		case TokenMinus:
+			switch (bin->left->evalsTo) {
+				binInstruction(ValueInt, OpSubInt);
+				break;
+				binInstruction(ValueUInt, OpSubInt);
+				break;
+				binInstruction(ValueDouble, OpSubDouble);
+				break;
+				default:
+					break;
+			}
+			break;
+		case TokenSlash:
+			switch (bin->left->evalsTo) {
+				binInstruction(ValueInt, OpDivInt);
+				break;
+				binInstruction(ValueUInt, OpDivUInt);
+				break;
+				binInstruction(ValueDouble, OpDivDouble);
+				break;
+				default:
+					break;
+			}
+			break;
+		case TokenStar:
+			switch (bin->left->evalsTo) {
+				binInstruction(ValueInt, OpMulInt);
+				break;
+				binInstruction(ValueUInt, OpMulUInt);
+				break;
+				binInstruction(ValueDouble, OpMulDouble);
+				break;
+				default:
+					break;
+			}
+			break;
+		case TokenPercent:
+			switch (bin->left->evalsTo) {
+				binInstruction(ValueInt, OpMod);
+				break;
+				binInstruction(ValueUInt, OpMod);
+				break;
+				default:
+					break;
+			}
+			break;
+		case TokenGreaterThan:
+			switch (bin->left->evalsTo) {
+				binInstruction(ValueInt, OpCompareInt);
+				break;
+				binInstruction(ValueUInt, OpCompareUInt);
+				break;
+				binInstruction(ValueDouble, OpCompareDouble);
+				break;
+				default:
+					break;
+			}
+			carbon_writeToChunk(chunk, OpGreater, bin->op.line);
+			break;
+		case TokenLessThan:
+			switch (bin->left->evalsTo) {
+				binInstruction(ValueInt, OpCompareInt);
+				break;
+				binInstruction(ValueUInt, OpCompareUInt);
+				break;
+				binInstruction(ValueDouble, OpCompareDouble);
+				break;
+				default:
+					break;
+			}
+			carbon_writeToChunk(chunk, OpLess, bin->op.line);
+			break;
+		case TokenLEQ:
+			switch (bin->left->evalsTo) {
+				binInstruction(ValueInt, OpCompareInt);
+				break;
+				binInstruction(ValueUInt, OpCompareUInt);
+				break;
+				binInstruction(ValueDouble, OpCompareDouble);
+				break;
+				default:
+					break;
+			}
+			carbon_writeToChunk(chunk, OpLEQ, bin->op.line);
+			break;
+		case TokenGEQ:
+			switch (bin->left->evalsTo) {
+				binInstruction(ValueInt, OpCompareInt);
+				break;
+				binInstruction(ValueUInt, OpCompareUInt);
+				break;
+				binInstruction(ValueDouble, OpCompareDouble);
+				break;
+				default:
+					break;
+			}
+			carbon_writeToChunk(chunk, OpGEQ, bin->op.line);
+			break;
+		case TokenEqualsEquals:
+			carbon_writeToChunk(chunk, OpEquals, bin->op.line);
+			break;
+		case TokenBangEquals:
+			carbon_writeToChunk(chunk, OpNotEquals, bin->op.line);
+			break;
+		default:
+			break;
+	}
+#undef binInstruction
+}
+
+void carbon_compileCastExpression(CarbonExprCast *cast, CarbonChunk *chunk,
+								  CarbonCompiler *c, CarbonVM *vm) {
+	carbon_compileExpression(cast->expression, chunk, c, vm);
+	CarbonValueType from = cast->expression->evalsTo;
+	switch (cast->expr.evalsTo) {
+		case ValueInt:
+			if (from == ValueDouble)
+				carbon_writeToChunk(chunk, OpDoubleToInt, cast->to.line);
+			break;
+		case ValueUInt:
+			if (from == ValueDouble)
+				carbon_writeToChunk(chunk, OpDoubleToUInt, cast->to.line);
+			break;
+		case ValueDouble:
+			if (from == ValueInt)
+				carbon_writeToChunk(chunk, OpIntToDouble, cast->to.line);
+			else if (from == ValueUInt)
+				carbon_writeToChunk(chunk, OpUIntToDouble, cast->to.line);
+			break;
+		default: // should never reach here
+			break;
+	}
+}
+void carbon_compileVarExpression(CarbonExprVar *var, CarbonChunk *chunk,
+								 CarbonCompiler *c, CarbonVM *vm) {
+	CarbonString *name = carbon_strFromToken(var->token, vm);
+
+	int16_t slot = resolveLocal(name, c);
+	if (slot != -1) {
+		carbon_writeToChunk(chunk, OpGetLocal, var->token.line);
+		carbon_writeToChunk(chunk, slot & 0xFF, var->token.line);
+		return;
+	}
+
+	uint16_t index =
+		carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
+	if (index > UINT8_MAX) {
+		push(index, chunk, var->token);
+		carbon_writeToChunk(chunk, OpGetGlobal, var->token.line);
+		return;
+	}
+	carbon_writeToChunk(chunk, OpGetGlobalInline, var->token.line);
+	carbon_writeToChunk(chunk, index & 0xFF, var->token.line);
+}
+
+void carbon_compileAssignmentExpression(CarbonExprAssignment *assignment,
+										CarbonChunk *chunk, CarbonCompiler *c,
+										CarbonVM *vm) {
+	CarbonString *name = carbon_strFromToken(assignment->left, vm);
+	carbon_compileExpression(assignment->right, chunk, c, vm);
+
+	int16_t slot = resolveLocal(name, c);
+	if (slot != -1) {
+		carbon_writeToChunk(chunk, OpSetLocal, assignment->left.line);
+		carbon_writeToChunk(chunk, slot & 0xFF, assignment->left.line);
+		return;
+	}
+
+	uint16_t index =
+		carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
+	if (index > UINT8_MAX) {
+		push(index, chunk, assignment->left);
+		carbon_writeToChunk(chunk, OpSetGlobal, assignment->left.line);
+		return;
+	}
+	carbon_writeToChunk(chunk, OpSetGlobalInline, assignment->left.line);
+	carbon_writeToChunk(chunk, index & 0xFF, assignment->left.line);
+}
+
+void carbon_compileCallExpression(CarbonExprCall *call, CarbonChunk *chunk,
+								  CarbonCompiler *c, CarbonVM *vm) {
+	carbon_compileExpression(call->callee, chunk, c, vm);
+	for (uint8_t i = 0; i < call->arity; i++) {
+		carbon_compileExpression(call->arguments[i], chunk, c, vm);
+	}
+	carbon_writeToChunk(chunk, OpCall, call->line);
+	carbon_writeToChunk(chunk, call->arity, call->line);
+}
+
+void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 							  CarbonCompiler *c, CarbonVM *vm) {
 
 	if (expr->evalsTo == ValueUntypechecked)
@@ -734,173 +982,15 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 
 	switch (expr->type) {
 		case ExprUnary: {
-			CarbonExprUnary *un = (CarbonExprUnary *) expr;
-			carbon_compileExpression(un->operand, chunk, c, vm);
-			if (un->op.type == TokenMinus)
-				switch (un->operand->evalsTo) {
-					case ValueUInt:
-						carbon_writeToChunk(chunk, OpNegateUInt, un->op.line);
-						break;
-					case ValueInt:
-						carbon_writeToChunk(chunk, OpNegateInt, un->op.line);
-						break;
-					case ValueDouble:
-						carbon_writeToChunk(chunk, OpNegateDouble, un->op.line);
-						break;
-					default:
-						break;
-				}
-			else if (un->op.type == TokenBang)
-				carbon_writeToChunk(chunk, OpNegateBool, un->op.line);
+			carbon_compileUnaryExpression((CarbonExprUnary *) expr, chunk, c,
+										  vm);
 			break;
 		}
 
 		case ExprBinary: {
-
-#define binInstruction(type, instruction)                                      \
-	case type:                                                                 \
-		carbon_writeToChunk(chunk, instruction, bin->op.line)
-
-			CarbonExprBinary *bin = (CarbonExprBinary *) expr;
-
-			if (bin->op.type == TokenAnd || bin->op.type == TokenOr) {
-				carbon_compileExpression(bin->left, chunk, c, vm);
-				CarbonOpCode op =
-					bin->op.type == TokenAnd ? OpJumpOnFalse : OpJumpOnTrue;
-				uint32_t pos = emitLogicalJump(chunk, bin->op.line, op);
-				carbon_writeToChunk(chunk, OpPop, bin->op.line);
-				carbon_compileExpression(bin->right, chunk, c, vm);
-				patchJump(chunk, pos, bin->op, c);
-				break;
-			}
-
-			carbon_compileExpression(bin->left, chunk, c, vm);
-			carbon_compileExpression(bin->right, chunk, c, vm);
-
-			switch (bin->op.type) {
-				case TokenPlus:
-					switch (bin->left->evalsTo) {
-						binInstruction(ValueInt, OpAddInt);
-						break;
-						binInstruction(ValueUInt, OpAddInt);
-						break;
-						binInstruction(ValueDouble, OpAddDouble);
-						break;
-						binInstruction(ValueString, OpConcat);
-						break;
-						default:
-							break;
-					}
-					break;
-				case TokenMinus:
-					switch (bin->left->evalsTo) {
-						binInstruction(ValueInt, OpSubInt);
-						break;
-						binInstruction(ValueUInt, OpSubInt);
-						break;
-						binInstruction(ValueDouble, OpSubDouble);
-						break;
-						default:
-							break;
-					}
-					break;
-				case TokenSlash:
-					switch (bin->left->evalsTo) {
-						binInstruction(ValueInt, OpDivInt);
-						break;
-						binInstruction(ValueUInt, OpDivUInt);
-						break;
-						binInstruction(ValueDouble, OpDivDouble);
-						break;
-						default:
-							break;
-					}
-					break;
-				case TokenStar:
-					switch (bin->left->evalsTo) {
-						binInstruction(ValueInt, OpMulInt);
-						break;
-						binInstruction(ValueUInt, OpMulUInt);
-						break;
-						binInstruction(ValueDouble, OpMulDouble);
-						break;
-						default:
-							break;
-					}
-					break;
-				case TokenPercent:
-					switch (bin->left->evalsTo) {
-						binInstruction(ValueInt, OpMod);
-						break;
-						binInstruction(ValueUInt, OpMod);
-						break;
-						default:
-							break;
-					}
-					break;
-				case TokenGreaterThan:
-					switch (bin->left->evalsTo) {
-						binInstruction(ValueInt, OpCompareInt);
-						break;
-						binInstruction(ValueUInt, OpCompareUInt);
-						break;
-						binInstruction(ValueDouble, OpCompareDouble);
-						break;
-						default:
-							break;
-					}
-					carbon_writeToChunk(chunk, OpGreater, bin->op.line);
-					break;
-				case TokenLessThan:
-					switch (bin->left->evalsTo) {
-						binInstruction(ValueInt, OpCompareInt);
-						break;
-						binInstruction(ValueUInt, OpCompareUInt);
-						break;
-						binInstruction(ValueDouble, OpCompareDouble);
-						break;
-						default:
-							break;
-					}
-					carbon_writeToChunk(chunk, OpLess, bin->op.line);
-					break;
-				case TokenLEQ:
-					switch (bin->left->evalsTo) {
-						binInstruction(ValueInt, OpCompareInt);
-						break;
-						binInstruction(ValueUInt, OpCompareUInt);
-						break;
-						binInstruction(ValueDouble, OpCompareDouble);
-						break;
-						default:
-							break;
-					}
-					carbon_writeToChunk(chunk, OpLEQ, bin->op.line);
-					break;
-				case TokenGEQ:
-					switch (bin->left->evalsTo) {
-						binInstruction(ValueInt, OpCompareInt);
-						break;
-						binInstruction(ValueUInt, OpCompareUInt);
-						break;
-						binInstruction(ValueDouble, OpCompareDouble);
-						break;
-						default:
-							break;
-					}
-					carbon_writeToChunk(chunk, OpGEQ, bin->op.line);
-					break;
-				case TokenEqualsEquals:
-					carbon_writeToChunk(chunk, OpEquals, bin->op.line);
-					break;
-				case TokenBangEquals:
-					carbon_writeToChunk(chunk, OpNotEquals, bin->op.line);
-					break;
-				default:
-					break;
-			}
+			carbon_compileBinaryExpression((CarbonExprBinary *) expr, chunk, c,
+										   vm);
 			break;
-#undef binInstruction
 		}
 		case ExprLiteral: {
 			CarbonExprLiteral *lit = (CarbonExprLiteral *) expr;
@@ -913,88 +1003,20 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 			break;
 		}
 		case ExprCast: {
-			CarbonExprCast *cast = (CarbonExprCast *) expr;
-			carbon_compileExpression(cast->expression, chunk, c, vm);
-			CarbonValueType from = cast->expression->evalsTo;
-			switch (cast->expr.evalsTo) {
-				case ValueInt:
-					if (from == ValueDouble)
-						carbon_writeToChunk(chunk, OpDoubleToInt,
-											cast->to.line);
-					break;
-				case ValueUInt:
-					if (from == ValueDouble)
-						carbon_writeToChunk(chunk, OpDoubleToUInt,
-											cast->to.line);
-					break;
-				case ValueDouble:
-					if (from == ValueInt)
-						carbon_writeToChunk(chunk, OpIntToDouble,
-											cast->to.line);
-					else if (from == ValueUInt)
-						carbon_writeToChunk(chunk, OpUIntToDouble,
-											cast->to.line);
-					break;
-				default: // should never reach here
-					break;
-			}
-
+			carbon_compileCastExpression((CarbonExprCast *) expr, chunk, c, vm);
 			break;
 		}
 		case ExprVar: {
-			CarbonExprVar *var = (CarbonExprVar *) expr;
-			CarbonString *name = carbon_strFromToken(var->token, vm);
-
-			int16_t slot = resolveLocal(name, c);
-			if (slot != -1) {
-				carbon_writeToChunk(chunk, OpGetLocal, var->token.line);
-				carbon_writeToChunk(chunk, slot & 0xFF, var->token.line);
-				break;
-			}
-
-			uint16_t index =
-				carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
-			if (index > UINT8_MAX) {
-				push(index, chunk, var->token);
-				carbon_writeToChunk(chunk, OpGetGlobal, var->token.line);
-				break;
-			}
-			carbon_writeToChunk(chunk, OpGetGlobalInline, var->token.line);
-			carbon_writeToChunk(chunk, index & 0xFF, var->token.line);
+			carbon_compileVarExpression((CarbonExprVar *) expr, chunk, c, vm);
 			break;
 		}
 		case ExprAssignment: {
-			CarbonExprAssignment *assignment = (CarbonExprAssignment *) expr;
-			CarbonString *name = carbon_strFromToken(assignment->left, vm);
-			carbon_compileExpression(assignment->right, chunk, c, vm);
-
-			int16_t slot = resolveLocal(name, c);
-			if (slot != -1) {
-				carbon_writeToChunk(chunk, OpSetLocal, assignment->left.line);
-				carbon_writeToChunk(chunk, slot & 0xFF, assignment->left.line);
-				break;
-			}
-
-			uint16_t index =
-				carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
-			if (index > UINT8_MAX) {
-				push(index, chunk, assignment->left);
-				carbon_writeToChunk(chunk, OpSetGlobal, assignment->left.line);
-				break;
-			}
-			carbon_writeToChunk(chunk, OpSetGlobalInline,
-								assignment->left.line);
-			carbon_writeToChunk(chunk, index & 0xFF, assignment->left.line);
+			carbon_compileAssignmentExpression((CarbonExprAssignment *) expr,
+											   chunk, c, vm);
 			break;
 		}
 		case ExprCall: {
-			CarbonExprCall *call = (CarbonExprCall *) expr;
-			carbon_compileExpression(call->callee, chunk, c, vm);
-			for (uint8_t i = 0; i < call->arity; i++) {
-				carbon_compileExpression(call->arguments[i], chunk, c, vm);
-			}
-			carbon_writeToChunk(chunk, OpCall, call->line);
-			carbon_writeToChunk(chunk, call->arity, call->line);
+			carbon_compileCallExpression((CarbonExprCall *) expr, chunk, c, vm);
 			break;
 		}
 	}
@@ -1015,306 +1037,340 @@ static CarbonValue defaultState(CarbonValueType type, CarbonVM *vm) {
 }
 
 void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
-							 CarbonCompiler *c, CarbonVM *vm) {
+							 CarbonCompiler *c, CarbonVM *vm);
 
 #define emit(opcode, line)                                                     \
 	if (!(c->parserHadError || c->hadError))                                   \
 	carbon_writeToChunk(chunk, opcode, line)
 
-	switch (stmt->type) {
-		case StmtPrint: {
-			CarbonStmtPrint *print = (CarbonStmtPrint *) stmt;
-			if (print->expression == NULL)
-				break;
-			carbon_compileExpression(print->expression, chunk, c, vm);
-			CarbonOpCode op;
+static void compilePrintStmt(CarbonStmtPrint *print, CarbonChunk *chunk,
+							 CarbonCompiler *c, CarbonVM *vm) {
+	if (print->expression == NULL)
+		return;
+	carbon_compileExpression(print->expression, chunk, c, vm);
+	CarbonOpCode op;
 
-			switch (print->expression->evalsTo) {
-				case ValueInt:
-					op = OpPrintInt;
-					break;
-				case ValueUInt:
-					op = OpPrintUInt;
-					break;
-				case ValueDouble:
-					op = OpPrintDouble;
-					break;
-				case ValueBool:
-					op = OpPrintBool;
-					break;
-				case ValueVoid:
-					cantPrint(print->token, c);
-					break;
-				default:
-					op = OpPrintObj;
-					break;
-			}
-			emit(op, print->token.line);
+	switch (print->expression->evalsTo) {
+		case ValueInt:
+			op = OpPrintInt;
 			break;
-		}
-		case StmtExpr: {
-			CarbonStmtExpr *expr = (CarbonStmtExpr *) stmt;
-			if (expr->expression == NULL)
-				break;
-			carbon_compileExpression(expr->expression, chunk, c, vm);
-			if (expr->expression->evalsTo != ValueVoid)
-				emit(OpPop, expr->last.line);
+		case ValueUInt:
+			op = OpPrintUInt;
 			break;
-		}
-		case StmtVarDec: {
-			CarbonStmtVarDec *vardec = (CarbonStmtVarDec *) stmt;
-			CarbonString *name = carbon_strFromToken(vardec->identifier, vm);
+		case ValueDouble:
+			op = OpPrintDouble;
+			break;
+		case ValueBool:
+			op = OpPrintBool;
+			break;
+		case ValueVoid:
+			cantPrint(print->token, c);
+			break;
+		default:
+			op = OpPrintObj;
+			break;
+	}
+	emit(op, print->token.line);
+}
 
-			bool isLocal = c->compilingTo != NULL;
+static void compileExprStmt(CarbonStmtExpr *expr, CarbonChunk *chunk,
+							CarbonCompiler *c, CarbonVM *vm) {
+	if (expr->expression == NULL)
+		return;
+	carbon_compileExpression(expr->expression, chunk, c, vm);
+	if (expr->expression->evalsTo != ValueVoid)
+		emit(OpPop, expr->last.line);
+}
 
-			Global *g;
-			carbon_tableGet(&c->globals, (CarbonObj *) name,
-							(CarbonValue *) &g);
+static void compileVarDecStmt(CarbonStmtVarDec *vardec, CarbonChunk *chunk,
+							  CarbonCompiler *c, CarbonVM *vm) {
 
-			CarbonValueType vartype = t2value[vardec->type.type];
+	CarbonString *name = carbon_strFromToken(vardec->identifier, vm);
 
-			if (vardec->initializer != NULL) {
-				typecheck(vardec->initializer, c, vm);
-				if (!canAssign(vartype, vardec->initializer->evalsTo)) {
-					cantAssign(vartype, vardec->initializer->evalsTo,
-							   vardec->identifier.line, c);
-					if (!isLocal)
-						g->declared = true;
-					break;
-				} else {
-					vardec->initializer =
-						promoteNumerics(vartype, vardec->initializer);
+	bool isLocal = c->compilingTo != NULL;
 
-					carbon_compileExpression(vardec->initializer, chunk, c, vm);
-				}
-			} else {
-				if (isObject(vartype))
-					pushValue(defaultState(vartype, vm), chunk,
-							  vardec->identifier);
-				else
-					emit(OpPush0, vardec->identifier.line);
-			}
+	Global *g;
+	carbon_tableGet(&c->globals, (CarbonObj *) name, (CarbonValue *) &g);
 
-			if (!isLocal) {
+	CarbonValueType vartype = t2value[vardec->type.type];
+
+	if (vardec->initializer != NULL) {
+		typecheck(vardec->initializer, c, vm);
+		if (!canAssign(vartype, vardec->initializer->evalsTo)) {
+			cantAssign(vartype, vardec->initializer->evalsTo,
+					   vardec->identifier.line, c);
+			if (!isLocal)
 				g->declared = true;
-				uint16_t index =
-					carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
-				if (index > UINT8_MAX) {
-					push(index, chunk, vardec->identifier);
-					emit(OpSetGlobal, vardec->identifier.line);
-				} else {
-					emit(OpSetGlobalInline, vardec->identifier.line);
-					emit(index, vardec->identifier.line);
-				}
-				emit(OpPop, vardec->identifier.line);
-				if (!isObject(vartype))
-					carbon_tableSet(&vm->primitives, (CarbonObj *) name,
-									CarbonUInt(0));
-			} else {
-				int16_t depth = resolveLocal(name, c);
-				if (depth != c->depth) {
-					CarbonLocal l = {c->depth, name, vartype};
-					if (c->localCount != 255)
-						c->locals[c->localCount++] = l;
-					else {
-						tooManyLocals(vardec->identifier, c);
-					}
-				} else {
-					localRedeclaration(vardec->identifier, c);
-				}
-			}
-			break;
+			return;
+		} else {
+			vardec->initializer = promoteNumerics(vartype, vardec->initializer);
+
+			carbon_compileExpression(vardec->initializer, chunk, c, vm);
 		}
-		case StmtFunc: {
-			CarbonStmtFunc *sfunc = (CarbonStmtFunc *) stmt;
-			CarbonString *name = carbon_strFromToken(sfunc->identifier, vm);
+	} else {
+		if (isObject(vartype))
+			pushValue(defaultState(vartype, vm), chunk, vardec->identifier);
+		else
+			emit(OpPush0, vardec->identifier.line);
+	}
 
-			Global *g;
-			carbon_tableGet(&c->globals, (CarbonObj *) name,
-							(CarbonValue *) &g);
-
-			CarbonValueType returnType = t2value[sfunc->returnType.type];
-			CarbonFunction *ofunc =
-				carbon_newFunction(name, sfunc->arity, returnType, vm);
-			c->compilingTo = ofunc;
-			g->declared = true;
-			c->localCount = sfunc->arity;
-			for (uint8_t i = 0; i < sfunc->arity; i++) {
-				CarbonToken name = sfunc->arguments[i].name;
-				c->locals[i].depth = 0;
-				c->locals[i].name = carbon_strFromToken(name, vm);
-				c->locals[i].type = t2value[sfunc->arguments[i].type.type];
-			}
-			bool hadReturn = false;
-
-			for (uint32_t i = 0; i < sfunc->statements.count; i++) {
-				hadReturn =
-					hadReturn || alwaysReturns(sfunc->statements.arr[i]);
-				carbon_compileStatement(sfunc->statements.arr[i], &ofunc->chunk,
-										c, vm);
-			}
-			if (!hadReturn && c->compilingTo->returnType != ValueVoid) {
-				expectedReturnStatement(sfunc->identifier, c);
-			}
-
-			c->compilingTo = NULL;
-			c->localCount = 0;
-			if (returnType == ValueVoid) {
-				carbon_writeToChunk(&ofunc->chunk, OpReturnVoid, sfunc->end);
-			}
-			carbon_tableSet(&vm->globals, (CarbonObj *) name,
-							CarbonObject((CarbonObj *) ofunc));
-
-			break;
+	if (!isLocal) {
+		g->declared = true;
+		uint16_t index =
+			carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
+		if (index > UINT8_MAX) {
+			push(index, chunk, vardec->identifier);
+			emit(OpSetGlobal, vardec->identifier.line);
+		} else {
+			emit(OpSetGlobalInline, vardec->identifier.line);
+			emit(index, vardec->identifier.line);
 		}
-		case StmtReturn: {
-			CarbonStmtReturn *ret = (CarbonStmtReturn *) stmt;
-			if (ret->expression != NULL) {
-				if (c->compilingTo->returnType == ValueVoid) {
-					noReturnWanted(ret->token, c->compilingTo->name, c);
-					break;
-				}
-				typecheck(ret->expression, c, vm);
-				if (ret->expression->evalsTo == ValueUnresolved)
-					break;
-				CarbonValueType wanted = c->compilingTo->returnType;
-				CarbonValueType given = ret->expression->evalsTo;
-				if (!canAssign(wanted, given)) {
-					wrongReturnType(ret->token, wanted, given, c);
-				}
-
-				ret->expression = promoteNumerics(wanted, ret->expression);
-				carbon_compileExpression(ret->expression, chunk, c, vm);
-
-				carbon_writeToChunk(chunk, OpReturn, ret->token.line);
-				break;
+		emit(OpPop, vardec->identifier.line);
+		if (!isObject(vartype))
+			carbon_tableSet(&vm->primitives, (CarbonObj *) name, CarbonUInt(0));
+	} else {
+		int16_t depth = resolveLocal(name, c);
+		if (depth != c->depth) {
+			CarbonLocal l = {c->depth, name, vartype};
+			if (c->localCount != 255)
+				c->locals[c->localCount++] = l;
+			else {
+				tooManyLocals(vardec->identifier, c);
 			}
-			if (c->compilingTo->returnType != ValueVoid) {
-				wrongReturnType(ret->token, c->compilingTo->returnType,
-								ValueVoid, c);
-				break;
-			}
-			carbon_writeToChunk(chunk, OpReturnVoid, ret->token.line);
-			break;
+		} else {
+			localRedeclaration(vardec->identifier, c);
 		}
-		case StmtBlock: {
-			CarbonStmtBlock *block = (CarbonStmtBlock *) stmt;
-			c->depth++;
-			for (uint32_t i = 0; i < block->statements.count; i++) {
-				carbon_compileStatement(block->statements.arr[i], chunk, c, vm);
-			}
-			if (block->locals == 1) {
-				carbon_writeToChunk(chunk, OpPop, block->locals);
-			} else if (block->locals >= 1) {
-				carbon_writeToChunk(chunk, OpPopn, block->locals);
-				carbon_writeToChunk(chunk, block->locals, block->locals);
-			}
-			c->depth--;
-			if (c->localCount > 0)
-				while (c->locals[c->localCount - 1].depth > c->depth)
-					c->localCount--;
-			break;
+	}
+}
+
+static void compileFuncStatement(CarbonStmtFunc *sfunc, CarbonChunk *chunk,
+								 CarbonCompiler *c, CarbonVM *vm) {
+
+	CarbonString *name = carbon_strFromToken(sfunc->identifier, vm);
+
+	Global *g;
+	carbon_tableGet(&c->globals, (CarbonObj *) name, (CarbonValue *) &g);
+
+	CarbonValueType returnType = t2value[sfunc->returnType.type];
+	CarbonFunction *ofunc =
+		carbon_newFunction(name, sfunc->arity, returnType, vm);
+	c->compilingTo = ofunc;
+	g->declared = true;
+	c->localCount = sfunc->arity;
+	for (uint8_t i = 0; i < sfunc->arity; i++) {
+		CarbonToken name = sfunc->arguments[i].name;
+		c->locals[i].depth = 0;
+		c->locals[i].name = carbon_strFromToken(name, vm);
+		c->locals[i].type = t2value[sfunc->arguments[i].type.type];
+	}
+	bool hadReturn = false;
+
+	for (uint32_t i = 0; i < sfunc->statements.count; i++) {
+		hadReturn = hadReturn || alwaysReturns(sfunc->statements.arr[i]);
+		carbon_compileStatement(sfunc->statements.arr[i], &ofunc->chunk, c, vm);
+	}
+	if (!hadReturn && c->compilingTo->returnType != ValueVoid) {
+		expectedReturnStatement(sfunc->identifier, c);
+	}
+
+	c->compilingTo = NULL;
+	c->localCount = 0;
+	if (returnType == ValueVoid) {
+		carbon_writeToChunk(&ofunc->chunk, OpReturnVoid, sfunc->end);
+	}
+	carbon_tableSet(&vm->globals, (CarbonObj *) name,
+					CarbonObject((CarbonObj *) ofunc));
+}
+
+static void compileReturnStatement(CarbonStmtReturn *ret, CarbonChunk *chunk,
+								   CarbonCompiler *c, CarbonVM *vm) {
+
+	if (ret->expression != NULL) {
+		if (c->compilingTo->returnType == ValueVoid) {
+			noReturnWanted(ret->token, c->compilingTo->name, c);
+			return;
 		}
-		case StmtIf: {
-			CarbonStmtIf *sif = (CarbonStmtIf *) stmt;
-			if (sif->condition != NULL)
-				carbon_compileExpression(sif->condition, chunk, c, vm);
-			uint32_t first = emitIf(chunk, sif->token.line);
-			uint32_t second = 0;
-			if (sif->then != NULL) {
-				carbon_compileStatement(sif->then, chunk, c, vm);
-				if (sif->notThen != NULL)
-					second = emitJump(chunk, sif->token.line);
-				patchJump(chunk, first, sif->token, c);
-			}
-			if (sif->notThen != NULL) {
-				carbon_compileStatement(sif->notThen, chunk, c, vm);
-				patchJump(chunk, second, sif->elseToken, c);
-			}
-			break;
+		typecheck(ret->expression, c, vm);
+		if (ret->expression->evalsTo == ValueUnresolved)
+			return;
+		CarbonValueType wanted = c->compilingTo->returnType;
+		CarbonValueType given = ret->expression->evalsTo;
+		if (!canAssign(wanted, given)) {
+			wrongReturnType(ret->token, wanted, given, c);
 		}
-		case StmtWhile: {
-			CarbonStmtWhile *whl = (CarbonStmtWhile *) stmt;
-			uint32_t backpos = chunk->count;
-			if (whl->condition != NULL)
-				carbon_compileExpression(whl->condition, chunk, c, vm);
 
-			uint32_t p = emitIf(chunk, whl->token.line);
-			uint32_t ejectExit = 0; // To suppress "may be unitialized" warning
-									// that arises Even though the variable is
-									// guaranteed to be inited if used
+		ret->expression = promoteNumerics(wanted, ret->expression);
+		carbon_compileExpression(ret->expression, chunk, c, vm);
 
-			if (whl->body != NULL) {
-				c->loopDepth++;
-				carbon_compileStatement((CarbonStmt *) whl->body, chunk, c, vm);
-				c->loopDepth--;
-				if (whl->body->hasBreak && whl->body->locals > 0) {
-					uint32_t eject = emitJump(chunk, whl->token.line);
-					for (uint8_t i = c->breaksCount - 1;
-						 c->breaks[i].depth == c->loopDepth + 1; i--) {
-						if (c->breaks[i].isBreak) {
-							patchJump(chunk, c->breaks[i].position,
-									  c->breaks[i].token, c);
-						}
-					}
-					if (whl->body->locals == 1) {
-						carbon_writeToChunk(chunk, OpPop, whl->body->locals);
-					} else if (whl->body->locals >= 1) {
-						carbon_writeToChunk(chunk, OpPopn, whl->body->locals);
-						carbon_writeToChunk(chunk, whl->body->locals,
-											whl->body->locals);
-					}
-					ejectExit = emitJump(chunk, whl->token.line);
-					patchJump(chunk, eject, whl->token, c);
-				}
-			}
+		carbon_writeToChunk(chunk, OpReturn, ret->token.line);
+		return;
+	}
+	if (c->compilingTo->returnType != ValueVoid) {
+		wrongReturnType(ret->token, c->compilingTo->returnType, ValueVoid, c);
+		return;
+	}
+	carbon_writeToChunk(chunk, OpReturnVoid, ret->token.line);
+}
 
+static void compileBlockStatement(CarbonStmtBlock *block, CarbonChunk *chunk,
+								  CarbonCompiler *c, CarbonVM *vm) {
+
+	c->depth++;
+	for (uint32_t i = 0; i < block->statements.count; i++) {
+		carbon_compileStatement(block->statements.arr[i], chunk, c, vm);
+	}
+	if (block->locals == 1) {
+		carbon_writeToChunk(chunk, OpPop, block->locals);
+	} else if (block->locals >= 1) {
+		carbon_writeToChunk(chunk, OpPopn, block->locals);
+		carbon_writeToChunk(chunk, block->locals, block->locals);
+	}
+	c->depth--;
+	if (c->localCount > 0)
+		while (c->locals[c->localCount - 1].depth > c->depth)
+			c->localCount--;
+}
+
+static void compileIfStatement(CarbonStmtIf *sif, CarbonChunk *chunk,
+							   CarbonCompiler *c, CarbonVM *vm) {
+
+	if (sif->condition != NULL)
+		carbon_compileExpression(sif->condition, chunk, c, vm);
+	uint32_t first = emitIf(chunk, sif->token.line);
+	uint32_t second = 0;
+	if (sif->then != NULL) {
+		carbon_compileStatement(sif->then, chunk, c, vm);
+		if (sif->notThen != NULL)
+			second = emitJump(chunk, sif->token.line);
+		patchJump(chunk, first, sif->token, c);
+	}
+	if (sif->notThen != NULL) {
+		carbon_compileStatement(sif->notThen, chunk, c, vm);
+		patchJump(chunk, second, sif->elseToken, c);
+	}
+}
+
+static void compileWhileStatement(CarbonStmtWhile *whl, CarbonChunk *chunk,
+								  CarbonCompiler *c, CarbonVM *vm) {
+
+	uint32_t backpos = chunk->count;
+	if (whl->condition != NULL)
+		carbon_compileExpression(whl->condition, chunk, c, vm);
+
+	uint32_t p = emitIf(chunk, whl->token.line);
+	uint32_t ejectExit = 0; // To suppress "may be unitialized" warning
+							// that arises Even though the variable is
+							// guaranteed to be inited if used
+
+	if (whl->body != NULL) {
+		c->loopDepth++;
+		carbon_compileStatement((CarbonStmt *) whl->body, chunk, c, vm);
+		c->loopDepth--;
+		if (whl->body->hasBreak && whl->body->locals > 0) {
+			uint32_t eject = emitJump(chunk, whl->token.line);
 			for (uint8_t i = c->breaksCount - 1;
 				 c->breaks[i].depth == c->loopDepth + 1; i--) {
-				if (!c->breaks[i].isBreak) {
+				if (c->breaks[i].isBreak) {
 					patchJump(chunk, c->breaks[i].position, c->breaks[i].token,
 							  c);
 				}
 			}
-
-			uint32_t offset = chunk->count - backpos + 2;
-			if (offset > UINT16_MAX) {
-				jumpTooLong(whl->token, c);
-				return;
+			if (whl->body->locals == 1) {
+				carbon_writeToChunk(chunk, OpPop, whl->body->locals);
+			} else if (whl->body->locals >= 1) {
+				carbon_writeToChunk(chunk, OpPopn, whl->body->locals);
+				carbon_writeToChunk(chunk, whl->body->locals,
+									whl->body->locals);
 			}
+			ejectExit = emitJump(chunk, whl->token.line);
+			patchJump(chunk, eject, whl->token, c);
+		}
+	}
 
-			carbon_writeToChunk(chunk, OpLoop, whl->token.line);
-			carbon_writeToChunk(chunk, offset >> 8, whl->token.line);
-			carbon_writeToChunk(chunk, offset, whl->token.line);
+	for (uint8_t i = c->breaksCount - 1; c->breaks[i].depth == c->loopDepth + 1;
+		 i--) {
+		if (!c->breaks[i].isBreak) {
+			patchJump(chunk, c->breaks[i].position, c->breaks[i].token, c);
+		}
+	}
 
-			patchJump(chunk, p, whl->token, c);
-			if (whl->body != NULL && whl->body->hasBreak) {
-				if (whl->body->locals == 0)
-					for (uint8_t i = c->breaksCount - 1;
-						 c->breaks[i].depth == c->depth + 1; i--) {
-						if (c->breaks[i].isBreak) {
-							patchJump(chunk, c->breaks[i].position,
-									  c->breaks[i].token, c);
-						}
-					}
-				else
-					patchJump(chunk, ejectExit, whl->token, c);
+	uint32_t offset = chunk->count - backpos + 2;
+	if (offset > UINT16_MAX) {
+		jumpTooLong(whl->token, c);
+		return;
+	}
+
+	carbon_writeToChunk(chunk, OpLoop, whl->token.line);
+	carbon_writeToChunk(chunk, offset >> 8, whl->token.line);
+	carbon_writeToChunk(chunk, offset, whl->token.line);
+
+	patchJump(chunk, p, whl->token, c);
+	if (whl->body != NULL && whl->body->hasBreak) {
+		if (whl->body->locals == 0)
+			for (uint8_t i = c->breaksCount - 1;
+				 c->breaks[i].depth == c->depth + 1; i--) {
+				if (c->breaks[i].isBreak) {
+					patchJump(chunk, c->breaks[i].position, c->breaks[i].token,
+							  c);
+				}
 			}
+		else
+			patchJump(chunk, ejectExit, whl->token, c);
+	}
 
-			if (c->breaksCount > 0)
-				while (c->breaks[c->breaksCount - 1].depth == c->loopDepth + 1)
-					c->breaksCount--;
+	if (c->breaksCount > 0)
+		while (c->breaks[c->breaksCount - 1].depth == c->loopDepth + 1)
+			c->breaksCount--;
+}
 
+static void compileBreakStatement(CarbonStmtBreak *brk, CarbonChunk *chunk,
+								  CarbonCompiler *c, CarbonVM *vm) {
+
+	c->breaks[c->breaksCount].depth = c->loopDepth;
+	c->breaks[c->breaksCount].isBreak = brk->token.type == TokenBreak;
+	c->breaks[c->breaksCount].token = brk->token;
+	c->breaks[c->breaksCount].position = emitJump(chunk, brk->token.line);
+	c->breaksCount++;
+}
+
+void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
+							 CarbonCompiler *c, CarbonVM *vm) {
+
+	switch (stmt->type) {
+		case StmtPrint: {
+			compilePrintStmt((CarbonStmtPrint *) stmt, chunk, c, vm);
+			break;
+		}
+		case StmtExpr: {
+			compileExprStmt((CarbonStmtExpr *) stmt, chunk, c, vm);
+			break;
+		}
+		case StmtVarDec: {
+			compileVarDecStmt((CarbonStmtVarDec *) stmt, chunk, c, vm);
+			break;
+		}
+		case StmtFunc: {
+			compileFuncStatement((CarbonStmtFunc *) stmt, chunk, c, vm);
+			break;
+		}
+		case StmtReturn: {
+			compileReturnStatement((CarbonStmtReturn *) stmt, chunk, c, vm);
+			break;
+		}
+		case StmtBlock: {
+			compileBlockStatement((CarbonStmtBlock *) stmt, chunk, c, vm);
+			break;
+		}
+		case StmtIf: {
+			compileIfStatement((CarbonStmtIf *) stmt, chunk, c, vm);
+			break;
+		}
+		case StmtWhile: {
+			compileWhileStatement((CarbonStmtWhile *) stmt, chunk, c, vm);
 			break;
 		}
 		case StmtBreak: {
-			CarbonStmtBreak *brk = (CarbonStmtBreak *) stmt;
-			c->breaks[c->breaksCount].depth = c->loopDepth;
-			c->breaks[c->breaksCount].isBreak = brk->token.type == TokenBreak;
-			c->breaks[c->breaksCount].token = brk->token;
-			c->breaks[c->breaksCount].position =
-				emitJump(chunk, brk->token.line);
-			c->breaksCount++;
+			compileBreakStatement((CarbonStmtBreak *) stmt, chunk, c, vm);
 			break;
 		}
 	}

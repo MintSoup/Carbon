@@ -1,12 +1,10 @@
 void main():
-	print(fib(10))
+	print(addFloat(-5, 6))
+	string g
+	print(g = 'hello'  )
+	print(g + ' world')
 end
 
-
-uint fib(uint n):
-	if n == 1 or n == 2:
-		return 1
-	else:
-		return fib( (n - 1)) + fib( (n - 2))
+int addFloat(double a, double b):
+	return ((uint) a + (int) b)
 end
-
