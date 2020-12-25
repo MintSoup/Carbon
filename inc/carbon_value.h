@@ -3,22 +3,36 @@
 #include "utils/carbon_commons.h"
 
 typedef struct carbon_object CarbonObj;
+typedef struct carbon_valueType CarbonValueType;
 
-typedef enum {
-	ValueUInt,	 // The order of these three is important
-	ValueInt,	 // The order of these three is important
-	ValueDouble, // The order of these three is important
-	ValueBool,
-	ValueString,
-	ValueInstance,
-	ValueHashtable,
-	ValueArray,
-	ValueFunction,
-	ValueError,
-	ValueVoid,
-	ValueUnresolved,
-	ValueUntypechecked,
-	ValueNull,
+typedef struct {
+	CarbonValueType *returnType;
+	uint8_t arity;
+	CarbonValueType *arguments;
+} CarbonFunctionSignature;
+
+typedef struct carbon_valueType {
+	enum CarbonValueTag {
+		ValueUInt,	 // The order of these three is important
+		ValueInt,	 // The order of these three is important
+		ValueDouble, // The order of these three is important
+		ValueBool,
+		ValueString,
+		ValueInstance,
+		ValueHashtable,
+		ValueArray,
+		ValueFunction,
+		ValueError,
+		ValueVoid,
+		ValueUnresolved,
+		ValueUntypechecked,
+		ValueNull
+	} tag;
+	union carbon_typeData {
+		struct carbon_valueType *memberType;
+		CarbonFunctionSignature *signature;
+		struct carbon_string *instanceName;
+	} compound;
 } CarbonValueType;
 
 typedef union {

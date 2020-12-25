@@ -26,7 +26,7 @@ void carbon_freeCarbonValueArray(CarbonValueArray *arr) {
 	carbon_initValueArray(arr);
 }
 
-char *CarbonValueTypeName[] = {
+char *CarbonValueTypeLexeme[] = {
 	[ValueInt] = "int",
 	[ValueUInt] = "uint",
 	[ValueString] = "string",

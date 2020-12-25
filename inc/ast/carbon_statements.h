@@ -34,7 +34,7 @@ typedef struct {
 typedef struct {
 	CarbonStmt stmt;
 	CarbonToken identifier;
-	CarbonToken type;
+	CarbonTypename type;
 	CarbonExpr *initializer;
 } CarbonStmtVarDec;
 
@@ -46,10 +46,10 @@ typedef struct {
 
 typedef struct {
 	CarbonStmt stmt;
-	CarbonToken returnType;
+	CarbonTypename returnType;
 	CarbonToken identifier;
 	struct carbon_arg {
-		CarbonToken type;
+		CarbonTypename type;
 		CarbonToken name;
 	} * arguments;
 	CarbonStmtList statements;
@@ -96,11 +96,12 @@ void carbon_stmtList_init(CarbonStmtList *sl);
 void carbon_stmtList_add(CarbonStmtList *sl, CarbonStmt *stmt);
 void carbon_stmtList_free(CarbonStmtList *sl);
 
-CarbonStmtFunc *carbon_newFuncStmt(CarbonToken returnType,
+CarbonStmtFunc *carbon_newFuncStmt(CarbonTypename returnType,
 								   CarbonToken identifier);
 CarbonStmtPrint *carbon_newPrintStmt(CarbonExpr *expr, CarbonToken token);
 CarbonStmtExpr *carbon_newExprStmt(CarbonExpr *expr, CarbonToken last);
-CarbonStmtVarDec *carbon_newVarDecStmt(CarbonToken identifier, CarbonToken type,
+CarbonStmtVarDec *carbon_newVarDecStmt(CarbonToken identifier,
+									   CarbonTypename type,
 									   CarbonExpr *initializer);
 CarbonStmtReturn *carbon_newReturnStmt(CarbonToken token);
 CarbonStmtIf *carbon_newIfStmt(CarbonExpr *expr, CarbonToken token);
@@ -110,3 +111,4 @@ CarbonStmtBreak *carbon_newBreakStmt(CarbonToken token);
 CarbonStmtBlock *carbon_newBlockStmt();
 
 void carbon_freeStmt(CarbonStmt *stmt);
+void carbon_freeTypename(CarbonTypename t);

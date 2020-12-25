@@ -10,35 +10,41 @@ struct Identifier {
 };
 
 struct Identifier identifierList[] = {
-	{.name = "abstract", .type = TokenAbstract},
 	{.name = "and", .type = TokenAnd},
+	{.name = "or", .type = TokenOr},
+
 	{.name = "bool", .type = TokenBool},
-	{.name = "break", .type = TokenBreak},
-	{.name = "class", .type = TokenClass},
-	{.name = "comma", .type = TokenComma},
-	{.name = "dot", .type = TokenDot},
+	{.name = "uint", .type = TokenUInt},
+	{.name = "int", .type = TokenInt},
 	{.name = "double", .type = TokenDouble},
-	{.name = "end", .type = TokenEnd},
+	{.name = "string", .type = TokenString},
+	{.name = "array", .type = TokenArray},
+	{.name = "error", .type = TokenError},
+	{.name = "table", .type = TokenTable},
+	{.name = "function", .type = TokenFunction},
+
+	{.name = "while", .type = TokenWhile},
+	{.name = "break", .type = TokenBreak},
+	{.name = "continue", .type = TokenContinue},
+
 	{.name = "for", .type = TokenFor},
 	{.name = "in", .type = TokenIn},
-	{.name = "int", .type = TokenInt},
-	{.name = "or", .type = TokenOr},
-	{.name = "private", .type = TokenPrivate},
-	{.name = "return", .type = TokenReturn},
-	{.name = "string", .type = TokenString},
-	{.name = "super", .type = TokenSuper},
-	{.name = "uint", .type = TokenUInt},
-	{.name = "while", .type = TokenWhile},
-	{.name = "self", .type = TokenSelf},
 	{.name = "if", .type = TokenIf},
 	{.name = "else", .type = TokenElse},
 	{.name = "elif", .type = TokenElif},
-	{.name = "continue", .type = TokenContinue},
+
+	{.name = "class", .type = TokenClass},
+	{.name = "self", .type = TokenSelf},
+
 	{.name = "false", .type = TokenFalse},
 	{.name = "true", .type = TokenTrue},
-	{.name = "print", .type = TokenPrint},
+
 	{.name = "void", .type = TokenVoid},
-	{.name = "null", .type = TokenNull}};
+	{.name = "return", .type = TokenReturn},
+	{.name = "end", .type = TokenEnd},
+
+	{.name = "null", .type = TokenNull},
+	{.name = "print", .type = TokenPrint}};
 
 static bool isAtEnd(CarbonLexer *lexer) {
 	return *lexer->current == 0;
@@ -48,7 +54,7 @@ static CarbonToken errorToken(char unexpected, CarbonLexer *lexer) {
 	CarbonToken t;
 	t.line = lexer->line;
 	t.length = unexpected;
-	t.type = TokenError;
+	t.type = ErrorToken;
 	return t;
 }
 
@@ -93,7 +99,7 @@ static bool canEndStatement(CarbonTokenType type) {
 		case TokenRightBrace:
 		case TokenPlusPlus:
 		case TokenMinusMinus:
-		case TokenStringLiteral:	
+		case TokenStringLiteral:
 		case TokenInteger:
 		case TokenDecimal:
 		case TokenIdentifier:

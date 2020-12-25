@@ -31,7 +31,7 @@ debug: flags = $(debugflags)
 debug: $(executable)
 
 run_new: $(executable)
-	st sh -c './$(executable) test.cbn; pause'
+	st sh -c './$(executable) --disassemble test.cbn; pause'
 
 run: $(executable)
 	./$(executable)

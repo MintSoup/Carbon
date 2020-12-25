@@ -1,10 +1,15 @@
 void main():
-	print(addFloat(-5, 6))
-	string g
-	print(g = 'hello'  )
-	print(g + ' world')
+	print(lemao(b))
 end
 
-int addFloat(double a, double b):
-	return ((uint) a + (int) b)
+int a():
+	return 3
+end
+
+function<int> b():
+	return a
+end
+
+int lemao(function<function<int>> n):
+	return  n()()
 end

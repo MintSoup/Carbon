@@ -2,6 +2,7 @@
 #include "ast/carbon_expressions.h"
 #include "carbon_object.h"
 #include "carbon_token.h"
+#include "carbon_value.h"
 #include "utils/carbon_memory.h"
 
 #define allocateNode(type, stmtType) allocate(sizeof(type), stmtType)
@@ -12,7 +13,7 @@ static CarbonStmt *allocate(size_t size, CarbonStmtType type) {
 	return stmt;
 }
 
-CarbonStmtFunc *carbon_newFuncStmt(CarbonToken returnType,
+CarbonStmtFunc *carbon_newFuncStmt(CarbonTypename returnType,
 								   CarbonToken identifier) {
 	CarbonStmtFunc *func =
 		(CarbonStmtFunc *) allocateNode(CarbonStmtFunc, StmtFunc);
@@ -73,7 +74,8 @@ CarbonStmtBreak *carbon_newBreakStmt(CarbonToken token) {
 	return brk;
 }
 
-CarbonStmtVarDec *carbon_newVarDecStmt(CarbonToken identifier, CarbonToken type,
+CarbonStmtVarDec *carbon_newVarDecStmt(CarbonToken identifier,
+									   CarbonTypename type,
 									   CarbonExpr *initializer) {
 	CarbonStmtVarDec *vardec =
 		(CarbonStmtVarDec *) allocateNode(CarbonStmtVarDec, StmtVarDec);
@@ -107,15 +109,21 @@ void carbon_freeStmt(CarbonStmt *stmt) {
 		case StmtVarDec: {
 			CarbonStmtVarDec *vardec = (CarbonStmtVarDec *) stmt;
 			carbon_freeExpr(vardec->initializer);
+			carbon_freeTypename(vardec->type);
 			carbon_reallocate(sizeof(CarbonStmtVarDec), 0, stmt);
 			break;
 		}
 		case StmtFunc: {
 			CarbonStmtFunc *func = (CarbonStmtFunc *) stmt;
+			carbon_freeTypename(func->returnType);
+			for (uint8_t i = 0; i < func->arity; i++) {
+				carbon_freeTypename(func->arguments[i].type);
+			}
+
+			carbon_stmtList_free(&func->statements);
 			carbon_reallocate(sizeof(struct carbon_arg) *
 								  func->argumentCapacity,
 							  0, func->arguments);
-			carbon_stmtList_free(&func->statements);
 			carbon_reallocate(sizeof(CarbonStmtFunc), 0, stmt);
 			break;
 		}

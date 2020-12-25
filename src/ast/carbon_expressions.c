@@ -9,7 +9,8 @@
 CarbonExpr *carbon_newExpr(size_t size, CarbonExprType type) {
 	CarbonExpr *expr = carbon_reallocate(0, size, NULL);
 	expr->type = type;
-	expr->evalsTo = ValueUntypechecked;
+	CarbonValueType t = {.tag = ValueUntypechecked};
+	expr->evalsTo = t;
 	return expr;
 }
 
@@ -50,7 +51,7 @@ CarbonExprGrouping *carbon_newGroupingExpr(CarbonExpr *expr) {
 	return grouping;
 }
 
-CarbonExprCast *carbon_newCastExpr(CarbonToken to, CarbonExpr *expr) {
+CarbonExprCast *carbon_newCastExpr(CarbonTypename to, CarbonExpr *expr) {
 	CarbonExprCast *cast =
 		(CarbonExprCast *) allocateNode(CarbonExprCast, ExprCast);
 	cast->expression = expr;
@@ -84,9 +85,82 @@ CarbonExprCall *carbon_newCallExpr(CarbonExpr *callee, uint32_t line) {
 	return call;
 }
 
+void carbon_freeType(CarbonValueType t) {
+	switch (t.tag) {
+		case ValueArray: {
+			carbon_freeType(*t.compound.memberType);
+			carbon_reallocate(sizeof(CarbonValueType), 0,
+							  t.compound.memberType);
+			break;
+		}
+		case ValueFunction: {
+			carbon_freeType(*t.compound.signature->returnType);
+			t.compound.signature->returnType = NULL;
+			carbon_reallocate(sizeof(CarbonValueType), 0,
+							  t.compound.signature->returnType);
+
+			for (uint8_t i = 0; i < t.compound.signature->arity; i++) {
+				carbon_freeType(t.compound.signature->arguments[i]);
+			}
+			carbon_reallocate(t.compound.signature->arity *
+								  sizeof(CarbonValueType),
+							  0, t.compound.signature->arguments);
+
+			carbon_reallocate(sizeof(CarbonFunctionSignature), 0,
+							  t.compound.signature);
+			break;
+		}
+		default:
+			break;
+	}
+}
+
+CarbonValueType carbon_cloneType(CarbonValueType type) {
+	CarbonValueType cloned = {.tag = type.tag};
+	switch (cloned.tag) {
+		case ValueFunction: {
+			cloned.compound.signature =
+				carbon_reallocate(0, sizeof(CarbonFunctionSignature), NULL);
+			cloned.compound.signature->arity = type.compound.signature->arity;
+
+			cloned.compound.signature->returnType =
+				carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+			*cloned.compound.signature->returnType =
+				carbon_cloneType(*type.compound.signature->returnType);
+
+			cloned.compound.signature->arity = type.compound.signature->arity;
+
+			size_t s =
+				sizeof(CarbonValueType) * cloned.compound.signature->arity;
+			cloned.compound.signature->arguments =
+				carbon_reallocate(0, s, NULL);
+
+			for (uint8_t i = 0; i < type.compound.signature->arity; i++) {
+				cloned.compound.signature->arguments[i] =
+					carbon_cloneType(type.compound.signature->arguments[i]);
+			}
+
+			break;
+		}
+		case ValueArray: {
+			cloned.compound.memberType =
+				carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+			*cloned.compound.memberType =
+				carbon_cloneType(*type.compound.memberType);
+		}
+		case ValueInstance: {
+			cloned.compound.instanceName = type.compound.instanceName;
+		}
+		default:
+			break;
+	}
+	return cloned;
+}
+
 void carbon_freeExpr(CarbonExpr *expr) {
 	if (expr == NULL)
 		return;
+	carbon_freeType(expr->evalsTo);
 	switch (expr->type) {
 		case ExprUnary: {
 			CarbonExprUnary *un = (CarbonExprUnary *) expr;
@@ -114,6 +188,7 @@ void carbon_freeExpr(CarbonExpr *expr) {
 		case ExprCast: {
 			CarbonExprCast *cast = (CarbonExprCast *) expr;
 			carbon_freeExpr(cast->expression);
+			carbon_freeTypename(cast->to);
 			carbon_reallocate(sizeof(CarbonExprCast), 0, expr);
 			break;
 		}
@@ -128,17 +203,53 @@ void carbon_freeExpr(CarbonExpr *expr) {
 			break;
 		}
 		case ExprCall: {
-			CarbonExprCall* call = (CarbonExprCall*) expr;
-			for(uint8_t i = 0; i < call->arity; i++){
+			CarbonExprCall *call = (CarbonExprCall *) expr;
+			for (uint8_t i = 0; i < call->arity; i++) {
 				carbon_freeExpr(call->arguments[i]);
 			}
-			size_t oldSize = call->argumentCapacity * sizeof(CarbonExpr*);
+			size_t oldSize = call->argumentCapacity * sizeof(CarbonExpr *);
 			carbon_reallocate(oldSize, 0, call->arguments);
 			carbon_freeExpr(call->callee);
 			carbon_reallocate(sizeof(CarbonExprCall), 0, expr);
 			break;
 		}
 	}
+}
+
+bool carbon_typesEqual(CarbonValueType a, CarbonValueType b) {
+	if (a.tag != b.tag)
+		return false;
+	switch (a.tag) {
+		case ValueFunction: {
+			if (a.compound.signature->arity != b.compound.signature->arity)
+				return false;
+			if (!carbon_typesEqual(*a.compound.signature->returnType,
+								   *b.compound.signature->returnType))
+				return false;
+			for (uint8_t i = 0; i < a.compound.signature->arity; i++)
+				if (!carbon_typesEqual(a.compound.signature->arguments[i],
+									   b.compound.signature->arguments[i]))
+					return false;
+			return true;
+		}
+		case ValueArray: {
+			return carbon_typesEqual(*a.compound.memberType,
+									 *b.compound.memberType);
+		}
+		case ValueInstance: {
+			return a.compound.instanceName == b.compound.instanceName;
+		}
+		default:
+			return true;
+	}
+}
+
+void carbon_freeTypename(CarbonTypename t) {
+	CarbonTypename *types = t.templates;
+	for (uint8_t i = 0; i < t.templateCount; i++) {
+		carbon_freeTypename(types[i]);
+	}
+	carbon_reallocate(sizeof(CarbonTypename) * t.templateCount, 0, types);
 }
 
 #undef allocateNode

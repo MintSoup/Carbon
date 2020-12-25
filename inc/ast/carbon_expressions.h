@@ -3,6 +3,12 @@
 #include "carbon_token.h"
 #include "carbon_value.h"
 
+typedef struct carbon_stmtTypename {
+	CarbonToken base;
+	uint8_t templateCount;
+	struct carbon_stmtTypename *templates;
+} CarbonTypename;
+
 typedef enum {
 	ExprBinary,
 	ExprUnary,
@@ -17,6 +23,7 @@ typedef enum {
 typedef struct {
 	CarbonExprType type;
 	CarbonValueType evalsTo;
+	CarbonToken first;
 } CarbonExpr;
 
 typedef struct {
@@ -47,7 +54,7 @@ typedef struct {
 
 typedef struct {
 	CarbonExpr expr;
-	CarbonToken to;
+	CarbonTypename to;
 	CarbonExpr *expression;
 } CarbonExprCast;
 
@@ -64,8 +71,8 @@ typedef struct {
 
 typedef struct {
 	CarbonExpr expr;
-	CarbonExpr* callee;
-	CarbonExpr** arguments;
+	CarbonExpr *callee;
+	CarbonExpr **arguments;
 	uint8_t arity;
 	uint16_t argumentCapacity;
 	uint32_t line;
@@ -80,10 +87,14 @@ CarbonExprLiteral *carbon_newLiteralExpr(CarbonToken token);
 
 CarbonExprGrouping *carbon_newGroupingExpr(CarbonExpr *expr);
 
-CarbonExprCast *carbon_newCastExpr(CarbonToken to, CarbonExpr *expr);
+CarbonExprCast *carbon_newCastExpr(CarbonTypename to, CarbonExpr *expr);
 CarbonExprVar *carbon_newVarExpr(CarbonToken token);
 CarbonExprCall *carbon_newCallExpr(CarbonExpr *callee, uint32_t line);
 CarbonExprAssignment *carbon_newAssignmentExpr(CarbonToken left,
 											   CarbonExpr *right);
 
 void carbon_freeExpr(CarbonExpr *expr);
+void carbon_freeTypename(CarbonTypename t);
+void carbon_freeType(CarbonValueType t);
+CarbonValueType carbon_cloneType(CarbonValueType type);
+bool carbon_typesEqual(CarbonValueType a, CarbonValueType b);

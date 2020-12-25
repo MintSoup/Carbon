@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
 			if (!carbon_isPrimitive(&instance, "main"))
 				if (mainFunction.obj->type == CrbnObjFunc) {
 					CarbonFunction *func = (CarbonFunction *) mainFunction.obj;
-					if (func->arity == 0 && func->returnType == ValueVoid) {
+					if (func->arity == 0 && func->returnType.tag == ValueVoid) {
 						if (!flags.norun)
 							carbon_run(&instance.vm, func);
 						success = true;
@@ -87,7 +87,25 @@ int main(int argc, char *argv[]) {
 		if (!success)
 			printf("Need void main() function in the code\n");
 	}
+
 	carbon_free(&instance);
+
+	if (heapSize > 0) {
+		if (instance.vm.objectHeapSize > 0) {
+			if (instance.vm.objectHeapSize == heapSize) {
+				printf("***MEMORY LEAK: LEAKING %lu BYTES FROM VM OBJECT "
+					   "MEMORY***\n",
+					   instance.vm.objectHeapSize);
+			} else {
+				printf("***MEMORY LEAK: LEAKING %lu BYTES, %lu FROM VM OBJECT "
+					   "MEMORY***\n",
+					   heapSize, instance.vm.objectHeapSize);
+			}
+		} else {
+			printf("***MEMORY LEAK: LEAKING %lu BYTES\n ", heapSize);
+		}
+	}
+
 
 	free(t);
 
