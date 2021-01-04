@@ -1,8 +1,7 @@
-#include "carbon_compiler.h"
-#include "vm/carbon_chunk.h"
 #include "ast/carbon_expressions.h"
 #include "ast/carbon_statements.h"
 #include "carbon.h"
+#include "carbon_compiler.h"
 #include "carbon_object.h"
 #include "carbon_token.h"
 #include "carbon_value.h"
@@ -11,7 +10,6 @@
 #include "utils/carbon_memory.h"
 #include "vm/carbon_chunk.h"
 #include "vm/carbon_vm.h"
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,13 +23,18 @@ static CarbonToken v2token[] = {
 	[ValueInt] = {
 		.type = TokenInt, .lexeme = NULL, .line = UINT32_MAX, .length = 0}};
 
-static enum CarbonValueTag t2value[] = {
-	[TokenInt] = ValueInt,		  [TokenUInt] = ValueUInt,
-	[TokenDouble] = ValueDouble,  [TokenIdentifier] = ValueInstance,
-	[TokenBool] = ValueBool,	  [TokenString] = ValueString,
-	[TokenVoid] = ValueVoid,	  [TokenArray] = ValueArray,
-	[TokenError] = ValueError,	  [TokenFunction] = ValueFunction,
-	[TokenTable] = ValueHashtable};
+static enum CarbonValueTag t2value[] = {[TokenInt] = ValueInt,
+										[TokenUInt] = ValueUInt,
+										[TokenDouble] = ValueDouble,
+										[TokenIdentifier] = ValueInstance,
+										[TokenBool] = ValueBool,
+										[TokenString] = ValueString,
+										[TokenVoid] = ValueVoid,
+										[TokenArray] = ValueArray,
+										[TokenError] = ValueError,
+										[TokenFunction] = ValueFunction,
+										[TokenGenerator] = ValueGenerator,
+										[TokenTable] = ValueHashtable};
 
 typedef struct {
 	bool declared;
@@ -47,6 +50,13 @@ static Global *newGlobal(CarbonValueType valueType) {
 
 #undef global
 
+static inline CarbonValueType newType(enum CarbonValueTag tag) {
+	CarbonValueType typ;
+	typ.tag = tag;
+	typ.compound.instanceName = NULL;
+	return typ;
+}
+
 static CarbonValueType resolveLocalType(CarbonString *name, CarbonCompiler *c) {
 	for (int16_t i = c->localCount - 1; i >= 0; i--) {
 		CarbonLocal *l = &c->locals[i];
@@ -54,8 +64,7 @@ static CarbonValueType resolveLocalType(CarbonString *name, CarbonCompiler *c) {
 			return l->type;
 		}
 	}
-	CarbonValueType t = {.tag = ValueVoid};
-	return t;
+	return newType(ValueVoid);
 }
 
 static int16_t resolveLocal(CarbonString *name, CarbonCompiler *c) {
@@ -104,6 +113,12 @@ static bool canCast(CarbonValueType from, CarbonValueType to) {
 			return to.tag == ValueUInt || to.tag == ValueInt;
 		case ValueBool:
 			return to.tag == ValueInt || to.tag == ValueUInt;
+		case ValueGenerator:
+		case ValueArray:
+			return (to.compound.memberType->tag <= ValueInt &&
+					from.compound.memberType->tag <= ValueInt) ||
+				   (from.compound.memberType->tag == ValueUnresolved ||
+					to.compound.memberType->tag == ValueUnresolved);
 		default:
 			return false;
 	}
@@ -149,21 +164,23 @@ static bool canAssign(CarbonValueType to, CarbonValueType from) {
 
 	if (to.tag == from.tag) {
 		switch (to.tag) {
+			case ValueGenerator:
 			case ValueArray:
-				return canAssign(*to.compound.memberType,
-								 *from.compound.memberType);
+				return carbon_typesEqual(*to.compound.memberType,
+										 *from.compound.memberType);
 			case ValueFunction: {
 				if (to.compound.signature->arity !=
 					from.compound.signature->arity)
 					return false;
 
 				if (!carbon_typesEqual(*to.compound.signature->returnType,
-							   *from.compound.signature->returnType))
+									   *from.compound.signature->returnType))
 					return false;
 
 				for (uint8_t i = 0; i < to.compound.signature->arity; i++)
-					if (!carbon_typesEqual(from.compound.signature->arguments[i],
-								   to.compound.signature->arguments[i]))
+					if (!carbon_typesEqual(
+							from.compound.signature->arguments[i],
+							to.compound.signature->arguments[i]))
 						return false;
 
 				return true;
@@ -226,16 +243,72 @@ static void printType(FILE *f, CarbonValueType type) {
 		fprintf(f, "%s", CarbonValueTypeLexeme[type.tag]);
 	else
 		fprintf(f, "%s", type.compound.instanceName->chars);
-	switch (type.tag) {
-		case ValueArray:
-			printType(f, *type.compound.memberType);
-			break;
-		case ValueFunction:
-			printSig(f, *type.compound.signature);
-			break;
-		default:
-			break;
-	}
+
+	if (type.compound.memberType != NULL)
+		switch (type.tag) {
+			case ValueGenerator:
+			case ValueArray:
+				fprintf(f, "<");
+				printType(f, *type.compound.memberType);
+				fprintf(f, ">");
+				break;
+			case ValueFunction:
+				printSig(f, *type.compound.signature);
+				break;
+			default:
+				break;
+		}
+}
+// ERRORS
+
+static void needUintLength(CarbonToken t, CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Array length must be a uint\n", t.line);
+	c->hadError = true;
+}
+
+static void cantIndexAssign(CarbonValueType type, CarbonToken token,
+							CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Type ", token.line);
+	printType(stderr, type);
+	fprintf(stderr, " does not support index assignment\n");
+	c->hadError = true;
+}
+
+static void unindexableType(CarbonToken bracket, CarbonValueType type,
+							CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Type ", bracket.line);
+	printType(stderr, type);
+	fprintf(stderr, " is not indexable\n");
+	c->hadError = true;
+}
+
+static void wrongIndexType(CarbonToken bracket, CarbonValueType given,
+						   CarbonValueType wanted, CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Index has wrong type: wanted ", bracket.line);
+	printType(stderr, wanted);
+	fprintf(stderr, ", given ");
+	printType(stderr, given);
+	fprintf(stderr, "\n");
+	c->hadError = true;
+}
+
+static void wrongGeneratorType(CarbonToken t, CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Generators support only numeric types\n",
+			t.length);
+	c->hadError = true;
+}
+
+static void wrongMemberType(CarbonToken tok, uint64_t i, CarbonValueType wanted,
+							CarbonValueType given, CarbonCompiler *c) {
+	if (given.tag == ValueUnresolved)
+		return;
+	fprintf(stderr, "[Line %u] Type of array member %" PRIu64 " (", tok.line,
+			i);
+	printType(stderr, given);
+	fprintf(stderr, ") does not match the type of the first member (");
+	printType(stderr, wanted);
+	fprintf(stderr, ").\n");
+	c->hadError = true;
 }
 
 static void wrongTemplatecount(CarbonToken tok, uint8_t wanted, uint8_t given,
@@ -310,7 +383,6 @@ static void wrongArgumentType(CarbonToken argument, uint8_t n,
 	fprintf(stderr, ", got ");
 	printType(stderr, given);
 	fprintf(stderr, "\n");
-
 	c->hadError = true;
 }
 
@@ -335,8 +407,9 @@ static void globalRedeclaration(CarbonToken name, CarbonCompiler *c) {
 
 static void cantAssign(CarbonValueType to, CarbonValueType from, uint32_t line,
 					   CarbonCompiler *c) {
-	if (from.tag != ValueUnresolved)
-		fprintf(stderr, "[Line %u] Cannot assign type ", line);
+	if (from.tag == ValueUnresolved)
+		return;
+	fprintf(stderr, "[Line %u] Cannot assign type ", line);
 	printType(stderr, from);
 	fprintf(stderr, " to ");
 	printType(stderr, to);
@@ -370,7 +443,7 @@ static void castNotSupported(CarbonValueType from, CarbonValueType to,
 
 	fprintf(stderr, "[Line %u] Cannot cast from type ", tok.line);
 	printType(stderr, from);
-	fprintf(stderr, "to ");
+	fprintf(stderr, " to ");
 	printType(stderr, to);
 	fprintf(stderr, "\n");
 	c->hadError = true;
@@ -418,13 +491,6 @@ static void patchJump(CarbonChunk *chunk, uint32_t position, CarbonToken t,
 	chunk->code[position + 2] = offset & 0xFF;
 }
 
-static inline CarbonValueType newType(enum CarbonValueTag tag) {
-	CarbonValueType typ;
-	typ.tag = tag;
-	typ.compound.instanceName = NULL;
-	return typ;
-}
-
 static CarbonValueType resolveType(CarbonTypename tn, CarbonCompiler *c,
 								   CarbonVM *vm) {
 	CarbonValueType typ = newType(t2value[tn.base.type]);
@@ -432,6 +498,16 @@ static CarbonValueType resolveType(CarbonTypename tn, CarbonCompiler *c,
 	if (typ.tag == ValueArray) {
 		if (tn.templateCount != 1) {
 			wrongTemplatecount(tn.base, 1, tn.templateCount, false, c);
+			typ.compound.signature = NULL;
+			return typ;
+		}
+		typ.compound.memberType =
+			carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+		*typ.compound.memberType = resolveType(tn.templates[0], c, vm);
+	} else if (typ.tag == ValueGenerator) {
+		if (tn.templateCount != 1) {
+			wrongTemplatecount(tn.base, 1, tn.templateCount, false, c);
+			typ.compound.signature = NULL;
 			return typ;
 		}
 		typ.compound.memberType =
@@ -442,6 +518,7 @@ static CarbonValueType resolveType(CarbonTypename tn, CarbonCompiler *c,
 	} else if (typ.tag == ValueFunction) {
 		if (tn.templateCount < 1) {
 			wrongTemplatecount(tn.base, 1, tn.templateCount, true, c);
+			typ.compound.signature = NULL;
 			return typ;
 		}
 		typ.compound.signature =
@@ -461,6 +538,7 @@ static CarbonValueType resolveType(CarbonTypename tn, CarbonCompiler *c,
 		}
 	} else if (tn.templateCount != 0) {
 		wrongTemplatecount(tn.base, 0, tn.templateCount, false, c);
+		typ.compound.signature = NULL;
 	}
 	return typ;
 }
@@ -756,6 +834,31 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 
 			return;
 		}
+		case ExprIndexAssignment: {
+			CarbonExprIndexAssignment *ie = (CarbonExprIndexAssignment *) expr;
+			typecheck((CarbonExpr *) ie->left, c, vm);
+
+			if (ie->right == NULL)
+				return;
+			typecheck(ie->right, c, vm);
+
+			CarbonValueType leftType = ie->left->expr.evalsTo;
+			CarbonValueType rightType = ie->right->evalsTo;
+
+			if (ie->left->object->evalsTo.tag != ValueArray) {
+				cantIndexAssign(leftType, ie->equals, c);
+				expr->evalsTo = newType(ValueUnresolved);
+			}
+
+			if (!canAssign(leftType, rightType)) {
+				cantAssign(leftType, rightType, ie->equals.line, c);
+				expr->evalsTo = newType(ValueUnresolved);
+				return;
+			}
+			ie->right = promoteNumerics(leftType, ie->right);
+			expr->evalsTo = carbon_cloneType(leftType);
+			return;
+		}
 		case ExprCall: {
 			CarbonExprCall *call = (CarbonExprCall *) expr;
 			if (call->callee == NULL)
@@ -769,6 +872,11 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 
 			CarbonFunctionSignature *sig =
 				call->callee->evalsTo.compound.signature;
+
+			if (sig == NULL) {
+				expr->evalsTo = newType(ValueUnresolved);
+				return;
+			}
 
 			// Check if we can retrieve name from function call
 			// If so, print it out in the error message
@@ -798,10 +906,109 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			expr->evalsTo = carbon_cloneType(*sig->returnType);
 			break;
 		}
-		default:
-			fprintf(stderr, "COMPILER BUG: UNKNOWN EXPRESSION TYPE");
-			expr->evalsTo = newType(ValueUnresolved);
-			return;
+		case ExprArray: {
+			CarbonExprArray *arr = (CarbonExprArray *) expr;
+			expr->evalsTo = newType(
+				arr->imethod == ImethodGenerator ? ValueGenerator : ValueArray);
+			if (arr->imethod == ImethodContracted) {
+
+				expr->evalsTo.compound.memberType =
+					carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+				*expr->evalsTo.compound.memberType =
+					resolveType(arr->type, c, vm);
+
+				if (arr->members[0] != NULL)
+					typecheck(arr->members[0], c, vm);
+				if (arr->members[1] != NULL)
+					typecheck(arr->members[1], c, vm);
+
+				if (arr->members[0]->evalsTo.tag != ValueUInt)
+					needUintLength(arr->members[0]->first, c);
+
+				if (!canAssign(*expr->evalsTo.compound.memberType,
+							   arr->members[1]->evalsTo))
+					cantAssign(expr->evalsTo, arr->members[1]->evalsTo,
+							   arr->members[1]->first.line, c);
+
+				arr->members[1] = promoteNumerics(
+					*expr->evalsTo.compound.memberType, arr->members[1]);
+
+				break;
+			}
+			CarbonValueType highestType = newType(ValueUInt);
+			CarbonValueType firstType;
+			for (uint64_t i = 0; i < arr->count; i++) {
+				if (arr->members[i] != NULL) {
+					typecheck(arr->members[i], c, vm);
+					if (arr->members[i]->evalsTo.tag > highestType.tag) {
+						highestType = arr->members[i]->evalsTo;
+						if (arr->imethod == ImethodGenerator &&
+							highestType.tag > ValueDouble &&
+							highestType.tag != ValueUnresolved) {
+							wrongGeneratorType(arr->members[i]->first, c);
+						}
+					}
+				}
+			}
+			if (highestType.tag <= ValueDouble) {
+				for (uint64_t i = 0; i < arr->count; i++) {
+					if (arr->members[i] != NULL)
+						arr->members[i] =
+							promoteNumerics(highestType, arr->members[i]);
+				}
+				expr->evalsTo.compound.memberType =
+					carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+				*expr->evalsTo.compound.memberType =
+					carbon_cloneType(highestType);
+				break;
+			}
+			firstType = arr->members[0]->evalsTo;
+			for (uint64_t i = 0; i < arr->count; i++) {
+				if (!carbon_typesEqual(firstType, arr->members[i]->evalsTo) &&
+					arr->imethod != ImethodGenerator) {
+					wrongMemberType(arr->members[i]->first, i, firstType,
+									arr->members[i]->evalsTo, c);
+				}
+			}
+			expr->evalsTo.compound.memberType =
+				carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+			*expr->evalsTo.compound.memberType = carbon_cloneType(firstType);
+			break;
+		}
+		case ExprIndex: {
+			CarbonExprIndex *index = (CarbonExprIndex *) expr;
+			if (index->object == NULL) {
+				expr->evalsTo = newType(ValueUnresolved);
+				return;
+			}
+			typecheck(index->object, c, vm);
+
+			if (index->index != NULL)
+				typecheck(index->index, c, vm);
+			CarbonValueType requiredType;
+			switch (index->object->evalsTo.tag) {
+				case ValueArray:
+				case ValueGenerator:
+				case ValueString:
+					if (index->object->evalsTo.tag == ValueString)
+						expr->evalsTo = newType(ValueString);
+					else
+						expr->evalsTo = carbon_cloneType(
+							*index->object->evalsTo.compound.memberType);
+					requiredType = newType(ValueInt);
+					break;
+				default:
+					unindexableType(index->bracket, index->object->evalsTo, c);
+					return;
+			}
+			if (index->index != NULL)
+				if (!canAssign(requiredType, index->index->evalsTo)) {
+					wrongIndexType(index->bracket, index->index->evalsTo,
+								   requiredType, c);
+					break;
+				}
+			break;
+		}
 	}
 }
 
@@ -1114,9 +1321,69 @@ void carbon_compileCallExpression(CarbonExprCall *call, CarbonChunk *chunk,
 	carbon_writeToChunk(chunk, call->arity, call->line);
 }
 
+void carbon_compileArrayExpression(CarbonExprArray *arr, CarbonChunk *chunk,
+								   CarbonCompiler *c, CarbonVM *vm) {
+	if (arr->count <= 255) {
+		carbon_writeToChunk(chunk, OpMakeArray, arr->bracket.line);
+		carbon_writeToChunk(chunk, arr->count, arr->bracket.line);
+	} else {
+		pushValue(CarbonUInt(arr->count), chunk, arr->bracket);
+		carbon_writeToChunk(chunk, OpMakeArray64, arr->bracket.line);
+	}
+
+	carbon_writeToChunk(chunk, arr->expr.evalsTo.compound.memberType->tag,
+						arr->bracket.line);
+	for (uint64_t i = 0; i < arr->count; i++) {
+		carbon_compileExpression(arr->members[i], chunk, c, vm);
+		carbon_writeToChunk(chunk, OpAppend, arr->bracket.line);
+	}
+}
+void carbon_compileArrayInitExpression(CarbonExprArray *arr, CarbonChunk *chunk,
+									   CarbonCompiler *c, CarbonVM *vm) {
+	carbon_compileExpression(arr->members[0], chunk, c, vm);
+	carbon_writeToChunk(chunk, OpMakeArray64, arr->bracket.line);
+	carbon_writeToChunk(chunk, arr->expr.evalsTo.compound.memberType->tag,
+						arr->bracket.line);
+	carbon_compileExpression(arr->members[1], chunk, c, vm);
+	carbon_writeToChunk(chunk, OpInitArray, arr->bracket.line);
+}
+
+void carbon_compileGeneratorExpression(CarbonExprArray *arr, CarbonChunk *chunk,
+									   CarbonCompiler *c, CarbonVM *vm) {
+	if (arr->capacity == 3)
+		carbon_compileExpression(arr->members[2], chunk, c, vm);
+	else if (arr->expr.evalsTo.compound.memberType->tag == ValueDouble)
+		pushValue(CarbonDouble(1), chunk, arr->expr.first);
+	else
+		pushValue(CarbonInt(1), chunk, arr->expr.first);
+	carbon_compileExpression(arr->members[1], chunk, c, vm);
+	carbon_compileExpression(arr->members[0], chunk, c, vm);
+	carbon_writeToChunk(chunk, OpMakeGenerator, arr->bracket.line);
+	carbon_writeToChunk(chunk, arr->expr.evalsTo.compound.memberType->tag,
+						arr->bracket.line);
+}
+static void carbon_compileIndexExpression(CarbonExprIndex *index,
+										  CarbonChunk *chunk, CarbonCompiler *c,
+										  CarbonVM *vm) {
+	carbon_compileExpression(index->object, chunk, c, vm);
+	carbon_compileExpression(index->index, chunk, c, vm);
+	carbon_writeToChunk(chunk, OpGetIndex, index->bracket.line);
+}
+static void
+carbon_compileIndexAssignmentExpression(CarbonExprIndexAssignment *ie,
+										CarbonChunk *chunk, CarbonCompiler *c,
+										CarbonVM *vm) {
+	carbon_compileExpression(ie->left->object, chunk, c, vm);
+	carbon_compileExpression(ie->left->index, chunk, c, vm);
+	carbon_compileExpression(ie->right, chunk, c, vm);
+	carbon_writeToChunk(chunk, OpSetIndex, ie->equals.line);
+}
+
 void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 							  CarbonCompiler *c, CarbonVM *vm) {
 
+	if (expr == NULL)
+		return;
 	if (expr->evalsTo.tag == ValueUntypechecked)
 		typecheck(expr, c, vm);
 	if (expr->evalsTo.tag == ValueUnresolved)
@@ -1159,8 +1426,28 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 											   chunk, c, vm);
 			break;
 		}
+		case ExprIndexAssignment: {
+			carbon_compileIndexAssignmentExpression(
+				(CarbonExprIndexAssignment *) expr, chunk, c, vm);
+			break;
+		}
 		case ExprCall: {
 			carbon_compileCallExpression((CarbonExprCall *) expr, chunk, c, vm);
+			break;
+		}
+		case ExprArray: {
+			CarbonExprArray *arr = (CarbonExprArray *) expr;
+			if (arr->imethod == ImethodGenerator)
+				carbon_compileGeneratorExpression(arr, chunk, c, vm);
+			else if (arr->imethod == ImethodContracted)
+				carbon_compileArrayInitExpression(arr, chunk, c, vm);
+			else if (arr->imethod == ImethodGenerator)
+				carbon_compileArrayExpression(arr, chunk, c, vm);
+			break;
+		}
+		case ExprIndex: {
+			carbon_compileIndexExpression((CarbonExprIndex *) expr, chunk, c,
+										  vm);
 			break;
 		}
 	}
@@ -1254,10 +1541,8 @@ static void compileVarDecStmt(CarbonStmtVarDec *vardec, CarbonChunk *chunk,
 					   vardec->identifier.line, c);
 			if (!isLocal)
 				g->declared = true;
-			return;
 		} else {
 			vardec->initializer = promoteNumerics(vartype, vardec->initializer);
-
 			carbon_compileExpression(vardec->initializer, chunk, c, vm);
 		}
 	} else {

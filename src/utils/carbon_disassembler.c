@@ -3,6 +3,8 @@
 #include "vm/carbon_chunk.h"
 #include <stdio.h>
 
+extern char *CarbonValueTypeLexeme[];
+
 static char *names[] = {
 
 	// Misc
@@ -15,6 +17,14 @@ static char *names[] = {
 	[OpPush0] = "push0",
 	[OpPush1] = "push1",
 	[OpCall] = "call",
+	[OpLen] = "len",
+	[OpAppend] = "appnd",
+	[OpGetIndex] = "iget",
+	[OpSetIndex] = "iset",
+	[OpMakeArray] = "mkarr",
+	[OpMakeArray64] = "mkarr64",
+	[OpInitArray] = "initarr",
+	[OpMakeGenerator] = "mkgen",
 
 	// Binary Operations
 	[OpAddInt] = "iadd",
@@ -124,6 +134,11 @@ void carbon_disassemble(CarbonChunk *chunk) {
 			case OpPush1:
 			case OpGetGlobal:
 			case OpSetGlobal:
+			case OpLen:
+			case OpAppend:
+			case OpSetIndex:
+			case OpGetIndex:
+			case OpInitArray:
 				ip++;
 				break;
 			case OpLoadConstant:
@@ -150,6 +165,18 @@ void carbon_disassemble(CarbonChunk *chunk) {
 				printf("\t%d", (higher << 8) | lower);
 				ip++;
 				break;
+			case OpMakeGenerator:
+			case OpMakeArray64:
+				ip++;
+				printf("\t%s", CarbonValueTypeLexeme[*ip]);
+				ip++;
+				break;
+			case OpMakeArray:
+				ip++;
+				printf("\t%u", *ip);
+				ip++;
+				printf("\t%s", CarbonValueTypeLexeme[*ip]);
+				ip++;
 		}
 		puts("");
 		instructionNumber++;

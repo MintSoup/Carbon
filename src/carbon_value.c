@@ -39,5 +39,6 @@ char *CarbonValueTypeLexeme[] = {
 	[ValueError] = "Error",
 	[ValueUnresolved] = "unresolved",
 	[ValueVoid] = "void",
+	[ValueGenerator] = "generator",
 	[ValueNull] = "Null",
 };

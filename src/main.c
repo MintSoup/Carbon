@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
 					   heapSize, instance.vm.objectHeapSize);
 			}
 		} else {
-			printf("***MEMORY LEAK: LEAKING %lu BYTES\n ", heapSize);
+			printf("***MEMORY LEAK: LEAKING %lu BYTES***\n ", heapSize);
 		}
 	}
 

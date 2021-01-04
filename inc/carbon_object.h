@@ -6,7 +6,12 @@
 #include "vm/carbon_vm.h"
 #include "carbon_token.h"
 
-typedef enum { CrbnObjString, CrbnObjFunc } CarbonObjectType;
+typedef enum {
+	CrbnObjString,
+	CrbnObjFunc,
+	CrbnObjArray,
+	CrbnObjGenerator
+} CarbonObjectType;
 
 typedef struct carbon_object {
 	CarbonObjectType type;
@@ -27,12 +32,34 @@ typedef struct carbon_function {
 	CarbonValueType returnType;
 } CarbonFunction;
 
+typedef struct carbon_array {
+	CarbonObj obj;
+	CarbonValue *members;
+	uint64_t count;
+	uint64_t capacity;
+	enum CarbonValueTag type;
+} CarbonArray;
+
+typedef struct carbon_generator {
+	CarbonObj obj;
+	CarbonValue first;
+	CarbonValue last;
+	CarbonValue delta;
+	enum CarbonValueTag type;
+	uint64_t n;
+} CarbonGenerator;
+
 CarbonString *carbon_copyString(char *chars, uint32_t length, CarbonVM *vm);
 CarbonString *carbon_takeString(char *chars, uint32_t length, CarbonVM *vm);
 CarbonString *carbon_strFromToken(CarbonToken token, CarbonVM *vm);
 
 CarbonFunction *carbon_newFunction(CarbonString *name, uint32_t arity,
 								   CarbonValueType returnType, CarbonVM *vm);
+CarbonArray *carbon_newArray(uint64_t initSize, enum CarbonValueTag type,
+							 CarbonVM *vm);
+CarbonGenerator *carbon_newGenerator(CarbonValue first, CarbonValue last,
+									 CarbonValue delta,
+									 enum CarbonValueTag type, CarbonVM *vm);
 
 void carbon_freeObject(CarbonObj *obj, CarbonVM *vm);
 void *carbon_reallocateObj(size_t oldSize, size_t newSize, void *oldptr,

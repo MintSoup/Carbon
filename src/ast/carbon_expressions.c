@@ -85,8 +85,43 @@ CarbonExprCall *carbon_newCallExpr(CarbonExpr *callee, uint32_t line) {
 	return call;
 }
 
+CarbonExprArray *carbon_newArrayExpr(CarbonToken bracket) {
+	CarbonExprArray *arr =
+		(CarbonExprArray *) allocateNode(CarbonExprArray, ExprArray);
+	arr->bracket = bracket;
+	arr->capacity = 0;
+	arr->count = 0;
+	arr->members = NULL;
+	arr->type.base.type = TokenNone;
+	return arr;
+}
+
+CarbonExprIndex *carbon_newIndexExpr(CarbonExpr *object, CarbonExpr *index,
+									 CarbonToken bracket) {
+	CarbonExprIndex *i =
+		(CarbonExprIndex *) allocateNode(CarbonExprIndex, ExprIndex);
+	i->index = index;
+	i->object = object;
+	i->bracket = bracket;
+	return i;
+}
+CarbonExprIndexAssignment *carbon_newIndexAssignmentExpr(CarbonExprIndex *left,
+														 CarbonExpr *right,
+														 CarbonToken equals) {
+	CarbonExprIndexAssignment *index =
+		(CarbonExprIndexAssignment *) allocateNode(CarbonExprIndexAssignment,
+												   ExprIndexAssignment);
+	index->equals = equals;
+	index->left = left;
+	index->right = right;
+	return index;
+}
+
 void carbon_freeType(CarbonValueType t) {
+	if (t.compound.memberType == NULL)
+		return;
 	switch (t.tag) {
+		case ValueGenerator:
 		case ValueArray: {
 			carbon_freeType(*t.compound.memberType);
 			carbon_reallocate(sizeof(CarbonValueType), 0,
@@ -94,11 +129,11 @@ void carbon_freeType(CarbonValueType t) {
 			break;
 		}
 		case ValueFunction: {
-			carbon_freeType(*t.compound.signature->returnType);
-			t.compound.signature->returnType = NULL;
-			carbon_reallocate(sizeof(CarbonValueType), 0,
-							  t.compound.signature->returnType);
-
+			if (t.compound.signature->returnType != NULL) {
+				carbon_freeType(*t.compound.signature->returnType);
+				carbon_reallocate(sizeof(CarbonValueType), 0,
+								  t.compound.signature->returnType);
+			}
 			for (uint8_t i = 0; i < t.compound.signature->arity; i++) {
 				carbon_freeType(t.compound.signature->arguments[i]);
 			}
@@ -142,14 +177,17 @@ CarbonValueType carbon_cloneType(CarbonValueType type) {
 
 			break;
 		}
+		case ValueGenerator:
 		case ValueArray: {
 			cloned.compound.memberType =
 				carbon_reallocate(0, sizeof(CarbonValueType), NULL);
 			*cloned.compound.memberType =
 				carbon_cloneType(*type.compound.memberType);
+			break;
 		}
 		case ValueInstance: {
 			cloned.compound.instanceName = type.compound.instanceName;
+			break;
 		}
 		default:
 			break;
@@ -213,6 +251,32 @@ void carbon_freeExpr(CarbonExpr *expr) {
 			carbon_reallocate(sizeof(CarbonExprCall), 0, expr);
 			break;
 		}
+		case ExprArray: {
+			CarbonExprArray *arr = (CarbonExprArray *) expr;
+			for (uint8_t i = 0; i < arr->count; i++) {
+				carbon_freeExpr(arr->members[i]);
+			}
+			carbon_reallocate(arr->capacity * sizeof(CarbonExpr *), 0,
+							  arr->members);
+			if (arr->type.base.type != TokenNone)
+				carbon_freeTypename(arr->type);
+			carbon_reallocate(sizeof(CarbonExprArray), 0, expr);
+			break;
+		}
+		case ExprIndex: {
+			CarbonExprIndex *index = (CarbonExprIndex *) expr;
+			carbon_freeExpr(index->index);
+			carbon_freeExpr(index->object);
+			carbon_reallocate(sizeof(CarbonExprIndex), 0, expr);
+			break;
+		}
+		case ExprIndexAssignment: {
+			CarbonExprIndexAssignment *ie = (CarbonExprIndexAssignment *) expr;
+			carbon_freeExpr((CarbonExpr *) ie->left);
+			carbon_freeExpr(ie->right);
+			carbon_reallocate(sizeof(CarbonExprIndexAssignment), 0, expr);
+			break;
+		}
 	}
 }
 
@@ -232,6 +296,7 @@ bool carbon_typesEqual(CarbonValueType a, CarbonValueType b) {
 					return false;
 			return true;
 		}
+		case ValueGenerator:
 		case ValueArray: {
 			return carbon_typesEqual(*a.compound.memberType,
 									 *b.compound.memberType);

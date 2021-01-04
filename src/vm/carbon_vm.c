@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <string.h>
 
+extern char *CarbonValueTypeLexeme[];
+
 void carbon_initVM(CarbonVM *vm) {
 	vm->stackTop = 0;
 	vm->objects = NULL;
@@ -51,7 +53,7 @@ static void printObject(CarbonObj *obj) {
 	switch (obj->type) {
 		case CrbnObjString: {
 			CarbonString *str = (CarbonString *) obj;
-			printf("%s\n", str->chars);
+			printf("%s", str->chars);
 			break;
 		}
 		case CrbnObjFunc: {
@@ -59,7 +61,171 @@ static void printObject(CarbonObj *obj) {
 			printf("function <%s>", func->name->chars);
 			break;
 		}
+		case CrbnObjArray: {
+			CarbonArray *arr = (CarbonArray *) obj;
+			printf("[");
+			if (arr->count == 0) {
+				printf("<%s>]", CarbonValueTypeLexeme[arr->type]);
+				return;
+			}
+			switch (arr->type) {
+				case ValueUInt:
+					for (uint32_t i = 0; i < arr->count - 1; i++) {
+						printf("%" PRIu64 ", ", arr->members[i].uint);
+					}
+					printf("%" PRIu64, arr->members[arr->count - 1].uint);
+					break;
+				case ValueInt:
+					for (uint32_t i = 0; i < arr->count - 1; i++) {
+						printf("%" PRId64 ", ", arr->members[i].sint);
+					}
+					printf("%" PRId64, arr->members[arr->count - 1].sint);
+					break;
+				case ValueDouble:
+					for (uint32_t i = 0; i < arr->count - 1; i++) {
+						printf("%lf, ", arr->members[i].dbl);
+					}
+					printf("%lf", arr->members[arr->count - 1].dbl);
+					break;
+				case ValueBool:
+					for (uint32_t i = 0; i < arr->count - 1; i++) {
+						printf(arr->members[i].boolean ? "true, " : "false, ");
+					}
+					printf(arr->members[arr->count - 1].boolean ? "true, "
+																: "false, ");
+					break;
+				default:
+					for (uint32_t i = 0; i < arr->count - 1; i++) {
+						if (arr->type == ValueString)
+							printf("'");
+						printObject(arr->members[i].obj);
+						if (arr->type == ValueString)
+							printf("'");
+						printf(", ");
+					}
+					if (arr->type == ValueString)
+						printf("'");
+					printObject(arr->members[arr->count - 1].obj);
+					if (arr->type == ValueString)
+						printf("'");
+					break;
+			}
+			printf("]");
+			break;
+		}
+		case CrbnObjGenerator: {
+			CarbonGenerator *gen = (CarbonGenerator *) obj;
+			switch (gen->type) {
+				case ValueUInt:
+					printf("[%" PRIu64 "..%" PRIu64 ":%" PRIu64 "]",
+						   gen->first.uint, gen->last.uint, gen->delta.uint);
+					break;
+				case ValueInt:
+					printf("[%" PRId64 "..%" PRId64 ":%" PRId64 "]",
+						   gen->first.sint, gen->last.sint, gen->delta.sint);
+					break;
+				case ValueDouble:
+					printf("[%lf..%lf:%lf]", gen->first.dbl, gen->last.dbl,
+						   gen->delta.dbl);
+					break;
+				default:
+					break; // Should never reach here
+			}
+			break;
+		}
 	}
+}
+
+static uint64_t length(CarbonObj *obj) {
+	switch (obj->type) {
+		case CrbnObjString:
+			return ((CarbonString *) obj)->length;
+		case CrbnObjArray:
+			return ((CarbonArray *) obj)->count;
+		case CrbnObjGenerator:
+			return ((CarbonGenerator *) obj)->n;
+		default:
+			return 0; // Should never reach here
+	}
+}
+
+static bool checkBounds(CarbonObj *obj, CarbonValue index, char **msg) {
+	uint64_t olength = length(obj);
+	if ((index.sint >= 0 && olength <= index.sint) ||
+		(index.sint < 0 && olength < -index.sint)) {
+		switch (obj->type) {
+			case CrbnObjString:
+				*msg = "Out of bounds error on string";
+				break;
+			case CrbnObjArray:
+				*msg = "Out of bounds error on array";
+				break;
+			case CrbnObjGenerator:
+				*msg = "Out of bounds error on generator";
+				break;
+			default:
+				*msg = "";
+				break; // Should never reach here
+		}
+		return true;
+	}
+	return false;
+}
+
+static CarbonValue getGeneratorIndex(CarbonGenerator *g, uint64_t i) {
+	switch (g->type) {
+		case ValueUInt:
+			return CarbonUInt(g->first.uint + g->delta.uint * i);
+		case ValueInt:
+			return CarbonInt(g->first.sint + g->delta.sint * i);
+		case ValueDouble:
+			return CarbonDouble(g->first.dbl + g->delta.dbl * i);
+		default:
+			return CarbonUInt(0); // Should never reach here
+	}
+}
+
+static CarbonValue getIndex(CarbonObj *obj, CarbonValue i, CarbonVM *vm) {
+	uint64_t index = i.sint < 0 ? (length(obj) + i.sint) : i.uint;
+	switch (obj->type) {
+		case CrbnObjString: {
+			CarbonString *str = (CarbonString *) obj;
+			CarbonString *c = carbon_copyString(str->chars + index, 1, vm);
+			return CarbonObject((CarbonObj *) c);
+		}
+		case CrbnObjArray: {
+			return ((CarbonArray *) obj)->members[index];
+		}
+		case CrbnObjGenerator: {
+			return getGeneratorIndex((CarbonGenerator *) obj, index);
+		}
+		default:
+			return CarbonUInt(0); // Should never reach here
+	}
+}
+
+static void setIndex(CarbonObj *obj, CarbonValue i, CarbonValue v,
+					 CarbonVM *vm) {
+	uint64_t index = i.sint < 0 ? (length(obj) + i.sint) : i.uint;
+	switch (obj->type) {
+		case CrbnObjArray:
+			((CarbonArray *) obj)->members[index] = v;
+		default:
+			return; // Should never reach here
+	}
+}
+
+static void append(CarbonArray *arr, CarbonValue val, CarbonVM *vm) {
+	if (arr->count == arr->capacity) {
+		size_t oldSize = arr->capacity * sizeof(CarbonValue);
+		if (arr->capacity > 0)
+			arr->capacity *= 1.5;
+		else
+			arr->capacity = 8;
+		size_t newSize = arr->capacity * sizeof(CarbonValue);
+		arr->members = carbon_reallocateObj(oldSize, newSize, arr->members, vm);
+	}
+	arr->members[arr->count++] = val;
 }
 
 static uint8_t callFunction(CarbonFunction *func, CarbonVM *vm) {
@@ -88,6 +254,14 @@ static CarbonRunResult runtimeError(char *msg, CarbonVM *vm) {
 	uint32_t line = chunk->lines[frame->ip - chunk->code];
 	printf("[Line %d] %s.", line, msg);
 	return Carbon_Runtime_Error;
+}
+
+static bool nullcheck(CarbonObj *obj, char *msg, CarbonVM *vm) {
+	if (obj == NULL) {
+		runtimeError(msg, vm);
+		return true;
+	}
+	return false;
 }
 
 CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
@@ -344,10 +518,11 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				break;
 			case OpPrintObj: {
 				CarbonObj *o = pop().obj;
-				if (o == NULL)
-					return runtimeError("Cannot print a null object\n", vm);
+				if (nullcheck(o, "Cannot print a null object", vm))
+					return Carbon_Runtime_Error;
 
 				printObject(o);
+				puts("");
 				frame->ip++;
 				break;
 			}
@@ -412,6 +587,8 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				uint8_t args = ReadByte();
 				frame->ip++;
 				CarbonObj *func = vm->stack[vm->stackTop - args - 1].obj;
+				if (nullcheck(func, "Cannot call a null function", vm))
+					return Carbon_Runtime_Error;
 				if (call(func, vm)) {
 					return Carbon_Runtime_Error;
 				}
@@ -470,6 +647,100 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				uint8_t bottom = ReadByte();
 				uint16_t range = ((uint16_t) top << 8) | bottom;
 				frame->ip -= range;
+				break;
+			}
+
+			// Array/generator/length related stuff
+			case OpLen: {
+				CarbonObj *obj = pop().obj;
+				if (nullcheck(obj, "Cannot find the length of a null object",
+							  vm))
+					return Carbon_Runtime_Error;
+				push(CarbonUInt(length(obj)));
+				frame->ip++;
+				break;
+			}
+			case OpMakeArray: {
+				frame->ip++;
+				uint64_t size = ReadByte();
+				frame->ip++;
+				enum CarbonValueTag type = ReadByte();
+				push(CarbonObject(
+					(CarbonObj *) carbon_newArray(size, type, vm)));
+				frame->ip++;
+				break;
+			}
+			case OpMakeArray64: {
+				frame->ip++;
+				enum CarbonValueTag type = ReadByte();
+				uint64_t size = pop().uint;
+				push(CarbonObject(
+					(CarbonObj *) carbon_newArray(size, type, vm)));
+				frame->ip++;
+				break;
+			}
+			case OpInitArray: {
+				CarbonValue v = pop();
+				CarbonArray *arr = (CarbonArray *) peek().obj;
+				arr->count = arr->capacity;
+				for (uint64_t i = 0; i < arr->capacity; i++) {
+					arr->members[i] = v;
+				}
+				frame->ip++;
+				break;
+			}
+			case OpMakeGenerator: {
+				frame->ip++;
+				enum CarbonValueTag type = ReadByte();
+				CarbonValue first = pop();
+				CarbonValue last = pop();
+				CarbonValue delta = pop();
+				CarbonGenerator *g;
+				if ((g = carbon_newGenerator(first, last, delta, type, vm)) ==
+					NULL)
+					return runtimeError("Invalid numbers for generator", vm);
+				push(CarbonObject((CarbonObj *) g));
+				frame->ip++;
+				break;
+			}
+			case OpAppend: {
+				CarbonValue top = pop();
+				CarbonArray *arr = (CarbonArray *) peek().obj;
+				if (nullcheck((CarbonObj *) arr,
+							  "Cannot append to a null object", vm))
+					return Carbon_Runtime_Error;
+				append(arr, top, vm);
+				frame->ip++;
+				break;
+			}
+			case OpGetIndex: {
+				CarbonValue index = pop();
+				CarbonObj *obj = pop().obj;
+				if (nullcheck(obj, "Cannot index a null object", vm))
+					return Carbon_Runtime_Error;
+
+				char *msg;
+				if (checkBounds(obj, index, &msg)) {
+					return runtimeError(msg, vm);
+				}
+				push(getIndex(obj, index, vm));
+				frame->ip++;
+				break;
+			}
+			case OpSetIndex: {
+				CarbonValue v = pop();
+				CarbonValue index = pop();
+				CarbonObj *obj = pop().obj;
+				if (nullcheck(obj, "Cannot index a null object", vm))
+					return Carbon_Runtime_Error;
+				char *msg;
+				if (checkBounds(obj, index,
+								&msg) /* && obj->type != CrbnObjTable */) {
+					return runtimeError(msg, vm);
+				}
+				setIndex(obj, index, v, vm);
+				push(v);
+				frame->ip++;
 				break;
 			}
 		}

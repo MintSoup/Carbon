@@ -19,6 +19,7 @@ struct Identifier identifierList[] = {
 	{.name = "double", .type = TokenDouble},
 	{.name = "string", .type = TokenString},
 	{.name = "array", .type = TokenArray},
+	{.name = "generator", .type = TokenGenerator},
 	{.name = "error", .type = TokenError},
 	{.name = "table", .type = TokenTable},
 	{.name = "function", .type = TokenFunction},
@@ -97,6 +98,7 @@ static bool canEndStatement(CarbonTokenType type) {
 		case TokenRightParen:
 		case TokenRightBracket:
 		case TokenRightBrace:
+		case TokenRightAInit:
 		case TokenPlusPlus:
 		case TokenMinusMinus:
 		case TokenStringLiteral:
@@ -191,7 +193,8 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 		case ')':
 			return makeToken(TokenRightParen, lexer);
 		case '[':
-			return makeToken(TokenLeftBracket, lexer);
+			return makeToken(
+				match('<', lexer) ? TokenLeftAInit : TokenLeftBracket, lexer);
 		case ']':
 			return makeToken(TokenRightBracket, lexer);
 		case '?':
@@ -201,7 +204,7 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 		case '%':
 			return makeToken(TokenPercent, lexer);
 		case '.':
-			return makeToken(TokenDot, lexer);
+			return makeToken(match('.', lexer) ? TokenDotDot : TokenDot, lexer);
 		case ',':
 			return makeToken(TokenComma, lexer);
 		case ';':
@@ -231,8 +234,13 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 			return makeToken(match('=', lexer) ? TokenBangEquals : TokenBang,
 							 lexer);
 		case '>':
-			return makeToken(match('=', lexer) ? TokenGEQ : TokenGreaterThan,
-							 lexer);
+			if (match(']', lexer))
+				return makeToken(TokenRightAInit, lexer);
+			if (match('=', lexer))
+				return makeToken(TokenGEQ, lexer);
+			else
+				return makeToken(TokenGreaterThan, lexer);
+
 		case '<':
 			return makeToken(match('=', lexer) ? TokenLEQ : TokenLessThan,
 							 lexer);
@@ -255,7 +263,10 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 				while (isNumeric(peek(lexer))) {
 					next(lexer);
 				}
-				if (match('.', lexer)) {
+				if (peek(lexer) == '.') {
+					if (*(lexer->current + 1) == '.')
+						return makeToken(TokenInteger, lexer);
+					next(lexer);
 					while (isNumeric(peek(lexer))) {
 						next(lexer);
 					}

@@ -17,7 +17,10 @@ typedef enum {
 	ExprCast,
 	ExprVar,
 	ExprAssignment,
-	ExprCall
+	ExprCall,
+	ExprArray,
+	ExprIndex,
+	ExprIndexAssignment
 } CarbonExprType;
 
 typedef struct {
@@ -78,6 +81,34 @@ typedef struct {
 	uint32_t line;
 } CarbonExprCall;
 
+typedef struct {
+	CarbonExpr expr;
+	uint64_t count;
+	uint64_t capacity;
+	CarbonExpr **members;
+	CarbonToken bracket;
+	enum ArrayInitMethod {
+		ImethodStandard,
+		ImethodGenerator,
+		ImethodContracted
+	} imethod;
+	CarbonTypename type;
+} CarbonExprArray;
+
+typedef struct {
+	CarbonExpr expr;
+	CarbonExpr *object;
+	CarbonExpr *index;
+	CarbonToken bracket;
+} CarbonExprIndex;
+
+typedef struct {
+	CarbonExpr expr;
+	CarbonExprIndex *left;
+	CarbonExpr *right;
+	CarbonToken equals;
+} CarbonExprIndexAssignment;
+
 CarbonExprBinary *carbon_newBinaryExpr(CarbonExpr *left, CarbonExpr *right,
 									   CarbonToken op);
 
@@ -86,12 +117,18 @@ CarbonExprUnary *carbon_newUnaryExpr(CarbonExpr *operand, CarbonToken op);
 CarbonExprLiteral *carbon_newLiteralExpr(CarbonToken token);
 
 CarbonExprGrouping *carbon_newGroupingExpr(CarbonExpr *expr);
+CarbonExprIndexAssignment *carbon_newIndexAssignmentExpr(CarbonExprIndex *left,
+														 CarbonExpr *right,
+														 CarbonToken equals);
 
 CarbonExprCast *carbon_newCastExpr(CarbonTypename to, CarbonExpr *expr);
 CarbonExprVar *carbon_newVarExpr(CarbonToken token);
 CarbonExprCall *carbon_newCallExpr(CarbonExpr *callee, uint32_t line);
 CarbonExprAssignment *carbon_newAssignmentExpr(CarbonToken left,
 											   CarbonExpr *right);
+CarbonExprArray *carbon_newArrayExpr(CarbonToken bracket);
+CarbonExprIndex *carbon_newIndexExpr(CarbonExpr *object, CarbonExpr *index,
+									 CarbonToken bracket);
 
 void carbon_freeExpr(CarbonExpr *expr);
 void carbon_freeTypename(CarbonTypename t);

@@ -15,6 +15,14 @@ typedef enum {
 	OpPush0,
 	OpPush1,
 	OpCall,
+	OpLen,
+	OpAppend,
+	OpGetIndex,
+	OpSetIndex,
+	OpMakeArray,
+	OpMakeArray64,
+	OpInitArray,
+	OpMakeGenerator,
 
 	// Binary Operations
 	OpAddInt,
@@ -41,7 +49,7 @@ typedef enum {
 	OpUIntToDouble,
 	OpDoubleToUInt,
 
-	//Comparison and equality
+	// Comparison and equality
 	OpCompareInt,
 	OpCompareUInt,
 	OpCompareDouble,
@@ -51,14 +59,13 @@ typedef enum {
 	OpLess,
 	OpGEQ,
 	OpLEQ,
-	
-	//Prints
+
+	// Prints
 	OpPrintInt,
 	OpPrintUInt,
 	OpPrintDouble,
 	OpPrintBool,
 	OpPrintObj,
-
 
 	// Variables
 	OpSetGlobal,
@@ -74,7 +81,6 @@ typedef enum {
 	OpJump,
 	OpIf,
 	OpLoop
-	
 
 } CarbonOpCode;
 

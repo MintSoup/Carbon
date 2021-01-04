@@ -17,13 +17,15 @@ flags := -O3 -Wall -std=c99
 
 debugflags := -g -O0 -Wall -std=c99 -DDebug
 
+ldflags := -lm
+
 
 $(obj)/%.o: $(src)/%.c
 	@mkdir -p $(objdirs)
 	$(CC) $(flags) -I$(inc) -c -o $@ $<
 	
 $(executable): $(objf)
-	$(CC) $(objf) -o $(executable)
+	$(CC) $(ldflags) $(objf) -o $(executable)
 
 build: $(executable)
 
@@ -31,7 +33,7 @@ debug: flags = $(debugflags)
 debug: $(executable)
 
 run_new: $(executable)
-	st sh -c './$(executable) --disassemble test.cbn; pause'
+	st bash -c './$(executable) test.cbn; pause' # using bash to see segfaults
 
 run: $(executable)
 	./$(executable)

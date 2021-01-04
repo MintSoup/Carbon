@@ -6,6 +6,7 @@
 #include "carbon_token.h"
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #define ALLOC(size, type) createObject(sizeof(size), type, vm)
 
@@ -80,7 +81,63 @@ CarbonFunction *carbon_newFunction(CarbonString *name, uint32_t arity,
 	carbon_initChunk(&func->chunk);
 	return func;
 }
+CarbonArray *carbon_newArray(uint64_t initSize, enum CarbonValueTag type,
+							 CarbonVM *vm) {
+	CarbonArray *arr = (CarbonArray *) ALLOC(CarbonArray, CrbnObjArray);
+	arr->type = type;
+	arr->count = 0;
+	arr->capacity = initSize;
+	arr->members =
+		carbon_reallocateObj(0, sizeof(CarbonValue) * initSize, NULL, vm);
+	return arr;
+}
 
+CarbonGenerator *carbon_newGenerator(CarbonValue first, CarbonValue last,
+									 CarbonValue delta,
+									 enum CarbonValueTag type, CarbonVM *vm) {
+	if (last.uint == first.uint)
+		return NULL;
+	switch (type) {
+		case ValueUInt:
+			if (delta.uint == 0)
+				return NULL;
+		case ValueInt:
+			if (delta.sint == 0)
+				return NULL;
+			if ((last.sint - first.sint) * delta.sint < 0)
+				return NULL;
+		case ValueDouble:
+			if (delta.dbl == 0)
+				return NULL;
+			if ((last.dbl - first.dbl) * delta.dbl < 0)
+				return NULL;
+
+		default:
+			break; // Should never reach here
+	}
+
+	CarbonGenerator *gen =
+		(CarbonGenerator *) ALLOC(CarbonGenerator, CrbnObjGenerator);
+	gen->first = first;
+	gen->last = last;
+	gen->delta = delta;
+	gen->type = type;
+
+	switch (type) {
+		case ValueUInt:
+			gen->n = ceil((float) (last.uint - first.uint) / delta.uint);
+			break;
+		case ValueInt:
+			gen->n = ceil((float) (last.sint - first.sint) / delta.sint);
+			break;
+		case ValueDouble:
+			gen->n = ceil((float) (last.dbl - first.dbl) / delta.dbl);
+			break;
+		default:
+			break; // Should never reach here
+	}
+	return gen;
+}
 void carbon_freeObject(CarbonObj *obj, CarbonVM *vm) {
 
 	CarbonObj *current = vm->objects;
@@ -91,9 +148,9 @@ void carbon_freeObject(CarbonObj *obj, CarbonVM *vm) {
 			fprintf(stderr, "CRITICAL: OBJECT NOT FOUND IN VM\n");
 		current = current->next;
 	}
-	if (current == vm->objects) {
+	if (current == vm->objects)
 		vm->objects = current->next;
-	} else
+	else
 		previous->next = current->next;
 
 	switch (obj->type) {
@@ -107,6 +164,17 @@ void carbon_freeObject(CarbonObj *obj, CarbonVM *vm) {
 			CarbonFunction *func = (CarbonFunction *) obj;
 			carbon_freeChunk(&func->chunk);
 			carbon_reallocateObj(sizeof(CarbonFunction), 0, obj, vm);
+			break;
+		}
+		case CrbnObjArray: {
+			CarbonArray *arr = (CarbonArray *) obj;
+			carbon_reallocateObj(arr->capacity * sizeof(CarbonValue), 0,
+								 arr->members, vm);
+			carbon_reallocateObj(sizeof(CarbonArray), 0, arr, vm);
+			break;
+		}
+		case CrbnObjGenerator: {
+			carbon_reallocateObj(sizeof(CarbonGenerator), 0, obj, vm);
 			break;
 		}
 	}

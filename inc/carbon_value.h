@@ -21,6 +21,7 @@ typedef struct carbon_valueType {
 		ValueInstance,
 		ValueHashtable,
 		ValueArray,
+		ValueGenerator,
 		ValueFunction,
 		ValueError,
 		ValueVoid,

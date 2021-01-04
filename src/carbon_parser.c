@@ -102,6 +102,8 @@ static void sync(CarbonParser *p) {
 			case TokenDouble:
 			case TokenString:
 			case TokenBool:
+			case TokenGenerator:
+			case TokenArray:
 				if (peekn(1, p).type != TokenRightParen) {
 					p->panic = false;
 					return;
@@ -201,6 +203,8 @@ static bool isTypename(CarbonToken token) {
 		case TokenDouble:
 		case TokenVoid:
 		case TokenFunction:
+		case TokenArray:
+		case TokenGenerator:
 			return true;
 		default:
 			return false;
@@ -231,7 +235,8 @@ static CarbonExpr *primary(CarbonParser *p);
 static CarbonExpr *expression(CarbonParser *p) {
 	CarbonToken first = peek(p);
 	CarbonExpr *expr = assignment(p);
-	expr->first = first;
+	if (expr != NULL)
+		expr->first = first;
 	return expr;
 }
 
@@ -524,6 +529,10 @@ static CarbonExpr *assignment(CarbonParser *p) {
 				return (CarbonExpr *) carbon_newAssignmentExpr(var->token,
 															   value);
 			}
+			case ExprIndex:
+				return (CarbonExpr *) carbon_newIndexAssignmentExpr(
+					(CarbonExprIndex *) target, value, equals);
+
 			default:
 				error(equals, "Invalid assignment target", p);
 		}
@@ -606,44 +615,121 @@ static CarbonExpr *unary(CarbonParser *p) {
 
 static CarbonExpr *postfix(CarbonParser *p) {
 	CarbonExpr *expr = primary(p);
-	while (match(TokenLeftParen, p)) {
-		CarbonExprCall *call = carbon_newCallExpr(expr, previous(p).line);
-		bool tooMany = false;
-		if (!match(TokenRightParen, p)) {
-			do {
-				if (!tooMany && call->arity == 255) {
-					errorAtCurrent(
-						"Functions can have a maximum of 255 arguments.", p);
-					tooMany = true;
-				}
-				CarbonExpr *e = expression(p);
-				if (tooMany) {
-					carbon_freeExpr(e);
-					continue;
-				}
-				if (e != NULL) {
-					if (call->arity == call->argumentCapacity) {
-						uint32_t oldSize =
-							call->argumentCapacity * sizeof(CarbonExpr);
-						if (call->argumentCapacity == 0)
-							call->argumentCapacity = 8;
-						else
-							call->argumentCapacity *= 2;
-						uint32_t newSize =
-							call->argumentCapacity * sizeof(CarbonExpr *);
-						call->arguments = carbon_reallocate(oldSize, newSize,
-															call->arguments);
+	while (match(TokenLeftParen, p) || match(TokenLeftBracket, p)) {
+		if (previous(p).type == TokenLeftParen) {
+			CarbonExprCall *call = carbon_newCallExpr(expr, previous(p).line);
+			bool tooMany = false;
+			if (!match(TokenRightParen, p)) {
+				do {
+					if (!tooMany && call->arity == 255) {
+						errorAtCurrent(
+							"Functions can have a maximum of 255 arguments.",
+							p);
+						tooMany = true;
 					}
-					call->arguments[call->arity] = e;
-					call->arity++;
-				}
-			} while (match(TokenComma, p));
-			consume(TokenRightParen,
-					"Expected ')' after function call arguments.", p);
+					CarbonExpr *e = expression(p);
+					if (tooMany) {
+						carbon_freeExpr(e);
+						continue;
+					}
+					if (e != NULL) {
+						if (call->arity == call->argumentCapacity) {
+							uint32_t oldSize =
+								call->argumentCapacity * sizeof(CarbonExpr);
+							if (call->argumentCapacity == 0)
+								call->argumentCapacity = 8;
+							else
+								call->argumentCapacity *= 2;
+							uint32_t newSize =
+								call->argumentCapacity * sizeof(CarbonExpr *);
+							call->arguments = carbon_reallocate(
+								oldSize, newSize, call->arguments);
+						}
+						call->arguments[call->arity] = e;
+						call->arity++;
+					}
+				} while (match(TokenComma, p));
+				consume(TokenRightParen,
+						"Expected ')' after function call arguments.", p);
+			}
+			expr = (CarbonExpr *) call;
+		} else if (previous(p).type == TokenLeftBracket) {
+			CarbonToken bracket = previous(p);
+			CarbonExpr *i = expression(p);
+			consume(TokenRightBracket, "Expected ']' to close index expression",
+					p);
+			expr = (CarbonExpr *) carbon_newIndexExpr(expr, i, bracket);
 		}
-		expr = (CarbonExpr *) call;
 	}
 	return expr;
+}
+
+static CarbonExprArray *array(CarbonParser *p) {
+	CarbonToken t = next(p);
+	CarbonExprArray *arr = carbon_newArrayExpr(t);
+	CarbonExpr *first = expression(p);
+	if (match(TokenDotDot, p)) {
+		arr->imethod = ImethodGenerator;
+		CarbonExpr *second = expression(p);
+
+		if (match(TokenColon, p)) {
+			CarbonExpr *d = expression(p);
+			consume(TokenRightBracket, "Expected ']' to close iterator object.",
+					p);
+			arr->capacity = 3;
+			arr->count = 3;
+			arr->members = carbon_reallocate(0, 3 * sizeof(CarbonExpr *), NULL);
+			arr->members[0] = first;
+			arr->members[1] = second;
+			arr->members[2] = d;
+			return arr;
+		}
+		consume(TokenRightBracket, "Expected ']' to close iterator object", p);
+		arr->capacity = 2;
+		arr->count = 2;
+		arr->members = carbon_reallocate(0, 2 * sizeof(CarbonExpr *), NULL);
+		arr->members[0] = first;
+		arr->members[1] = second;
+		return arr;
+	}
+	arr->imethod = ImethodStandard;
+
+	arr->capacity = 8;
+	arr->count = 1;
+
+	arr->members = carbon_reallocate(0, 8 * sizeof(CarbonExpr *), NULL);
+	arr->members[0] = first;
+	while (match(TokenComma, p)) {
+		if (arr->count == arr->capacity) {
+			size_t oldSize = arr->capacity * sizeof(CarbonExpr *);
+			arr->capacity *= 2;
+			size_t newSize = arr->capacity * sizeof(CarbonExpr *);
+			arr->members = carbon_reallocate(oldSize, newSize, arr->members);
+		}
+		arr->members[arr->count++] = expression(p);
+	}
+	consume(TokenRightBracket, "Expected ']' to close array", p);
+	return arr;
+}
+
+static CarbonExprArray *arrayinit(CarbonParser *p) {
+	CarbonExprArray *arr = carbon_newArrayExpr(next(p));
+
+	arr->imethod = ImethodContracted;
+	arr->capacity = 2;
+	arr->count = 2;
+	arr->members = carbon_reallocate(0, 2 * sizeof(CarbonExpr *), NULL);
+
+	arr->type = parseType(p);
+
+	consume(TokenComma, "Expected ',' after array init type", p);
+	arr->members[0] = expression(p);
+
+	consume(TokenComma, "Expected ',' after array init size", p);
+	arr->members[1] = expression(p);
+
+	consume(TokenRightAInit, "Expected ']' to close array", p);
+	return arr;
 }
 
 static CarbonExpr *primary(CarbonParser *p) {
@@ -657,6 +743,10 @@ static CarbonExpr *primary(CarbonParser *p) {
 			return (CarbonExpr *) carbon_newLiteralExpr(next(p));
 		case TokenIdentifier:
 			return (CarbonExpr *) carbon_newVarExpr(next(p));
+		case TokenLeftBracket:
+			return (CarbonExpr *) array(p);
+		case TokenLeftAInit:
+			return (CarbonExpr *) arrayinit(p);
 
 		case TokenLeftParen: {
 			next(p);
