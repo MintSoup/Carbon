@@ -33,7 +33,7 @@ debug: flags = $(debugflags)
 debug: $(executable)
 
 run_new: $(executable)
-	st bash -c './$(executable) test.cbn; pause' # using bash to see segfaults
+	st bash -c './$(executable) test.cbn; read -n1' # using bash to see segfaults
 
 run: $(executable)
 	./$(executable)
