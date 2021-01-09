@@ -268,6 +268,8 @@ static void needUintLength(CarbonToken t, CarbonCompiler *c) {
 
 static void cantIndexAssign(CarbonValueType type, CarbonToken token,
 							CarbonCompiler *c) {
+	if (type.tag == ValueUnresolved)
+		return;
 	fprintf(stderr, "[Line %u] Type ", token.line);
 	printType(stderr, type);
 	fprintf(stderr, " does not support index assignment\n");
@@ -276,6 +278,8 @@ static void cantIndexAssign(CarbonValueType type, CarbonToken token,
 
 static void unindexableType(CarbonToken bracket, CarbonValueType type,
 							CarbonCompiler *c) {
+	if (type.tag == ValueUnresolved)
+		return;
 	fprintf(stderr, "[Line %u] Type ", bracket.line);
 	printType(stderr, type);
 	fprintf(stderr, " is not indexable\n");
@@ -284,6 +288,8 @@ static void unindexableType(CarbonToken bracket, CarbonValueType type,
 
 static void wrongIndexType(CarbonToken bracket, CarbonValueType given,
 						   CarbonValueType wanted, CarbonCompiler *c) {
+	if (given.tag == ValueUnresolved || wanted.tag == ValueUnresolved)
+		return;
 	fprintf(stderr, "[Line %u] Index has wrong type: wanted ", bracket.line);
 	printType(stderr, wanted);
 	fprintf(stderr, ", given ");
@@ -300,7 +306,7 @@ static void wrongGeneratorType(CarbonToken t, CarbonCompiler *c) {
 
 static void wrongMemberType(CarbonToken tok, uint64_t i, CarbonValueType wanted,
 							CarbonValueType given, CarbonCompiler *c) {
-	if (given.tag == ValueUnresolved)
+	if (given.tag == ValueUnresolved || wanted.tag == ValueUnresolved)
 		return;
 	fprintf(stderr, "[Line %u] Type of array member %" PRIu64 " (", tok.line,
 			i);
@@ -345,12 +351,15 @@ static void noReturnWanted(CarbonToken tok, CarbonString *functionName,
 }
 
 static void wrongReturnType(CarbonToken tok, CarbonValueType wanted,
-							CarbonValueType got, CarbonCompiler *c) {
+							CarbonValueType given, CarbonCompiler *c) {
+	if (wanted.tag == ValueUnresolved || given.tag == ValueUnresolved)
+		return;
+
 	fprintf(stderr, "[Line %u] Wrong return type: function needs to return ",
 			tok.line);
 	printType(stderr, wanted);
 	fprintf(stderr, ", not ");
-	printType(stderr, got);
+	printType(stderr, given);
 	fprintf(stderr, "\n");
 	c->hadError = true;
 }
@@ -375,6 +384,7 @@ static void wrongArgumentType(CarbonToken argument, uint8_t n,
 							  CarbonToken name, CarbonCompiler *c) {
 	if (given.tag == ValueUnresolved)
 		return;
+
 	fprintf(stderr,
 			"[Line %u] Argument %u of function call %.*s is of the wrong "
 			"type: Expected ",
@@ -999,6 +1009,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 					break;
 				default:
 					unindexableType(index->bracket, index->object->evalsTo, c);
+					expr->evalsTo = newType(ValueUnresolved);
 					return;
 			}
 			if (index->index != NULL)
