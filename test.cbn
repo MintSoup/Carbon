@@ -1,9 +1,4 @@
 void main():
-	generator <uint> g = [3 .. 1000]
-	prime(i[g])
-end
-
-
-bool prime(uint x):
-	return true
+	array<string> names = ['laz', 'areg']
+	print(names[0])
 end

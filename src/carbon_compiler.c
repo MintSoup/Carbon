@@ -1452,7 +1452,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 				carbon_compileGeneratorExpression(arr, chunk, c, vm);
 			else if (arr->imethod == ImethodContracted)
 				carbon_compileArrayInitExpression(arr, chunk, c, vm);
-			else if (arr->imethod == ImethodGenerator)
+			else if (arr->imethod == ImethodStandard)
 				carbon_compileArrayExpression(arr, chunk, c, vm);
 			break;
 		}
