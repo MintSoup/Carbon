@@ -1087,7 +1087,7 @@ static void pushLiteral(CarbonExprLiteral *lit, CarbonChunk *chunk,
 void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 							  CarbonCompiler *c, CarbonVM *vm);
 
-void carbon_compileUnaryExpression(CarbonExprUnary *un, CarbonChunk *chunk,
+static void compileUnaryExpression(CarbonExprUnary *un, CarbonChunk *chunk,
 								   CarbonCompiler *c, CarbonVM *vm) {
 	carbon_compileExpression(un->operand, chunk, c, vm);
 	if (un->op.type == TokenMinus)
@@ -1253,7 +1253,7 @@ void carbon_compileBinaryExpression(CarbonExprBinary *bin, CarbonChunk *chunk,
 #undef binInstruction
 }
 
-void carbon_compileCastExpression(CarbonExprCast *cast, CarbonChunk *chunk,
+static void compileCastExpression(CarbonExprCast *cast, CarbonChunk *chunk,
 								  CarbonCompiler *c, CarbonVM *vm) {
 	carbon_compileExpression(cast->expression, chunk, c, vm);
 	CarbonValueType from = cast->expression->evalsTo;
@@ -1276,7 +1276,7 @@ void carbon_compileCastExpression(CarbonExprCast *cast, CarbonChunk *chunk,
 			break;
 	}
 }
-void carbon_compileVarExpression(CarbonExprVar *var, CarbonChunk *chunk,
+static void compileVarExpression(CarbonExprVar *var, CarbonChunk *chunk,
 								 CarbonCompiler *c, CarbonVM *vm) {
 	CarbonString *name = carbon_strFromToken(var->token, vm);
 
@@ -1298,7 +1298,7 @@ void carbon_compileVarExpression(CarbonExprVar *var, CarbonChunk *chunk,
 	carbon_writeToChunk(chunk, index & 0xFF, var->token.line);
 }
 
-void carbon_compileAssignmentExpression(CarbonExprAssignment *assignment,
+static void compileAssignmentExpression(CarbonExprAssignment *assignment,
 										CarbonChunk *chunk, CarbonCompiler *c,
 										CarbonVM *vm) {
 	CarbonString *name = carbon_strFromToken(assignment->left, vm);
@@ -1322,7 +1322,7 @@ void carbon_compileAssignmentExpression(CarbonExprAssignment *assignment,
 	carbon_writeToChunk(chunk, index & 0xFF, assignment->left.line);
 }
 
-void carbon_compileCallExpression(CarbonExprCall *call, CarbonChunk *chunk,
+static void compileCallExpression(CarbonExprCall *call, CarbonChunk *chunk,
 								  CarbonCompiler *c, CarbonVM *vm) {
 	carbon_compileExpression(call->callee, chunk, c, vm);
 	for (uint8_t i = 0; i < call->arity; i++) {
@@ -1332,7 +1332,7 @@ void carbon_compileCallExpression(CarbonExprCall *call, CarbonChunk *chunk,
 	carbon_writeToChunk(chunk, call->arity, call->line);
 }
 
-void carbon_compileArrayExpression(CarbonExprArray *arr, CarbonChunk *chunk,
+static void compileArrayExpression(CarbonExprArray *arr, CarbonChunk *chunk,
 								   CarbonCompiler *c, CarbonVM *vm) {
 	if (arr->count <= 255) {
 		carbon_writeToChunk(chunk, OpMakeArray, arr->bracket.line);
@@ -1349,7 +1349,7 @@ void carbon_compileArrayExpression(CarbonExprArray *arr, CarbonChunk *chunk,
 		carbon_writeToChunk(chunk, OpAppend, arr->bracket.line);
 	}
 }
-void carbon_compileArrayInitExpression(CarbonExprArray *arr, CarbonChunk *chunk,
+static void compileArrayInitExpression(CarbonExprArray *arr, CarbonChunk *chunk,
 									   CarbonCompiler *c, CarbonVM *vm) {
 	carbon_compileExpression(arr->members[0], chunk, c, vm);
 	carbon_writeToChunk(chunk, OpMakeArray64, arr->bracket.line);
@@ -1359,7 +1359,7 @@ void carbon_compileArrayInitExpression(CarbonExprArray *arr, CarbonChunk *chunk,
 	carbon_writeToChunk(chunk, OpInitArray, arr->bracket.line);
 }
 
-void carbon_compileGeneratorExpression(CarbonExprArray *arr, CarbonChunk *chunk,
+static void compileGeneratorExpression(CarbonExprArray *arr, CarbonChunk *chunk,
 									   CarbonCompiler *c, CarbonVM *vm) {
 	if (arr->capacity == 3)
 		carbon_compileExpression(arr->members[2], chunk, c, vm);
@@ -1373,7 +1373,7 @@ void carbon_compileGeneratorExpression(CarbonExprArray *arr, CarbonChunk *chunk,
 	carbon_writeToChunk(chunk, arr->expr.evalsTo.compound.memberType->tag,
 						arr->bracket.line);
 }
-static void carbon_compileIndexExpression(CarbonExprIndex *index,
+static void compileIndexExpression(CarbonExprIndex *index,
 										  CarbonChunk *chunk, CarbonCompiler *c,
 										  CarbonVM *vm) {
 	carbon_compileExpression(index->object, chunk, c, vm);
@@ -1404,7 +1404,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 
 	switch (expr->type) {
 		case ExprUnary: {
-			carbon_compileUnaryExpression((CarbonExprUnary *) expr, chunk, c,
+			compileUnaryExpression((CarbonExprUnary *) expr, chunk, c,
 										  vm);
 			break;
 		}
@@ -1425,15 +1425,15 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 			break;
 		}
 		case ExprCast: {
-			carbon_compileCastExpression((CarbonExprCast *) expr, chunk, c, vm);
+			compileCastExpression((CarbonExprCast *) expr, chunk, c, vm);
 			break;
 		}
 		case ExprVar: {
-			carbon_compileVarExpression((CarbonExprVar *) expr, chunk, c, vm);
+			compileVarExpression((CarbonExprVar *) expr, chunk, c, vm);
 			break;
 		}
 		case ExprAssignment: {
-			carbon_compileAssignmentExpression((CarbonExprAssignment *) expr,
+			compileAssignmentExpression((CarbonExprAssignment *) expr,
 											   chunk, c, vm);
 			break;
 		}
@@ -1443,21 +1443,21 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 			break;
 		}
 		case ExprCall: {
-			carbon_compileCallExpression((CarbonExprCall *) expr, chunk, c, vm);
+			compileCallExpression((CarbonExprCall *) expr, chunk, c, vm);
 			break;
 		}
 		case ExprArray: {
 			CarbonExprArray *arr = (CarbonExprArray *) expr;
 			if (arr->imethod == ImethodGenerator)
-				carbon_compileGeneratorExpression(arr, chunk, c, vm);
+				compileGeneratorExpression(arr, chunk, c, vm);
 			else if (arr->imethod == ImethodContracted)
-				carbon_compileArrayInitExpression(arr, chunk, c, vm);
+				compileArrayInitExpression(arr, chunk, c, vm);
 			else if (arr->imethod == ImethodStandard)
-				carbon_compileArrayExpression(arr, chunk, c, vm);
+				compileArrayExpression(arr, chunk, c, vm);
 			break;
 		}
 		case ExprIndex: {
-			carbon_compileIndexExpression((CarbonExprIndex *) expr, chunk, c,
+			compileIndexExpression((CarbonExprIndex *) expr, chunk, c,
 										  vm);
 			break;
 		}
