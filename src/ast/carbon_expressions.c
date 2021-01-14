@@ -196,25 +196,28 @@ CarbonValueType carbon_cloneType(CarbonValueType type) {
 }
 
 void carbon_freeExpr(CarbonExpr *expr) {
+
+#define castNode(type, name) type *name = (type *) expr;
+
 	if (expr == NULL)
 		return;
 	carbon_freeType(expr->evalsTo);
 	switch (expr->type) {
 		case ExprUnary: {
-			CarbonExprUnary *un = (CarbonExprUnary *) expr;
+			castNode(CarbonExprUnary, un);
 			carbon_freeExpr(un->operand);
 			carbon_reallocate(sizeof(CarbonExprUnary), 0, expr);
 			break;
 		}
 		case ExprBinary: {
-			CarbonExprBinary *bin = (CarbonExprBinary *) expr;
+			castNode(CarbonExprBinary, bin);
 			carbon_freeExpr(bin->left);
 			carbon_freeExpr(bin->right);
 			carbon_reallocate(sizeof(CarbonExprBinary), 0, expr);
 			break;
 		}
 		case ExprGrouping: {
-			CarbonExprGrouping *group = (CarbonExprGrouping *) expr;
+			castNode(CarbonExprGrouping, group);
 			carbon_freeExpr(group->expression);
 			carbon_reallocate(sizeof(CarbonExprGrouping), 0, expr);
 			break;
@@ -224,7 +227,7 @@ void carbon_freeExpr(CarbonExpr *expr) {
 			break;
 		}
 		case ExprCast: {
-			CarbonExprCast *cast = (CarbonExprCast *) expr;
+			castNode(CarbonExprCast, cast);
 			carbon_freeExpr(cast->expression);
 			carbon_freeTypename(cast->to);
 			carbon_reallocate(sizeof(CarbonExprCast), 0, expr);
@@ -235,13 +238,13 @@ void carbon_freeExpr(CarbonExpr *expr) {
 			break;
 		}
 		case ExprAssignment: {
-			CarbonExprAssignment *assignment = (CarbonExprAssignment *) expr;
+			castNode(CarbonExprAssignment, assignment);
 			carbon_freeExpr(assignment->right);
 			carbon_reallocate(sizeof(CarbonExprAssignment), 0, expr);
 			break;
 		}
 		case ExprCall: {
-			CarbonExprCall *call = (CarbonExprCall *) expr;
+			castNode(CarbonExprCall, call);
 			for (uint8_t i = 0; i < call->arity; i++) {
 				carbon_freeExpr(call->arguments[i]);
 			}
@@ -252,7 +255,7 @@ void carbon_freeExpr(CarbonExpr *expr) {
 			break;
 		}
 		case ExprArray: {
-			CarbonExprArray *arr = (CarbonExprArray *) expr;
+			castNode(CarbonExprArray, arr);
 			for (uint8_t i = 0; i < arr->count; i++) {
 				carbon_freeExpr(arr->members[i]);
 			}
@@ -264,20 +267,21 @@ void carbon_freeExpr(CarbonExpr *expr) {
 			break;
 		}
 		case ExprIndex: {
-			CarbonExprIndex *index = (CarbonExprIndex *) expr;
+			castNode(CarbonExprIndex, index);
 			carbon_freeExpr(index->index);
 			carbon_freeExpr(index->object);
 			carbon_reallocate(sizeof(CarbonExprIndex), 0, expr);
 			break;
 		}
 		case ExprIndexAssignment: {
-			CarbonExprIndexAssignment *ie = (CarbonExprIndexAssignment *) expr;
+			castNode(CarbonExprIndexAssignment, ie);
 			carbon_freeExpr((CarbonExpr *) ie->left);
 			carbon_freeExpr(ie->right);
 			carbon_reallocate(sizeof(CarbonExprIndexAssignment), 0, expr);
 			break;
 		}
 	}
+#undef castNode
 }
 
 bool carbon_typesEqual(CarbonValueType a, CarbonValueType b) {

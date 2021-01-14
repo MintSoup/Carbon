@@ -93,28 +93,31 @@ CarbonStmtReturn *carbon_newReturnStmt(CarbonToken token) {
 }
 
 void carbon_freeStmt(CarbonStmt *stmt) {
+
+#define castNode(type, name) type *name = (type *) stmt;
+
 	switch (stmt->type) {
 		case StmtPrint: {
-			CarbonStmtPrint *print = (CarbonStmtPrint *) stmt;
+			castNode(CarbonStmtPrint, print);
 			carbon_freeExpr(print->expression);
 			carbon_reallocate(sizeof(CarbonStmtPrint), 0, stmt);
 			break;
 		}
 		case StmtExpr: {
-			CarbonStmtExpr *expr = (CarbonStmtExpr *) stmt;
+			castNode(CarbonStmtExpr, expr);
 			carbon_freeExpr(expr->expression);
 			carbon_reallocate(sizeof(CarbonStmtExpr), 0, stmt);
 			break;
 		}
 		case StmtVarDec: {
-			CarbonStmtVarDec *vardec = (CarbonStmtVarDec *) stmt;
+			castNode(CarbonStmtVarDec, vardec);
 			carbon_freeExpr(vardec->initializer);
 			carbon_freeTypename(vardec->type);
 			carbon_reallocate(sizeof(CarbonStmtVarDec), 0, stmt);
 			break;
 		}
 		case StmtFunc: {
-			CarbonStmtFunc *func = (CarbonStmtFunc *) stmt;
+			castNode(CarbonStmtFunc, func);
 			carbon_freeTypename(func->returnType);
 			for (uint8_t i = 0; i < func->arity; i++) {
 				carbon_freeTypename(func->arguments[i].type);
@@ -128,19 +131,19 @@ void carbon_freeStmt(CarbonStmt *stmt) {
 			break;
 		}
 		case StmtReturn: {
-			CarbonStmtReturn *ret = (CarbonStmtReturn *) stmt;
+			castNode(CarbonStmtReturn, ret);
 			carbon_freeExpr(ret->expression);
 			carbon_reallocate(sizeof(CarbonStmtReturn), 0, stmt);
 			break;
 		}
 		case StmtBlock: {
-			CarbonStmtBlock *block = (CarbonStmtBlock *) stmt;
+			castNode(CarbonStmtBlock, block);
 			carbon_stmtList_free(&block->statements);
 			carbon_reallocate(sizeof(CarbonStmtBlock), 0, stmt);
 			break;
 		}
 		case StmtIf: {
-			CarbonStmtIf *sif = (CarbonStmtIf *) stmt;
+			castNode(CarbonStmtIf, sif);
 			carbon_freeStmt((CarbonStmt *) sif->then);
 			if (sif->notThen != NULL)
 				carbon_freeStmt((CarbonStmt *) sif->notThen);
@@ -149,7 +152,7 @@ void carbon_freeStmt(CarbonStmt *stmt) {
 			break;
 		}
 		case StmtWhile: {
-			CarbonStmtWhile *swhl = (CarbonStmtWhile *) stmt;
+			castNode(CarbonStmtWhile, swhl);
 			carbon_freeExpr(swhl->condition);
 			carbon_freeStmt((CarbonStmt *) swhl->body);
 			carbon_reallocate(sizeof(CarbonStmtWhile), 0, stmt);
@@ -160,6 +163,7 @@ void carbon_freeStmt(CarbonStmt *stmt) {
 			break;
 		}
 	}
+#undef castNode
 }
 
 void carbon_stmtList_init(CarbonStmtList *sl) {

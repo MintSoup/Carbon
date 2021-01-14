@@ -50,19 +50,22 @@ static inline CarbonValue c16(CarbonVM *vm, uint8_t *ip) {
 }
 
 static void printObject(CarbonObj *obj) {
+
+#define castObj(type, name) type *name = (type *) obj;
+
 	switch (obj->type) {
 		case CrbnObjString: {
-			CarbonString *str = (CarbonString *) obj;
+			castObj(CarbonString, str);
 			printf("%s", str->chars);
 			break;
 		}
 		case CrbnObjFunc: {
-			CarbonFunction *func = (CarbonFunction *) obj;
+			castObj(CarbonFunction, func);
 			printf("function <%s>", func->name->chars);
 			break;
 		}
 		case CrbnObjArray: {
-			CarbonArray *arr = (CarbonArray *) obj;
+			castObj(CarbonArray, arr);
 			printf("[");
 			if (arr->count == 0) {
 				printf("<%s>]", CarbonValueTypeLexeme[arr->type]);
@@ -114,7 +117,7 @@ static void printObject(CarbonObj *obj) {
 			break;
 		}
 		case CrbnObjGenerator: {
-			CarbonGenerator *gen = (CarbonGenerator *) obj;
+			castObj(CarbonGenerator, gen);
 			switch (gen->type) {
 				case ValueUInt:
 					printf("[%" PRIu64 "..%" PRIu64 ":%" PRIu64 "]",
@@ -134,6 +137,7 @@ static void printObject(CarbonObj *obj) {
 			break;
 		}
 	}
+#undef castObj
 }
 
 static uint64_t length(CarbonObj *obj) {

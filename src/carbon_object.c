@@ -140,6 +140,8 @@ CarbonGenerator *carbon_newGenerator(CarbonValue first, CarbonValue last,
 }
 void carbon_freeObject(CarbonObj *obj, CarbonVM *vm) {
 
+#define castObj(type, name) type *name = (type *) obj;
+
 	CarbonObj *current = vm->objects;
 	CarbonObj *previous = NULL;
 	while (current != obj) {
@@ -155,19 +157,19 @@ void carbon_freeObject(CarbonObj *obj, CarbonVM *vm) {
 
 	switch (obj->type) {
 		case CrbnObjString: {
-			CarbonString *str = (CarbonString *) obj;
+			castObj(CarbonString, str);
 			carbon_reallocateObj(str->length + 1, 0, str->chars, vm);
 			carbon_reallocateObj(sizeof(CarbonString), 0, obj, vm);
 			break;
 		}
 		case CrbnObjFunc: {
-			CarbonFunction *func = (CarbonFunction *) obj;
+			castObj(CarbonFunction, func);
 			carbon_freeChunk(&func->chunk);
 			carbon_reallocateObj(sizeof(CarbonFunction), 0, obj, vm);
 			break;
 		}
 		case CrbnObjArray: {
-			CarbonArray *arr = (CarbonArray *) obj;
+			castObj(CarbonArray, arr);
 			carbon_reallocateObj(arr->capacity * sizeof(CarbonValue), 0,
 								 arr->members, vm);
 			carbon_reallocateObj(sizeof(CarbonArray), 0, arr, vm);
@@ -178,6 +180,7 @@ void carbon_freeObject(CarbonObj *obj, CarbonVM *vm) {
 			break;
 		}
 	}
+#undef castObj
 }
 
 #undef ALLOC

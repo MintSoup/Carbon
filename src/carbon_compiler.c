@@ -608,9 +608,12 @@ void carbon_markGlobal(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
 }
 
 static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
+
+#define castNode(type, name) type *name = (type *) expr;
+
 	switch (expr->type) {
 		case ExprUnary: {
-			CarbonExprUnary *un = (CarbonExprUnary *) expr;
+			castNode(CarbonExprUnary, un);
 			if (un->operand == NULL) {
 				expr->evalsTo = newType(ValueUnresolved);
 				return;
@@ -641,7 +644,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			}
 		}
 		case ExprBinary: {
-			CarbonExprBinary *bin = (CarbonExprBinary *) expr;
+			castNode(CarbonExprBinary, bin);
 			if (bin->left == NULL || bin->right == NULL) {
 				expr->evalsTo = newType(ValueUnresolved);
 				return;
@@ -715,7 +718,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			}
 		}
 		case ExprLiteral: {
-			CarbonExprLiteral *lit = (CarbonExprLiteral *) expr;
+			castNode(CarbonExprLiteral, lit);
 			switch (lit->token.type) {
 				case TokenTrue:
 				case TokenFalse:
@@ -739,7 +742,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			return;
 		}
 		case ExprGrouping: {
-			CarbonExprGrouping *group = (CarbonExprGrouping *) expr;
+			castNode(CarbonExprGrouping, group);
 			if (group->expression == NULL) {
 				expr->evalsTo = newType(ValueUnresolved);
 				return;
@@ -773,7 +776,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			return;
 		}
 		case ExprVar: {
-			CarbonExprVar *var = (CarbonExprVar *) expr;
+			castNode(CarbonExprVar, var);
 			CarbonString *name = carbon_strFromToken(var->token, vm);
 
 			CarbonValueType l = resolveLocalType(name, c);
@@ -794,7 +797,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			return;
 		}
 		case ExprAssignment: {
-			CarbonExprAssignment *assignment = (CarbonExprAssignment *) expr;
+			castNode(CarbonExprAssignment, assignment);
 			if (assignment->right == NULL) {
 				expr->evalsTo = newType(ValueUnresolved);
 				return;
@@ -845,7 +848,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			return;
 		}
 		case ExprIndexAssignment: {
-			CarbonExprIndexAssignment *ie = (CarbonExprIndexAssignment *) expr;
+			castNode(CarbonExprIndexAssignment, ie);
 			typecheck((CarbonExpr *) ie->left, c, vm);
 
 			if (ie->right == NULL)
@@ -870,7 +873,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			return;
 		}
 		case ExprCall: {
-			CarbonExprCall *call = (CarbonExprCall *) expr;
+			castNode(CarbonExprCall, call);
 			if (call->callee == NULL)
 				return;
 			typecheck(call->callee, c, vm);
@@ -917,7 +920,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			break;
 		}
 		case ExprArray: {
-			CarbonExprArray *arr = (CarbonExprArray *) expr;
+			castNode(CarbonExprArray, arr);
 			expr->evalsTo = newType(
 				arr->imethod == ImethodGenerator ? ValueGenerator : ValueArray);
 			if (arr->imethod == ImethodContracted) {
@@ -986,7 +989,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			break;
 		}
 		case ExprIndex: {
-			CarbonExprIndex *index = (CarbonExprIndex *) expr;
+			castNode(CarbonExprIndex, index);
 			if (index->object == NULL) {
 				expr->evalsTo = newType(ValueUnresolved);
 				return;
@@ -1021,6 +1024,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			break;
 		}
 	}
+#undef castNode
 }
 
 static void push(uint16_t index, CarbonChunk *chunk, CarbonToken token) {
@@ -1373,9 +1377,8 @@ static void compileGeneratorExpression(CarbonExprArray *arr, CarbonChunk *chunk,
 	carbon_writeToChunk(chunk, arr->expr.evalsTo.compound.memberType->tag,
 						arr->bracket.line);
 }
-static void compileIndexExpression(CarbonExprIndex *index,
-										  CarbonChunk *chunk, CarbonCompiler *c,
-										  CarbonVM *vm) {
+static void compileIndexExpression(CarbonExprIndex *index, CarbonChunk *chunk,
+								   CarbonCompiler *c, CarbonVM *vm) {
 	carbon_compileExpression(index->object, chunk, c, vm);
 	carbon_compileExpression(index->index, chunk, c, vm);
 	carbon_writeToChunk(chunk, OpGetIndex, index->bracket.line);
@@ -1404,8 +1407,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 
 	switch (expr->type) {
 		case ExprUnary: {
-			compileUnaryExpression((CarbonExprUnary *) expr, chunk, c,
-										  vm);
+			compileUnaryExpression((CarbonExprUnary *) expr, chunk, c, vm);
 			break;
 		}
 
@@ -1433,8 +1435,8 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 			break;
 		}
 		case ExprAssignment: {
-			compileAssignmentExpression((CarbonExprAssignment *) expr,
-											   chunk, c, vm);
+			compileAssignmentExpression((CarbonExprAssignment *) expr, chunk, c,
+										vm);
 			break;
 		}
 		case ExprIndexAssignment: {
@@ -1457,8 +1459,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 			break;
 		}
 		case ExprIndex: {
-			compileIndexExpression((CarbonExprIndex *) expr, chunk, c,
-										  vm);
+			compileIndexExpression((CarbonExprIndex *) expr, chunk, c, vm);
 			break;
 		}
 	}
