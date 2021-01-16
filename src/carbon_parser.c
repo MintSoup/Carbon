@@ -10,34 +10,34 @@
 #include "vm/carbon_vm.h"
 #include <string.h>
 #include <stdio.h>
+#include <strings.h>
 
 static void error(CarbonToken at, char *msg, CarbonParser *p) {
-	if (p->panic)
-		return;
+	if (p->panic) return;
 	p->panic = true;
 	p->hadError = true;
 	fprintf(stderr, "[Line %d] ", at.line);
 	switch (at.type) {
-		case TokenEOF: {
-			fprintf(stderr, "EOF: %s", msg);
+	case TokenEOF: {
+		fprintf(stderr, "EOF: %s", msg);
+		break;
+	}
+	case ErrorToken: {
+		if (at.length == '\'') {
+			fprintf(stderr, "Unterminated string");
 			break;
 		}
-		case ErrorToken: {
-			if (at.length == '\'') {
-				fprintf(stderr, "Unterminated string");
-				break;
-			}
-			fprintf(stderr, "Unexpected charater '%c'", at.length);
-			break;
-		}
-		case TokenEOS: {
-			fprintf(stderr, "at end of statement: %s", msg);
-			break;
-		}
-		default: {
-			fprintf(stderr, "at '%.*s': %s", at.length, at.lexeme, msg);
-			break;
-		}
+		fprintf(stderr, "Unexpected charater '%c'", at.length);
+		break;
+	}
+	case TokenEOS: {
+		fprintf(stderr, "at end of statement: %s", msg);
+		break;
+	}
+	default: {
+		fprintf(stderr, "at '%.*s': %s", at.length, at.lexeme, msg);
+		break;
+	}
 	}
 	fprintf(stderr, "\n");
 }
@@ -83,33 +83,30 @@ static void sync(CarbonParser *p) {
 	CarbonTokenType pk;
 	while ((pk = peek(p).type) != TokenEOF) {
 		switch (pk) {
-			case TokenFor:
-			case TokenWhile:
-			case TokenIf:
-			case TokenPrint:
-			case TokenReturn:
-			case TokenClass:
-			case TokenVoid:
+		case TokenFor:
+		case TokenWhile:
+		case TokenIf:
+		case TokenPrint:
+		case TokenReturn:
+		case TokenClass:
+		case TokenVoid: p->panic = false; return;
+		case TokenEnd:
+		case TokenEOS:
+			next(p);
+			p->panic = false;
+			return;
+		case TokenUInt:
+		case TokenInt:
+		case TokenDouble:
+		case TokenString:
+		case TokenBool:
+		case TokenGenerator:
+		case TokenArray:
+			if (peekn(1, p).type != TokenRightParen) {
 				p->panic = false;
 				return;
-			case TokenEnd:
-			case TokenEOS:
-				next(p);
-				p->panic = false;
-				return;
-			case TokenUInt:
-			case TokenInt:
-			case TokenDouble:
-			case TokenString:
-			case TokenBool:
-			case TokenGenerator:
-			case TokenArray:
-				if (peekn(1, p).type != TokenRightParen) {
-					p->panic = false;
-					return;
-				}
-			default:
-				next(p);
+			}
+		default: next(p);
 		}
 	}
 }
@@ -131,42 +128,37 @@ void carbon_initParser(CarbonParser *parser, CarbonLexer *lexer) {
 				// to be inited if used
 		while (true) {
 			current = carbon_scanToken(lexer);
-			if (current.type == TokenEOF)
-				break;
+			if (current.type == TokenEOF) break;
 			if (parser->panic) {
 				switch (current.type) {
-					case TokenFor:
-					case TokenWhile:
-					case TokenIf:
-					case TokenPrint:
-					case TokenReturn:
-					case TokenClass:
+				case TokenFor:
+				case TokenWhile:
+				case TokenIf:
+				case TokenPrint:
+				case TokenReturn:
+				case TokenClass: parser->panic = false; break;
+				case TokenEnd:
+				case TokenEOS:
+					current = carbon_scanToken(lexer);
+					parser->panic = false;
+					break;
+				case TokenUInt:
+				case TokenInt:
+				case TokenDouble:
+				case TokenString:
+				case TokenBool:
+					if (prev.type != TokenLeftParen) {
 						parser->panic = false;
 						break;
-					case TokenEnd:
-					case TokenEOS:
-						current = carbon_scanToken(lexer);
-						parser->panic = false;
-						break;
-					case TokenUInt:
-					case TokenInt:
-					case TokenDouble:
-					case TokenString:
-					case TokenBool:
-						if (prev.type != TokenLeftParen) {
-							parser->panic = false;
-							break;
-						}
-					default:
-						break;
+					}
+				default: break;
 				}
 			}
 			prev = current;
 			if (current.type == ErrorToken) {
 				error(current, NULL, parser);
 			}
-			if (!parser->panic)
-				break;
+			if (!parser->panic) break;
 		}
 
 		if (parser->currentToken == parser->totalTokens) {
@@ -196,18 +188,16 @@ void carbon_freeParser(CarbonParser *p) {
 
 static bool isTypename(CarbonToken token) {
 	switch (token.type) {
-		case TokenUInt:
-		case TokenInt:
-		case TokenString:
-		case TokenBool:
-		case TokenDouble:
-		case TokenVoid:
-		case TokenFunction:
-		case TokenArray:
-		case TokenGenerator:
-			return true;
-		default:
-			return false;
+	case TokenUInt:
+	case TokenInt:
+	case TokenString:
+	case TokenBool:
+	case TokenDouble:
+	case TokenVoid:
+	case TokenFunction:
+	case TokenArray:
+	case TokenGenerator: return true;
+	default: return false;
 	}
 }
 
@@ -235,8 +225,7 @@ static CarbonExpr *primary(CarbonParser *p);
 static CarbonExpr *expression(CarbonParser *p) {
 	CarbonToken first = peek(p);
 	CarbonExpr *expr = assignment(p);
-	if (expr != NULL)
-		expr->first = first;
+	if (expr != NULL) expr->first = first;
 	return expr;
 }
 
@@ -253,22 +242,31 @@ static CarbonTypename parseType(CarbonParser *p) {
 	if (peek(p).type != TokenLessThan) {
 		return tn;
 	}
-
 	next(p);
 
+	bool tooMany = false;
+
 	do {
-		uint32_t oldSize = tn.templateCount * sizeof(CarbonTypename);
-		uint32_t newSize = ++tn.templateCount * sizeof(CarbonTypename);
-		tn.templates = carbon_reallocate(oldSize, newSize, tn.templates);
-		tn.templates[tn.templateCount - 1] = parseType(p);
+		if (tn.templateCount == 255) {
+			if (!tooMany) {
+				errorAtCurrent("Cannot have more than 255 templates.", p);
+				tooMany = true;
+			}
+			carbon_freeTypename(parseType(p));
+		} else {
+			uint32_t oldSize = tn.templateCount * sizeof(CarbonTypename);
+			uint32_t newSize = ++tn.templateCount * sizeof(CarbonTypename);
+			tn.templates = carbon_reallocate(oldSize, newSize, tn.templates);
+			tn.templates[tn.templateCount - 1] = parseType(p);
+		}
 	} while (match(TokenComma, p));
 	consume(TokenGreaterThan, "Expected closing '>' after template.", p);
+	p->panic = false;
 	return tn;
 }
 
 static CarbonStmt *statement(CarbonParser *p) {
-	if (p->panic)
-		sync(p);
+	if (p->panic) sync(p);
 	CarbonToken n = peek(p);
 	if (n.type == TokenEOF)
 		return NULL;
@@ -289,8 +287,7 @@ static CarbonStmt *statement(CarbonParser *p) {
 }
 
 CarbonStmt *carbon_parseStatement(CarbonParser *p) {
-	if (p->panic)
-		sync(p);
+	if (p->panic) sync(p);
 	CarbonToken n = peek(p);
 	if (n.type == TokenEOF)
 		return NULL;
@@ -345,8 +342,7 @@ static CarbonStmtBlock *block(CarbonParser *p, char *cmsg, char *eofmsg,
 		}
 		CarbonStmt *stmt = statement(p);
 		if (stmt != NULL) {
-			if (stmt->type == StmtVarDec)
-				block->locals++;
+			if (stmt->type == StmtVarDec) block->locals++;
 			carbon_stmtList_add(&block->statements, stmt);
 		}
 	}
@@ -489,8 +485,7 @@ static CarbonStmtPrint *printStatement(CarbonParser *p) {
 static CarbonStmtExpr *expressionStatement(CarbonParser *p) {
 	CarbonExpr *expr = expression(p);
 	consume(TokenEOS, "Expected EOS after expression statement", p);
-	if (p->currentToken == 0)
-		return NULL;
+	if (p->currentToken == 0) return NULL;
 	return carbon_newExprStmt(expr, previous(p));
 }
 
@@ -502,18 +497,17 @@ static CarbonStmtVarDec *varDeclaration(CarbonTypename type, CarbonParser *p) {
 			p);
 	CarbonToken identifier = previous(p);
 	switch (peek(p).type) {
-		case TokenEOS:
-			next(p);
-			return carbon_newVarDecStmt(identifier, type, NULL);
-		case TokenEquals:
-			next(p);
-			CarbonExpr *init = expression(p);
-			consume(TokenEOS, "Expected EOS after variable initializer", p);
-			return carbon_newVarDecStmt(identifier, type, init);
-		default:
-			errorAtCurrent(
-				"Unexpected token after variable declaration identifier", p);
-			return NULL;
+	case TokenEOS: next(p); return carbon_newVarDecStmt(identifier, type, NULL);
+	case TokenEquals:
+		next(p);
+		CarbonExpr *init = expression(p);
+		consume(TokenEOS, "Expected EOS after variable initializer", p);
+		return carbon_newVarDecStmt(identifier, type, init);
+	default:
+		errorAtCurrent("Unexpected token after variable declaration identifier",
+					   p);
+		carbon_freeTypename(type);
+		return NULL;
 	}
 }
 
@@ -523,18 +517,16 @@ static CarbonExpr *assignment(CarbonParser *p) {
 		CarbonToken equals = previous(p);
 		CarbonExpr *value = assignment(p);
 		switch (target->type) {
-			case ExprVar: {
-				CarbonExprVar *var = (CarbonExprVar *) target;
-				carbon_freeExpr(target);
-				return (CarbonExpr *) carbon_newAssignmentExpr(var->token,
-															   value);
-			}
-			case ExprIndex:
-				return (CarbonExpr *) carbon_newIndexAssignmentExpr(
-					(CarbonExprIndex *) target, value, equals);
+		case ExprVar: {
+			CarbonExprVar *var = (CarbonExprVar *) target;
+			carbon_freeExpr(target);
+			return (CarbonExpr *) carbon_newAssignmentExpr(var->token, value);
+		}
+		case ExprIndex:
+			return (CarbonExpr *) carbon_newIndexAssignmentExpr(
+				(CarbonExprIndex *) target, value, equals);
 
-			default:
-				error(equals, "Invalid assignment target", p);
+		default: error(equals, "Invalid assignment target", p);
 		}
 	}
 	return target;
@@ -635,7 +627,7 @@ static CarbonExpr *postfix(CarbonParser *p) {
 					if (e != NULL) {
 						if (call->arity == call->argumentCapacity) {
 							uint32_t oldSize =
-								call->argumentCapacity * sizeof(CarbonExpr);
+								call->argumentCapacity * sizeof(CarbonExpr *);
 							if (call->argumentCapacity == 0)
 								call->argumentCapacity = 8;
 							else
@@ -734,30 +726,26 @@ static CarbonExprArray *arrayinit(CarbonParser *p) {
 
 static CarbonExpr *primary(CarbonParser *p) {
 	switch (peek(p).type) {
-		case TokenStringLiteral:
-		case TokenInteger:
-		case TokenDecimal:
-		case TokenTrue:
-		case TokenFalse:
-		case TokenNull:
-			return (CarbonExpr *) carbon_newLiteralExpr(next(p));
-		case TokenIdentifier:
-			return (CarbonExpr *) carbon_newVarExpr(next(p));
-		case TokenLeftBracket:
-			return (CarbonExpr *) array(p);
-		case TokenLeftAInit:
-			return (CarbonExpr *) arrayinit(p);
+	case TokenStringLiteral:
+	case TokenInteger:
+	case TokenDecimal:
+	case TokenTrue:
+	case TokenFalse:
+	case TokenNull: return (CarbonExpr *) carbon_newLiteralExpr(next(p));
+	case TokenIdentifier: return (CarbonExpr *) carbon_newVarExpr(next(p));
+	case TokenLeftBracket: return (CarbonExpr *) array(p);
+	case TokenLeftAInit: return (CarbonExpr *) arrayinit(p);
 
-		case TokenLeftParen: {
-			next(p);
-			CarbonExpr *expr = expression(p);
-			expr = (CarbonExpr *) carbon_newGroupingExpr(expr);
-			consume(TokenRightParen, "Expected expression", p);
-			return expr;
-		}
-		default: {
-			errorAtCurrent("Expected expression", p);
-			return NULL;
-		}
+	case TokenLeftParen: {
+		next(p);
+		CarbonExpr *expr = expression(p);
+		expr = (CarbonExpr *) carbon_newGroupingExpr(expr);
+		consume(TokenRightParen, "Expected expression", p);
+		return expr;
+	}
+	default: {
+		errorAtCurrent("Expected expression", p);
+		return NULL;
+	}
 	}
 }

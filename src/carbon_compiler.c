@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 extern char *CarbonValueTypeLexeme[];
 
 static CarbonToken v2token[] = {
@@ -900,7 +901,11 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 				wrongArity(name, sig->arity, call->arity, c);
 			}
 
-			for (uint8_t i = 0; i < call->arity; i++) {
+			uint8_t lower = sig->arity < call->arity ? sig->arity : call->arity;
+
+			for (uint8_t i = 0; i < lower; i++) {
+				if(call->arguments[i] == NULL)
+					continue;
 				typecheck(call->arguments[i], c, vm);
 				if (!canAssign(sig->arguments[i],
 							   call->arguments[i]->evalsTo)) {
