@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-CarbonExpr *carbon_newExpr(size_t size, CarbonExprType type) {
+CarbonExpr *carbon_newExpr(uint32_t size, CarbonExprType type) {
 	CarbonExpr *expr = carbon_reallocate(0, size, NULL);
 	expr->type = type;
 	CarbonValueType t = {.tag = ValueUntypechecked};
@@ -165,7 +165,7 @@ CarbonValueType carbon_cloneType(CarbonValueType type) {
 
 			cloned.compound.signature->arity = type.compound.signature->arity;
 
-			size_t s =
+			uint32_t s =
 				sizeof(CarbonValueType) * cloned.compound.signature->arity;
 			cloned.compound.signature->arguments =
 				carbon_reallocate(0, s, NULL);
@@ -248,7 +248,7 @@ void carbon_freeExpr(CarbonExpr *expr) {
 			for (uint8_t i = 0; i < call->arity; i++) {
 				carbon_freeExpr(call->arguments[i]);
 			}
-			size_t oldSize = call->argumentCapacity * sizeof(CarbonExpr *);
+			uint32_t oldSize = call->argumentCapacity * sizeof(CarbonExpr *);
 			carbon_reallocate(oldSize, 0, call->arguments);
 			carbon_freeExpr(call->callee);
 			carbon_reallocate(sizeof(CarbonExprCall), 0, expr);

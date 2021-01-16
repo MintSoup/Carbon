@@ -10,13 +10,13 @@
 
 #define ALLOC(size, type) createObject(sizeof(size), type, vm)
 
-void *carbon_reallocateObj(size_t oldSize, size_t newSize, void *oldptr,
+void *carbon_reallocateObj(uint32_t oldSize, uint32_t newSize, void *oldptr,
 						   CarbonVM *vm) {
 	vm->objectHeapSize += newSize - oldSize;
 	return carbon_reallocate(oldSize, newSize, oldptr);
 }
 
-static CarbonObj *createObject(size_t size, CarbonObjectType type,
+static CarbonObj *createObject(uint32_t size, CarbonObjectType type,
 							   CarbonVM *vm) {
 	CarbonObj *obj = carbon_reallocateObj(0, size, NULL, vm);
 	obj->type = type;

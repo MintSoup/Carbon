@@ -20,7 +20,7 @@ typedef struct {
 	CarbonValue stack[CARBON_StackSize];
 	uint16_t stackTop;
 	CarbonObj *objects;
-	size_t objectHeapSize;
+	uint32_t objectHeapSize;
 
 	CarbonTable strings;
 	CarbonTable globals;

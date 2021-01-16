@@ -2,10 +2,10 @@
 #include "utils/carbon_memory.h"
 #include <stdlib.h>
 
-size_t heapSize = 0;
+uint32_t heapSize = 0;
 
 
-void *carbon_reallocate(size_t oldSize, size_t newSize, void *oldptr) {
+void *carbon_reallocate(uint32_t oldSize, uint32_t newSize, void *oldptr) {
 	if (newSize == 0) {
 		free(oldptr);
 		heapSize -= oldSize;

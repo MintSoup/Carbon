@@ -257,8 +257,8 @@ static CarbonTypename parseType(CarbonParser *p) {
 	next(p);
 
 	do {
-		size_t oldSize = tn.templateCount * sizeof(CarbonTypename);
-		size_t newSize = ++tn.templateCount * sizeof(CarbonTypename);
+		uint32_t oldSize = tn.templateCount * sizeof(CarbonTypename);
+		uint32_t newSize = ++tn.templateCount * sizeof(CarbonTypename);
 		tn.templates = carbon_reallocate(oldSize, newSize, tn.templates);
 		tn.templates[tn.templateCount - 1] = parseType(p);
 	} while (match(TokenComma, p));
@@ -701,9 +701,9 @@ static CarbonExprArray *array(CarbonParser *p) {
 	arr->members[0] = first;
 	while (match(TokenComma, p)) {
 		if (arr->count == arr->capacity) {
-			size_t oldSize = arr->capacity * sizeof(CarbonExpr *);
+			uint32_t oldSize = arr->capacity * sizeof(CarbonExpr *);
 			arr->capacity *= 2;
-			size_t newSize = arr->capacity * sizeof(CarbonExpr *);
+			uint32_t newSize = arr->capacity * sizeof(CarbonExpr *);
 			arr->members = carbon_reallocate(oldSize, newSize, arr->members);
 		}
 		arr->members[arr->count++] = expression(p);

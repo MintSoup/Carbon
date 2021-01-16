@@ -221,12 +221,12 @@ static void setIndex(CarbonObj *obj, CarbonValue i, CarbonValue v,
 
 static void append(CarbonArray *arr, CarbonValue val, CarbonVM *vm) {
 	if (arr->count == arr->capacity) {
-		size_t oldSize = arr->capacity * sizeof(CarbonValue);
+		uint32_t oldSize = arr->capacity * sizeof(CarbonValue);
 		if (arr->capacity > 0)
 			arr->capacity *= 1.5;
 		else
 			arr->capacity = 8;
-		size_t newSize = arr->capacity * sizeof(CarbonValue);
+		uint32_t newSize = arr->capacity * sizeof(CarbonValue);
 		arr->members = carbon_reallocateObj(oldSize, newSize, arr->members, vm);
 	}
 	arr->members[arr->count++] = val;
@@ -492,7 +492,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 			case OpConcat: {
 				CarbonString *b = (CarbonString *) pop().obj;
 				CarbonString *a = (CarbonString *) pop().obj;
-				size_t length = a->length + b->length;
+				uint32_t length = a->length + b->length;
 				char *concat =
 					(char *) carbon_reallocateObj(0, length + 1, NULL, vm);
 				concat[length] = 0;

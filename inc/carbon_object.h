@@ -62,5 +62,5 @@ CarbonGenerator *carbon_newGenerator(CarbonValue first, CarbonValue last,
 									 enum CarbonValueTag type, CarbonVM *vm);
 
 void carbon_freeObject(CarbonObj *obj, CarbonVM *vm);
-void *carbon_reallocateObj(size_t oldSize, size_t newSize, void *oldptr,
+void *carbon_reallocateObj(uint32_t oldSize, uint32_t newSize, void *oldptr,
 						   CarbonVM *vm);

@@ -7,7 +7,7 @@
 
 #define allocateNode(type, stmtType) allocate(sizeof(type), stmtType)
 
-static CarbonStmt *allocate(size_t size, CarbonStmtType type) {
+static CarbonStmt *allocate(uint32_t size, CarbonStmtType type) {
 	CarbonStmt *stmt = (CarbonStmt *) carbon_reallocate(0, size, NULL);
 	stmt->type = type;
 	return stmt;

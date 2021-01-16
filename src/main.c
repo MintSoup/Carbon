@@ -14,7 +14,7 @@
 #include "vm/carbon_vm.h"
 #include <string.h>
 
-extern size_t heapSize;
+extern uint32_t heapSize;
 
 struct CarbonFlags flags;
 
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	fseek(f, 0, SEEK_END);
-	size_t size = ftell(f);
+	uint32_t size = ftell(f);
 	fseek(f, 0, SEEK_SET);
 	char *t = malloc(size + 1);
 	if (!t)
@@ -93,16 +93,16 @@ int main(int argc, char *argv[]) {
 	if (heapSize > 0) {
 		if (instance.vm.objectHeapSize > 0) {
 			if (instance.vm.objectHeapSize == heapSize) {
-				printf("***MEMORY LEAK: LEAKING %lu BYTES FROM VM OBJECT "
+				printf("***MEMORY LEAK: LEAKING %" PRIu32 " BYTES FROM VM OBJECT "
 					   "MEMORY***\n",
 					   instance.vm.objectHeapSize);
 			} else {
-				printf("***MEMORY LEAK: LEAKING %lu BYTES, %lu FROM VM OBJECT "
+				printf("***MEMORY LEAK: LEAKING %" PRIu32" BYTES, %" PRId32" FROM VM OBJECT "
 					   "MEMORY***\n",
 					   heapSize, instance.vm.objectHeapSize);
 			}
 		} else {
-			printf("***MEMORY LEAK: LEAKING %lu BYTES***\n ", heapSize);
+			printf("***MEMORY LEAK: LEAKING %" PRIu32 " BYTES***\n ", heapSize);
 		}
 	}
 
