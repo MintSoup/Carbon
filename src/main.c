@@ -93,11 +93,13 @@ int main(int argc, char *argv[]) {
 	if (heapSize > 0) {
 		if (instance.vm.objectHeapSize > 0) {
 			if (instance.vm.objectHeapSize == heapSize) {
-				printf("***MEMORY LEAK: LEAKING %" PRIu32 " BYTES FROM VM OBJECT "
+				printf("***MEMORY LEAK: LEAKING %" PRIu32
+					   " BYTES FROM VM OBJECT "
 					   "MEMORY***\n",
 					   instance.vm.objectHeapSize);
 			} else {
-				printf("***MEMORY LEAK: LEAKING %" PRIu32" BYTES, %" PRId32" FROM VM OBJECT "
+				printf("***MEMORY LEAK: LEAKING %" PRIu32 " BYTES, %" PRId32
+					   " FROM VM OBJECT "
 					   "MEMORY***\n",
 					   heapSize, instance.vm.objectHeapSize);
 			}
@@ -105,7 +107,6 @@ int main(int argc, char *argv[]) {
 			printf("***MEMORY LEAK: LEAKING %" PRIu32 " BYTES***\n ", heapSize);
 		}
 	}
-
 
 	free(t);
 

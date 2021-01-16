@@ -904,7 +904,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			uint8_t lower = sig->arity < call->arity ? sig->arity : call->arity;
 
 			for (uint8_t i = 0; i < lower; i++) {
-				if(call->arguments[i] == NULL)
+				if (call->arguments[i] == NULL)
 					continue;
 				typecheck(call->arguments[i], c, vm);
 				if (!canAssign(sig->arguments[i],
