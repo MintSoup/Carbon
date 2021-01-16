@@ -690,10 +690,6 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 
 			switch (bin->op.type) {
 				case TokenMinus:
-					if (higherType.tag == ValueUInt) {
-						expr->evalsTo = newType(ValueInt);
-						return;
-					}
 				case TokenPlus:
 				case TokenSlash:
 				case TokenPercent:

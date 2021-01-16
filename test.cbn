@@ -1,4 +1,58 @@
 void main():
-	array<string> names = ['laz', 'areg']
-	print(names[0])
+	
+	string program = '
+++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.
+l
+	'
+
+	uint progress = 0
+
+	uint codePtr = 0
+	uint ptr = 0
+	uint ignoreLevel = 0
+
+	array<uint>	stack = [<uint, 100, 0>]
+	uint top = 0
+
+	array<uint>	cells = [<uint, 2000, 0>]
+
+	while program[codePtr] != 'l':
+		string c = program[codePtr]
+
+		while ignoreLevel > 0:
+			if c == '[':
+				ignoreLevel = ignoreLevel + 1
+			elif c == ']':
+				ignoreLevel = (ignoreLevel - 1)
+			end
+			codePtr = codePtr + 1
+			c = program[codePtr]
+		end
+
+		if c == '+':
+			cells[ptr] = cells[ptr] + 1
+		elif c == '-':
+			cells[ptr] = (cells[ptr] - 1)
+		elif c == '>':
+			ptr = ptr + 1
+		elif c == '<':
+			ptr = (ptr - 1)
+		elif c == '[':
+			if cells[ptr] == 0:
+				ignoreLevel = 1
+			else:
+				stack[top] = codePtr
+				top = top + 1
+			end
+		elif c == ']':
+			codePtr = (stack[(top - 1)] - 1)
+			top = (top - 1)
+		elif c == '.':
+			print(cells[ptr])
+		end
+			
+
+		codePtr = codePtr + 1
+	end
+
 end
