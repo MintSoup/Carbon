@@ -475,6 +475,12 @@ static CarbonStmtFunc *funcDeclaration(CarbonTypename returnType,
 	}
 	consume(TokenEnd, "Expected 'end' after function body", p);
 	func->end = previous(p).line;
+
+	uint32_t oldSize = func->argumentCapacity * sizeof(struct carbon_arg);
+	uint32_t newSize = func->arity * sizeof(struct carbon_arg);
+	func->arguments = carbon_reallocate(oldSize, newSize, func->arguments);
+	func->argumentCapacity = func->arity;
+
 	return func;
 }
 
@@ -649,7 +655,7 @@ static CarbonExpr *postfix(CarbonParser *p) {
 							uint32_t oldSize =
 								call->argumentCapacity * sizeof(CarbonExpr *);
 							if (call->argumentCapacity == 0)
-								call->argumentCapacity = 8;
+								call->argumentCapacity = 4;
 							else
 								call->argumentCapacity *= 2;
 							uint32_t newSize =
@@ -664,6 +670,12 @@ static CarbonExpr *postfix(CarbonParser *p) {
 				consume(TokenRightParen,
 						"Expected ')' after function call arguments.", p);
 			}
+
+			uint32_t oldSize = call->argumentCapacity * sizeof(CarbonExpr *);
+			uint32_t newSize = call->arity * sizeof(CarbonExpr *);
+			call->arguments = carbon_reallocate(oldSize, newSize, call->arguments);
+			call->argumentCapacity = call->arity;
+
 			expr = (CarbonExpr *) call;
 		} else if (previous(p).type == TokenLeftBracket) {
 			CarbonToken bracket = previous(p);
@@ -721,6 +733,12 @@ static CarbonExprArray *array(CarbonParser *p) {
 		arr->members[arr->count++] = expression(p);
 	}
 	consume(TokenRightBracket, "Expected ']' to close array", p);
+
+	uint32_t oldSize = arr->capacity * sizeof(CarbonExpr*);
+	uint32_t newSize = arr->count * sizeof(CarbonExpr*);
+	arr->members = carbon_reallocate(oldSize, newSize, arr->members);
+	arr->capacity = arr->count;
+
 	return arr;
 }
 

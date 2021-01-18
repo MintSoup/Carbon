@@ -83,8 +83,8 @@ typedef struct {
 
 typedef struct {
 	CarbonExpr expr;
-	uint64_t count;
-	uint64_t capacity;
+	uint32_t count;
+	uint32_t capacity;
 	CarbonExpr **members;
 	CarbonToken bracket;
 	enum ArrayInitMethod {
