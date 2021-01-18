@@ -427,12 +427,6 @@ static void cantAssign(CarbonValueType to, CarbonValueType from, uint32_t line,
 	fprintf(stderr, "\n");
 	c->hadError = true;
 }
-static void globalFunctionAssignment(CarbonToken token, CarbonCompiler *c) {
-	fprintf(stderr,
-			"[Line %u] Global function(s) %.*s cannot be assigned to.\n",
-			token.line, token.length, token.lexeme);
-	c->hadError = true;
-}
 
 static void unaryOpNotSupported(CarbonToken op, char *type, CarbonCompiler *c) {
 	fprintf(stderr,
@@ -806,25 +800,21 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 
 			CarbonValueType l = resolveLocalType(name, c);
 			bool found = false;
-			bool global;
 			if (l.tag != ValueVoid) {
 				leftType = l;
 				found = true;
-				global = false;
 			} else {
 				Global *out;
-				carbon_tableGet(&c->globals, (CarbonObj *) name,
-								(CarbonValue *) &out);
-				leftType = out->valueType;
-				// if we are in a function, then the global variable has already
-				// been inited
-				found = out->declared || c->compilingTo != NULL;
-				global = true;
+				if (carbon_tableGet(&c->globals, (CarbonObj *) name,
+									(CarbonValue *) &out)) {
+					leftType = out->valueType;
+					// if we are in a function, then the global variable has
+					// already been inited
+					found = out->declared || c->compilingTo != NULL;
+				} else
+					found = false;
 			}
 			if (found) {
-				if (leftType.tag == ValueFunction && global) {
-					globalFunctionAssignment(assignment->left, c);
-				}
 				if (!canAssign(leftType, assignment->right->evalsTo)) {
 					cantAssign(leftType, assignment->right->evalsTo,
 							   assignment->left.line, c);

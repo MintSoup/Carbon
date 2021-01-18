@@ -1,13 +1,12 @@
 void main():
-	print(a(3,5,7,6))
-	array<string> lmao = ['lmao', 'ok', 'xd']
-	uint x
-	while x < 4:
-		print(lmao[x])
-		x = x + 1
-	end
+	a = b 
+	print(a())
 end
 
-uint a(uint a, uint b, uint c, uint d):
-	return a + b + c + d
+string a():
+	return 'a'	
+end
+
+string b():
+	return 'b'
 end
