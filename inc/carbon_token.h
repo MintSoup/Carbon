@@ -19,8 +19,6 @@ typedef enum {
 	TokenMinusEquals,
 	TokenSlashEquals,
 	TokenStarEquals,
-	TokenPlusPlus,
-	TokenMinusMinus,
 	TokenStringLiteral,
 	TokenInteger,
 	TokenDecimal,

@@ -99,8 +99,6 @@ static bool canEndStatement(CarbonTokenType type) {
 		case TokenRightBracket:
 		case TokenRightBrace:
 		case TokenRightAInit:
-		case TokenPlusPlus:
-		case TokenMinusMinus:
 		case TokenStringLiteral:
 		case TokenInteger:
 		case TokenDecimal:
@@ -210,17 +208,11 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 		case ';':
 			return makeToken(TokenEOS, lexer);
 		case '+':
-			if (match('+', lexer))
-				return makeToken(TokenPlusPlus, lexer);
-			if (match('=', lexer))
-				return makeToken(TokenPlusEquals, lexer);
-			return makeToken(TokenPlus, lexer);
+			return makeToken(match('=', lexer) ? TokenPlusEquals : TokenPlus,
+							 lexer);
 		case '-':
-			if (match('-', lexer))
-				return makeToken(TokenMinusMinus, lexer);
-			if (match('=', lexer))
-				return makeToken(TokenMinusEquals, lexer);
-			return makeToken(TokenMinus, lexer);
+			return makeToken(match('=', lexer) ? TokenMinusEquals : TokenMinus,
+							 lexer);
 		case '*':
 			return makeToken(match('=', lexer) ? TokenStarEquals : TokenStar,
 							 lexer);
