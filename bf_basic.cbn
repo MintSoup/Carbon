@@ -148,8 +148,6 @@ void main():
 l
 	'
 
-	uint progress = 0
-
 	uint codePtr = 0
 	uint ptr = 0
 	uint ignoreLevel = 0
@@ -166,7 +164,7 @@ l
 			if c == '[':
 				ignoreLevel = ignoreLevel + 1
 			elif c == ']':
-				ignoreLevel = (uint) (ignoreLevel - 1)
+				ignoreLevel =  (ignoreLevel - 1)
 			end
 			codePtr = codePtr + 1
 			c = program[codePtr]
@@ -175,11 +173,11 @@ l
 		if c == '+':
 			cells[ptr] = cells[ptr] + 1
 		elif c == '-':
-			cells[ptr] = (uint)(cells[ptr] - 1)
+			cells[ptr] = (cells[ptr] - 1)
 		elif c == '>':
 			ptr = ptr + 1
 		elif c == '<':
-			ptr = (uint)(ptr - 1)
+			ptr = (ptr - 1)
 		elif c == '[':
 			if cells[ptr] == 0:
 				ignoreLevel = 1
@@ -188,8 +186,8 @@ l
 				top = top + 1
 			end
 		elif c == ']':
-			codePtr = (uint) (stack[(uint)(top - 1)] - 1)
-			top = (uint)(top - 1)
+			codePtr =  (stack[(top - 1)] - 1)
+			top = (top - 1)
 		elif c == '.':
 			print(cells[ptr])
 		end

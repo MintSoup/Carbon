@@ -198,8 +198,11 @@ static bool canAssign(CarbonValueType to, CarbonValueType from) {
 		}
 	}
 
-	if ((to.tag <= ValueDouble && from.tag <= to.tag) ||
-		(from.tag == ValueNull && isObject(to)))
+	if (to.tag <= ValueDouble && from.tag <= to.tag)
+		return true;
+	if (to.tag == ValueUInt && from.tag == ValueInt)
+		return true;
+	if (from.tag == ValueNull && isObject(to))
 		return true;
 
 	return false;
@@ -697,6 +700,10 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 
 			switch (bin->op.type) {
 				case TokenMinus:
+					if (higherType.tag == ValueUInt) {
+						expr->evalsTo = newType(ValueInt);
+						return;
+					}
 				case TokenPlus:
 				case TokenSlash:
 				case TokenPercent:
