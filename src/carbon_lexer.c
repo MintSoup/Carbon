@@ -200,7 +200,8 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 		case ':':
 			return makeToken(TokenColon, lexer);
 		case '%':
-			return makeToken(TokenPercent, lexer);
+			return makeToken(
+				match('=', lexer) ? TokenPercentEquals : TokenPercent, lexer);
 		case '.':
 			return makeToken(match('.', lexer) ? TokenDotDot : TokenDot, lexer);
 		case ',':

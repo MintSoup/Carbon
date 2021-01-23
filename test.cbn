@@ -1,12 +1,6 @@
 void main():
-	a = b 
-	print(a())
-end
-
-string a():
-	return 'a'	
-end
-
-string b():
-	return 'b'
+	uint i = 0
+	while (i += 1) <= 100:
+		print(i)
+	end
 end

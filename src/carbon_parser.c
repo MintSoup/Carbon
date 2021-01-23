@@ -537,7 +537,9 @@ static CarbonStmtVarDec *varDeclaration(CarbonTypename type, CarbonParser *p) {
 
 static CarbonExpr *assignment(CarbonParser *p) {
 	CarbonExpr *target = logicalOr(p);
-	if (match(TokenEquals, p)) {
+	if (match(TokenEquals, p) || match(TokenPlusEquals, p) ||
+		match(TokenMinusEquals, p) || match(TokenStarEquals, p) ||
+		match(TokenSlashEquals, p) || match(TokenPercentEquals, p)) {
 		CarbonToken equals = previous(p);
 		CarbonExpr *value = assignment(p);
 		switch (target->type) {
@@ -545,7 +547,7 @@ static CarbonExpr *assignment(CarbonParser *p) {
 				CarbonExprVar *var = (CarbonExprVar *) target;
 				carbon_freeExpr(target);
 				return (CarbonExpr *) carbon_newAssignmentExpr(var->token,
-															   value);
+															   value, equals);
 			}
 			case ExprIndex:
 				return (CarbonExpr *) carbon_newIndexAssignmentExpr(
@@ -553,6 +555,7 @@ static CarbonExpr *assignment(CarbonParser *p) {
 
 			default:
 				error(equals, "Invalid assignment target", p);
+				carbon_freeExpr(value);
 		}
 	}
 	return target;
@@ -673,7 +676,8 @@ static CarbonExpr *postfix(CarbonParser *p) {
 
 			uint32_t oldSize = call->argumentCapacity * sizeof(CarbonExpr *);
 			uint32_t newSize = call->arity * sizeof(CarbonExpr *);
-			call->arguments = carbon_reallocate(oldSize, newSize, call->arguments);
+			call->arguments =
+				carbon_reallocate(oldSize, newSize, call->arguments);
 			call->argumentCapacity = call->arity;
 
 			expr = (CarbonExpr *) call;
@@ -734,8 +738,8 @@ static CarbonExprArray *array(CarbonParser *p) {
 	}
 	consume(TokenRightBracket, "Expected ']' to close array", p);
 
-	uint32_t oldSize = arr->capacity * sizeof(CarbonExpr*);
-	uint32_t newSize = arr->count * sizeof(CarbonExpr*);
+	uint32_t oldSize = arr->capacity * sizeof(CarbonExpr *);
+	uint32_t newSize = arr->count * sizeof(CarbonExpr *);
 	arr->members = carbon_reallocate(oldSize, newSize, arr->members);
 	arr->capacity = arr->count;
 

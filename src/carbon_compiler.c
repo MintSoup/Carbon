@@ -10,8 +10,8 @@
 #include "utils/carbon_memory.h"
 #include "vm/carbon_chunk.h"
 #include "vm/carbon_vm.h"
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 extern char *CarbonValueTypeLexeme[];
@@ -137,17 +137,24 @@ static bool canBinary(CarbonTokenType op, CarbonValueType left,
 
 	switch (op) {
 		case TokenPlus:
+		case TokenPlusEquals:
 			if (bothStrings)
 				return true;
 		case TokenMinus:
 		case TokenSlash:
 		case TokenStar:
+		case TokenMinusEquals:
+		case TokenSlashEquals:
+		case TokenStarEquals:
+
 		case TokenGreaterThan:
 		case TokenLessThan:
+
 		case TokenGEQ:
 		case TokenLEQ:
 			return leftNumeric && rightNumeric;
 		case TokenPercent:
+		case TokenPercentEquals:
 			return (left.tag <= ValueInt) && (right.tag <= ValueInt);
 		case TokenAnd:
 		case TokenOr:
@@ -428,19 +435,24 @@ static void cantAssign(CarbonValueType to, CarbonValueType from, uint32_t line,
 	c->hadError = true;
 }
 
-static void unaryOpNotSupported(CarbonToken op, char *type, CarbonCompiler *c) {
-	fprintf(stderr,
-			"[Line %u] Operator '%.*s' not supported for operand type %s\n",
-			op.line, op.length, op.lexeme, type);
+static void unaryOpNotSupported(CarbonToken op, CarbonValueType type,
+								CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Operator '%.*s' not supported for operand type ",
+			op.line, op.length, op.lexeme);
+	printType(stderr, type);
+	fprintf(stderr, "\n");
 	c->hadError = true;
 }
 
-static void binaryOpNotSupported(CarbonToken op, char *left, char *right,
-								 CarbonCompiler *c) {
-	fprintf(
-		stderr,
-		"[Line %u] Operator '%.*s' not supported for operand types %s and %s\n",
-		op.line, op.length, op.lexeme, left, right);
+static void binaryOpNotSupported(CarbonToken op, CarbonValueType left,
+								 CarbonValueType right, CarbonCompiler *c) {
+	fprintf(stderr,
+			"[Line %u] Operator '%.*s' not supported for operand types ",
+			op.line, op.length, op.lexeme);
+	printType(stderr, left);
+	fprintf(stderr, " and ");
+	printType(stderr, right);
+	fprintf(stderr, "\n");
 	c->hadError = true;
 }
 static void castNotSupported(CarbonValueType from, CarbonValueType to,
@@ -606,6 +618,9 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 
 #define castNode(type, name) type *name = (type *) expr;
 
+	if (expr->evalsTo.tag != ValueUntypechecked)
+		return;
+
 	switch (expr->type) {
 		case ExprUnary: {
 			castNode(CarbonExprUnary, un);
@@ -620,8 +635,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 				return;
 			}
 			if (!canUnary(un->op.type, operandType)) {
-				unaryOpNotSupported(un->op,
-									CarbonValueTypeLexeme[operandType.tag], c);
+				unaryOpNotSupported(un->op, operandType, c);
 				expr->evalsTo = newType(ValueUnresolved);
 			}
 			switch (operandType.tag) {
@@ -656,9 +670,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			}
 
 			if (!canBinary(bin->op.type, leftType, rightType)) {
-				binaryOpNotSupported(bin->op,
-									 CarbonValueTypeLexeme[leftType.tag],
-									 CarbonValueTypeLexeme[rightType.tag], c);
+				binaryOpNotSupported(bin->op, leftType, rightType, c);
 				expr->evalsTo = newType(ValueUnresolved);
 				return;
 			}
@@ -688,6 +700,11 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 				case TokenPlus:
 				case TokenSlash:
 				case TokenPercent:
+				case TokenMinusEquals:
+				case TokenPlusEquals:
+				case TokenSlashEquals:
+				case TokenPercentEquals:
+				case TokenStarEquals:
 				case TokenStar: {
 					expr->evalsTo = carbon_cloneType(higherType);
 					return;
@@ -795,6 +812,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			}
 
 			typecheck(assignment->right, c, vm);
+
 			CarbonString *name = carbon_strFromToken(assignment->left, vm);
 			CarbonValueType leftType;
 
@@ -816,8 +834,12 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			}
 			if (found) {
 				if (!canAssign(leftType, assignment->right->evalsTo)) {
-					cantAssign(leftType, assignment->right->evalsTo,
-							   assignment->left.line, c);
+					if (assignment->equals.type == TokenEquals)
+						cantAssign(leftType, assignment->right->evalsTo,
+								   assignment->left.line, c);
+					else
+						binaryOpNotSupported(assignment->equals, leftType,
+											 assignment->right->evalsTo, c);
 					expr->evalsTo = newType(ValueUnresolved);
 					return;
 				}
@@ -851,10 +873,15 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			}
 
 			if (!canAssign(leftType, rightType)) {
-				cantAssign(leftType, rightType, ie->equals.line, c);
+				if (ie->equals.type == TokenEquals)
+					cantAssign(leftType, rightType, ie->equals.line, c);
+				else
+					binaryOpNotSupported(ie->equals, leftType,
+										 ie->right->evalsTo, c);
 				expr->evalsTo = newType(ValueUnresolved);
 				return;
 			}
+
 			ie->right = promoteNumerics(leftType, ie->right);
 			expr->evalsTo = carbon_cloneType(leftType);
 			return;
@@ -1125,6 +1152,7 @@ void carbon_compileBinaryExpression(CarbonExprBinary *bin, CarbonChunk *chunk,
 
 	switch (bin->op.type) {
 		case TokenPlus:
+		case TokenPlusEquals:
 			switch (bin->left->evalsTo.tag) {
 				binInstruction(ValueInt, OpAddInt);
 				break;
@@ -1139,6 +1167,7 @@ void carbon_compileBinaryExpression(CarbonExprBinary *bin, CarbonChunk *chunk,
 			}
 			break;
 		case TokenMinus:
+		case TokenMinusEquals:
 			switch (bin->left->evalsTo.tag) {
 				binInstruction(ValueInt, OpSubInt);
 				break;
@@ -1151,6 +1180,7 @@ void carbon_compileBinaryExpression(CarbonExprBinary *bin, CarbonChunk *chunk,
 			}
 			break;
 		case TokenSlash:
+		case TokenSlashEquals:
 			switch (bin->left->evalsTo.tag) {
 				binInstruction(ValueInt, OpDivInt);
 				break;
@@ -1163,6 +1193,7 @@ void carbon_compileBinaryExpression(CarbonExprBinary *bin, CarbonChunk *chunk,
 			}
 			break;
 		case TokenStar:
+		case TokenStarEquals:
 			switch (bin->left->evalsTo.tag) {
 				binInstruction(ValueInt, OpMulInt);
 				break;
@@ -1175,6 +1206,7 @@ void carbon_compileBinaryExpression(CarbonExprBinary *bin, CarbonChunk *chunk,
 			}
 			break;
 		case TokenPercent:
+		case TokenPercentEquals:
 			switch (bin->left->evalsTo.tag) {
 				binInstruction(ValueInt, OpMod);
 				break;
@@ -1243,7 +1275,7 @@ void carbon_compileBinaryExpression(CarbonExprBinary *bin, CarbonChunk *chunk,
 			carbon_writeToChunk(chunk, OpNotEquals, bin->op.line);
 			break;
 		default:
-			break;
+			break; // Should never reach here
 	}
 #undef binInstruction
 }
@@ -1297,6 +1329,13 @@ static void compileAssignmentExpression(CarbonExprAssignment *assignment,
 										CarbonChunk *chunk, CarbonCompiler *c,
 										CarbonVM *vm) {
 	CarbonString *name = carbon_strFromToken(assignment->left, vm);
+	if (assignment->equals.type != TokenEquals) {
+		CarbonExprVar *var = carbon_newVarExpr(assignment->left);
+		CarbonExprBinary *bin = carbon_newBinaryExpr(
+			(CarbonExpr *) var, assignment->right, assignment->equals);
+		assignment->right = (CarbonExpr *) bin;
+	}
+
 	carbon_compileExpression(assignment->right, chunk, c, vm);
 
 	int16_t slot = resolveLocal(name, c);
@@ -1378,8 +1417,18 @@ static void
 carbon_compileIndexAssignmentExpression(CarbonExprIndexAssignment *ie,
 										CarbonChunk *chunk, CarbonCompiler *c,
 										CarbonVM *vm) {
+
 	carbon_compileExpression(ie->left->object, chunk, c, vm);
 	carbon_compileExpression(ie->left->index, chunk, c, vm);
+	if (ie->equals.type != TokenEquals) {
+		ie->right = (CarbonExpr *) carbon_newBinaryExpr((CarbonExpr *) ie->left,
+														ie->right, ie->equals);
+		ie->left = NULL; // Without this, ie->left appears twice in the AST (the
+						 // other is ie->right->left) which will cause
+						 // memory-related errors. Nulling it here ensures it
+						 // will appear exactly once, and doesn't affect normal
+						 // program operation as it has already been compiled.
+	}
 	carbon_compileExpression(ie->right, chunk, c, vm);
 	carbon_writeToChunk(chunk, OpSetIndex, ie->equals.line);
 }
@@ -1389,8 +1438,7 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 
 	if (expr == NULL)
 		return;
-	if (expr->evalsTo.tag == ValueUntypechecked)
-		typecheck(expr, c, vm);
+	typecheck(expr, c, vm);
 	if (expr->evalsTo.tag == ValueUnresolved)
 		return;
 	if (c->parserHadError)
@@ -1637,7 +1685,6 @@ static void compileReturnStatement(CarbonStmtReturn *ret, CarbonChunk *chunk,
 			noReturnWanted(ret->token, c->compilingTo->name, c);
 			return;
 		}
-		typecheck(ret->expression, c, vm);
 		if (ret->expression->evalsTo.tag == ValueUnresolved)
 			return;
 		CarbonValueType wanted = c->compilingTo->returnType;

@@ -15,6 +15,7 @@ typedef enum {
 	TokenSlash,
 	TokenStar,
 	TokenPercent,
+	TokenPercentEquals,
 	TokenPlusEquals,
 	TokenMinusEquals,
 	TokenSlashEquals,

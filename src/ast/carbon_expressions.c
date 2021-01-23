@@ -66,11 +66,13 @@ CarbonExprVar *carbon_newVarExpr(CarbonToken token) {
 }
 
 CarbonExprAssignment *carbon_newAssignmentExpr(CarbonToken left,
-											   CarbonExpr *right) {
+											   CarbonExpr *right,
+											   CarbonToken equals) {
 	CarbonExprAssignment *assignment = (CarbonExprAssignment *) allocateNode(
 		CarbonExprAssignment, ExprAssignment);
 	assignment->left = left;
 	assignment->right = right;
+	assignment->equals = equals;
 	return assignment;
 }
 

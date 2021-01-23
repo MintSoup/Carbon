@@ -70,6 +70,7 @@ typedef struct {
 	CarbonExpr expr;
 	CarbonToken left;
 	CarbonExpr *right;
+	CarbonToken equals;
 } CarbonExprAssignment;
 
 typedef struct {
@@ -125,7 +126,8 @@ CarbonExprCast *carbon_newCastExpr(CarbonTypename to, CarbonExpr *expr);
 CarbonExprVar *carbon_newVarExpr(CarbonToken token);
 CarbonExprCall *carbon_newCallExpr(CarbonExpr *callee, uint32_t line);
 CarbonExprAssignment *carbon_newAssignmentExpr(CarbonToken left,
-											   CarbonExpr *right);
+											   CarbonExpr *right,
+											   CarbonToken equals);
 CarbonExprArray *carbon_newArrayExpr(CarbonToken bracket);
 CarbonExprIndex *carbon_newIndexExpr(CarbonExpr *object, CarbonExpr *index,
 									 CarbonToken bracket);
