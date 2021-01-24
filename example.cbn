@@ -1,4 +1,5 @@
-enable io
+import io
+import string
 
 # Comments are defined like this
 # Each file is a 'module'
@@ -20,14 +21,14 @@ string s # Heap allocated strings
 
 bool b # Boolean
 
-int main():
+void main():
 	
 	# Here we have a standard, C like syntax
 	b = !(3 > 6)
 	
 	print('How old are you?')
 
-	s = readln()
+	s = readln() # This function is from the 'io' module
 	
 	# Errors are heap-allocated objects.
 	# They are the standard way in which functions tell you about errors.
@@ -38,10 +39,12 @@ int main():
 	# If a function errorrs out, its return value should not be used.
 
 	Error e # Since we discourage null pointers, most objects are automatically initialized.
-	int age = toInt(s,
-						e) 
+	# ints should be used only if negative values are explicitly required
+	# In all other cases use uint
+	uint age = toUInt(s, 
+						e)  # function from the 'string' module
 	# Statements can be split across lines, as long as the last token on each line
-	# except the last cannot end a statement. Automatic semicolon insertion works like Go.
+	# except the last cannot end a statement. Automatic semicolon insertion works like in Go.
 	
 	b = 3 > 6; b = !b # Explicit semicolons are still supported.
 
@@ -50,12 +53,11 @@ int main():
 	if e.code == 0:
 		# Code zero means that everything went alright
 		# Everything else is an error, each code representing one possible error
-		
 		# Now that we know nothing went wrong, we can safely utilize the return value
 		if age >= 18:
-			print('Epic you can drive')
+			print('You can drive.')
 		else:
-			print('No')
+			print('You cannot drive.')
 		end
 
 	# The user entered a float
@@ -71,17 +73,21 @@ int main():
 	print(e.msg) # String describing the problem
 
 	# While loops function as expected
-
-	int i = 0
+	#
+	uint i = 0
 	while i < 10:
-		print(++i)
+		print(i += 1)
 	end
 
 	# Arrays are heap allocated
 	array<int> arr = [ 3, 6, 
 							9, 5 ]
-	# If no initializer is given, the array size should be explicitly stated
-	array<string> names(5)
+	# They can be initialized like so
+	array<string> names = [<
+							string, # Member type
+							8, 		# Initial size
+							'John' 	# Default member value
+							>]
 
 	# Their size can grow at runtime
 	arr.append(4)
@@ -90,32 +96,32 @@ int main():
 	print(arr[2]) # 9
 	
 	# Python-like for(each) loops
-	for member in arr:
+	for member in names:
 		print(member)
 	end
 
+	# Array initializers are standalone expressions, which means	
+	# They can be used on their own and passed around like values
+	for n in [<bool, 12, false>]:
+		print(n)
+	end
+	# Prints 'false' 12 times
+
 	# Builtin hashtables
 	# Key must be an object type
-	table<string, uint> g
-	g["John Smith"] = 30000
-	if g.has("John Smith"):
-		int salary = g["John Smith"]
+	table<string, uint> salaries
+	salaries['John Smith'] = 30000
+
+	if salaries.has('John Smith'):
+		uint salary = salaries['John Smith']
 	end
 	
 	# Instances can be created like this
 	Vector a = Vector(1,2)
 
-	# Or like this
-	Vector b(3,5)
+	# Member access functions as you would expect
+	print(a.Magnitude())
 
-
-
-	return 0
-end
-
-
-Vector add(Vector a, Vector b):
-	return Vector(a.a + b.a, b.a + b.b)
 end
 
 
@@ -133,15 +139,4 @@ class Vector:
 		return sqrt(a*a+b*b)
 	end
 	
-end
-
-class Animal:
-	void Eat():
-		print('lmao')
-	end
-
-	abstract void Eat()
-end
-
-class Dog < Animal:
 end
