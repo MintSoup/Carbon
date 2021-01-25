@@ -636,7 +636,8 @@ static CarbonExpr *unary(CarbonParser *p) {
 
 static CarbonExpr *postfix(CarbonParser *p) {
 	CarbonExpr *expr = primary(p);
-	while (match(TokenLeftParen, p) || match(TokenLeftBracket, p)) {
+	while (match(TokenLeftParen, p) || match(TokenLeftBracket, p) ||
+		   match(TokenDot, p)) {
 		if (previous(p).type == TokenLeftParen) {
 			CarbonExprCall *call = carbon_newCallExpr(expr, previous(p).line);
 			bool tooMany = false;
@@ -687,6 +688,11 @@ static CarbonExpr *postfix(CarbonParser *p) {
 			consume(TokenRightBracket, "Expected ']' to close index expression",
 					p);
 			expr = (CarbonExpr *) carbon_newIndexExpr(expr, i, bracket);
+		} else if (previous(p).type == TokenDot) {
+			CarbonToken dot = previous(p);
+			consume(TokenIdentifier, "Expected identifier after '.'", p);
+			CarbonToken right = previous(p);
+			return (CarbonExpr *) carbon_newDotExpr(expr, right, dot);
 		}
 	}
 	return expr;

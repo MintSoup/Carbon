@@ -272,6 +272,15 @@ static void printType(FILE *f, CarbonValueType type) {
 }
 // ERRORS
 
+static void memberNotFound(CarbonValueType type, CarbonToken property,
+						   CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Type ", property.line);
+	printType(stderr, type);
+	fprintf(stderr, " has no member '%.*s'\n", property.length,
+			property.lexeme);
+	c->hadError = true;
+}
+
 static void needUintLength(CarbonToken t, CarbonCompiler *c) {
 	fprintf(stderr, "[Line %u] Array length must be a uint\n", t.line);
 	c->hadError = true;
@@ -473,6 +482,10 @@ static void globalNotFound(CarbonToken token, CarbonCompiler *c) {
 	fprintf(stderr, "[Line %u] Could not resolve global %.*s\n", token.line,
 			token.length, token.lexeme);
 	c->hadError = true;
+}
+
+static inline bool idntfLexCmp(CarbonToken tok, char *lex, uint16_t length) {
+	return tok.length == length && !memcmp(tok.lexeme, lex, tok.length);
 }
 
 static uint32_t emitIf(CarbonChunk *chunk, uint32_t line) {
@@ -1048,6 +1061,32 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 				}
 			break;
 		}
+		case ExprDot: {
+			castNode(CarbonExprDot, dot);
+			if (dot->left == NULL) {
+				expr->evalsTo = newType(ValueUnresolved);
+				break;
+			}
+			typecheck(dot->left, c, vm);
+			switch (dot->left->evalsTo.tag) {
+				case ValueArray:
+				case ValueString:
+				case ValueGenerator: {
+					if (idntfLexCmp(dot->right, "length", strlen("length"))) {
+						expr->evalsTo = newType(ValueUInt);
+					} else {
+						memberNotFound(dot->left->evalsTo, dot->right, c);
+						expr->evalsTo = newType(ValueUnresolved);
+					}
+					break;
+				}
+
+				default:
+					unaryOpNotSupported(dot->dot, dot->left->evalsTo, c);
+					expr->evalsTo = newType(ValueUnresolved);
+					break;
+			}
+		}
 	}
 #undef castNode
 }
@@ -1440,6 +1479,22 @@ carbon_compileIndexAssignmentExpression(CarbonExprIndexAssignment *ie,
 	carbon_writeToChunk(chunk, OpSetIndex, ie->equals.line);
 }
 
+static void compileDotExpression(CarbonExprDot *dot, CarbonChunk *chunk,
+								 CarbonCompiler *c, CarbonVM *vm) {
+	carbon_compileExpression(dot->left, chunk, c, vm);
+	switch (dot->left->evalsTo.tag) {
+		case ValueArray:
+		case ValueString:
+		case ValueGenerator: {
+			if (idntfLexCmp(dot->right, "length", strlen("length")))
+				carbon_writeToChunk(chunk, OpLen, dot->dot.line);
+			break;
+		}
+		default:
+			break;
+	}
+}
+
 void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 							  CarbonCompiler *c, CarbonVM *vm) {
 
@@ -1506,6 +1561,10 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 		}
 		case ExprIndex: {
 			compileIndexExpression((CarbonExprIndex *) expr, chunk, c, vm);
+			break;
+		}
+		case ExprDot: {
+			compileDotExpression((CarbonExprDot *) expr, chunk, c, vm);
 			break;
 		}
 	}

@@ -5,24 +5,32 @@
 
 typedef enum {
 	// Misc
+	OpConcat,
+	OpCall,
+	OpLen,
+
+	// Constants
 	OpLoadConstant,
 	OpLoadConstant16,
+
+	// Returns
 	OpReturn,
 	OpReturnVoid,
-	OpConcat,
+
+	// Stack manipulation
 	OpPop,
 	OpPopn,
 	OpPush0,
 	OpPush1,
-	OpCall,
-	OpLen,
-	OpAppend,
+
+	// Array operations
 	OpGetIndex,
 	OpSetIndex,
 	OpMakeArray,
 	OpMakeArray64,
 	OpInitArray,
 	OpMakeGenerator,
+	OpAppend,
 
 	// Binary Operations
 	OpAddInt,
@@ -43,7 +51,7 @@ typedef enum {
 	OpNegateUInt,
 	OpNegateBool,
 
-	// Castings
+	// Casts
 	OpIntToDouble,
 	OpDoubleToInt,
 	OpUIntToDouble,

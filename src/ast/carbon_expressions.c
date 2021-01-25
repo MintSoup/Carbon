@@ -119,6 +119,17 @@ CarbonExprIndexAssignment *carbon_newIndexAssignmentExpr(CarbonExprIndex *left,
 	return index;
 }
 
+CarbonExprDot *carbon_newDotExpr(CarbonExpr *left, CarbonToken right,
+								 CarbonToken dot) {
+	CarbonExprDot *node =
+		(CarbonExprDot *) allocateNode(CarbonExprDot, ExprDot);
+
+	node->left = left;
+	node->right = right;
+	node->dot = dot;
+	return node;
+}
+
 void carbon_freeType(CarbonValueType t) {
 	if (t.compound.memberType == NULL)
 		return;
@@ -280,6 +291,12 @@ void carbon_freeExpr(CarbonExpr *expr) {
 			carbon_freeExpr((CarbonExpr *) ie->left);
 			carbon_freeExpr(ie->right);
 			carbon_reallocate(sizeof(CarbonExprIndexAssignment), 0, expr);
+			break;
+		}
+		case ExprDot: {
+			castNode(CarbonExprDot, dot);
+			carbon_freeExpr(dot->left);
+			carbon_reallocate(sizeof(CarbonExprDot), 0, expr);
 			break;
 		}
 	}

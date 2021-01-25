@@ -1,18 +1,9 @@
-
 string program = '
-
-++++++++[
-	>++++[
-		>++>+++>+++>+<<<<-
-	]>+>+>->>+[<]<-
-]>>.>---.+++++++..+++.>>.<-.<.
-+++.------.--------.>>+.>++.
-
-l
-	'
+++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.
+				'
 
 void main():
-
+	
 	uint codePtr = 0
 	uint ptr = 0
 	uint ignoreLevel = 0
@@ -22,7 +13,7 @@ void main():
 
 	array<uint>	cells = [<uint, 2000, 0>]
 
-	while program[codePtr] != 'l':
+	while codePtr < program.length:
 		string c = program[codePtr]
 
 		while ignoreLevel > 0:
