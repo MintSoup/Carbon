@@ -215,6 +215,7 @@ static bool isTypename(CarbonToken token) {
 static CarbonStmtBreak *breakStatement(CarbonParser *p);
 static CarbonStmtIf *ifStatement(CarbonParser *p);
 static CarbonStmtWhile *whileStatement(CarbonParser *p);
+static CarbonStmtFor *forStatement(CarbonParser *p);
 static CarbonStmtFunc *funcDeclaration(CarbonTypename returnType,
 									   CarbonParser *p);
 static CarbonStmtReturn *returnStatement(CarbonParser *p);
@@ -295,6 +296,8 @@ static CarbonStmt *statement(CarbonParser *p) {
 		return (CarbonStmt *) whileStatement(p);
 	else if (n.type == TokenBreak || n.type == TokenContinue)
 		return (CarbonStmt *) breakStatement(p);
+	else if (n.type == TokenFor)
+		return (CarbonStmt *) forStatement(p);
 	else
 		return (CarbonStmt *) expressionStatement(p);
 }
@@ -326,7 +329,7 @@ CarbonExpr *carbon_parseExpression(CarbonParser *p) {
 static CarbonStmtBreak *breakStatement(CarbonParser *p) {
 	CarbonToken tok = next(p);
 	char *msg;
-	if (previous(p).type == TokenBreak)
+	if (tok.type == TokenBreak)
 		msg = "Expected EOS after break";
 	else
 		msg = "Expected EOS after 'continue'";
@@ -334,7 +337,7 @@ static CarbonStmtBreak *breakStatement(CarbonParser *p) {
 	if (p->innermostLoop == NULL)
 		error(tok, "Cannot have break/continue statements outside loops.", p);
 	else
-		p->innermostLoop->hasBreak = true;
+		p->innermostLoop->hasBreak = p->innermostLoop->hasBreak || tok.type == TokenBreak;
 	return carbon_newBreakStmt(tok);
 }
 
@@ -369,6 +372,18 @@ static CarbonStmtBlock *block(CarbonParser *p, char *cmsg, char *eofmsg,
 	// We deliberately do not consume the 'end' token because if statement
 	// blocks can end with an 'else' and 'elif'
 	return block;
+}
+
+static CarbonStmtFor *forStatement(CarbonParser *p) {
+	CarbonToken tok = next(p);
+	consume(TokenIdentifier, "Expected identifier after 'for'", p);
+	CarbonToken var = previous(p);
+	consume(TokenIn, "Expected 'in' after for loop variable identifier", p);
+	CarbonExpr *arr = expression(p);
+	CarbonStmtBlock *blk = block(p, "Expected ':' after for statement",
+								 "Unexpected EOF inside for block", true);
+	consume(TokenEnd, "Expected 'end' after for block", p);
+	return carbon_newForStmt(var, arr, blk, tok);
 }
 
 static CarbonStmtIf *ifStatement(CarbonParser *p) {

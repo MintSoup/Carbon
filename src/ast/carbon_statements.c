@@ -92,6 +92,17 @@ CarbonStmtReturn *carbon_newReturnStmt(CarbonToken token) {
 	return ret;
 }
 
+
+CarbonStmtFor *carbon_newForStmt(CarbonToken var, CarbonExpr *arr,
+		CarbonStmtBlock *body, CarbonToken token){
+	CarbonStmtFor* fr = (CarbonStmtFor*) allocateNode(CarbonStmtFor, StmtFor);
+	fr->var = var;
+	fr->arr = arr;
+	fr->body = body;
+	fr->token = token;
+	return fr;
+}
+
 void carbon_freeStmt(CarbonStmt *stmt) {
 
 #define castNode(type, name) type *name = (type *) stmt;
@@ -160,6 +171,13 @@ void carbon_freeStmt(CarbonStmt *stmt) {
 		}
 		case StmtBreak: {
 			carbon_reallocate(sizeof(CarbonStmtBreak), 0, stmt);
+			break;
+		}
+		case StmtFor: {
+			castNode(CarbonStmtFor, fr);
+			carbon_freeExpr(fr->arr);
+			carbon_freeStmt((CarbonStmt *) fr->body);
+			carbon_reallocate(sizeof(CarbonStmtFor), 0, stmt);
 			break;
 		}
 	}

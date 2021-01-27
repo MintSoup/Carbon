@@ -12,7 +12,8 @@ typedef enum {
 	StmtBlock,
 	StmtIf,
 	StmtWhile,
-	StmtBreak
+	StmtBreak,
+	StmtFor
 } CarbonStmtType;
 
 typedef struct {
@@ -88,6 +89,14 @@ typedef struct {
 } CarbonStmtWhile;
 
 typedef struct {
+	CarbonStmt stmt;
+	CarbonToken var;
+	CarbonExpr *arr;
+	CarbonStmtBlock *body;
+	CarbonToken token;
+} CarbonStmtFor;
+
+typedef struct {
 	CarbonStmt *stmt;
 	CarbonToken token;
 } CarbonStmtBreak;
@@ -107,6 +116,8 @@ CarbonStmtReturn *carbon_newReturnStmt(CarbonToken token);
 CarbonStmtIf *carbon_newIfStmt(CarbonExpr *expr, CarbonToken token);
 CarbonStmtWhile *carbon_newWhileStmt(CarbonExpr *expr, CarbonToken tok);
 CarbonStmtBreak *carbon_newBreakStmt(CarbonToken token);
+CarbonStmtFor *carbon_newForStmt(CarbonToken var, CarbonExpr *arr,
+								 CarbonStmtBlock *body, CarbonToken token);
 
 CarbonStmtBlock *carbon_newBlockStmt();
 

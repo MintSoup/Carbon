@@ -746,6 +746,25 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				push(v);
 				frame->ip++;
 				break;
+
+			}
+			case OpFor: {
+				frame->ip++;
+				uint8_t top = ReadByte();
+				frame->ip++;
+				uint8_t bottom = ReadByte();
+				uint16_t range = ((uint16_t) top << 8) | bottom;
+
+				uint64_t i = peek().uint;
+				CarbonObj *obj = vm->stack[vm->stackTop - 2].obj;
+				if(i < length(obj)){
+					vm->stack[vm->stackTop - 1].uint++;
+					push(getIndex(obj, CarbonUInt(i), vm));
+					frame->ip++;
+				}else{
+					frame->ip += range;
+				}
+				break;
 			}
 		}
 	}

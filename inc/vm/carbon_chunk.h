@@ -88,7 +88,8 @@ typedef enum {
 	OpJumpOnTrue,
 	OpJump,
 	OpIf,
-	OpLoop
+	OpLoop,
+	OpFor,
 
 } CarbonOpCode;
 

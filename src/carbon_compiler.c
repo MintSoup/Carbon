@@ -270,6 +270,7 @@ static void printType(FILE *f, CarbonValueType type) {
 				break;
 		}
 }
+
 // ERRORS
 
 static void memberNotFound(CarbonValueType type, CarbonToken property,
@@ -296,11 +297,11 @@ static void cantIndexAssign(CarbonValueType type, CarbonToken token,
 	c->hadError = true;
 }
 
-static void unindexableType(CarbonToken bracket, CarbonValueType type,
+static void unindexableType(CarbonToken token, CarbonValueType type,
 							CarbonCompiler *c) {
 	if (type.tag == ValueUnresolved)
 		return;
-	fprintf(stderr, "[Line %u] Type ", bracket.line);
+	fprintf(stderr, "[Line %u] Type ", token.line);
 	printType(stderr, type);
 	fprintf(stderr, " is not indexable\n");
 	c->hadError = true;
@@ -1747,6 +1748,7 @@ static void compileReturnStatement(CarbonStmtReturn *ret, CarbonChunk *chunk,
 								   CarbonCompiler *c, CarbonVM *vm) {
 
 	if (ret->expression != NULL) {
+		typecheck(ret->expression, c, vm);
 		if (c->compilingTo->returnType.tag == ValueVoid) {
 			noReturnWanted(ret->token, c->compilingTo->name, c);
 			return;
@@ -1799,12 +1801,10 @@ static void compileIfStatement(CarbonStmtIf *sif, CarbonChunk *chunk,
 		carbon_compileExpression(sif->condition, chunk, c, vm);
 	uint32_t first = emitIf(chunk, sif->token.line);
 	uint32_t second = 0;
-	if (sif->then != NULL) {
-		carbon_compileStatement(sif->then, chunk, c, vm);
-		if (sif->notThen != NULL)
-			second = emitJump(chunk, sif->token.line);
-		patchJump(chunk, first, sif->token, c);
-	}
+	carbon_compileStatement(sif->then, chunk, c, vm);
+	if (sif->notThen != NULL)
+		second = emitJump(chunk, sif->token.line);
+	patchJump(chunk, first, sif->token, c);
 	if (sif->notThen != NULL) {
 		carbon_compileStatement(sif->notThen, chunk, c, vm);
 		patchJump(chunk, second, sif->elseToken, c);
@@ -1823,36 +1823,51 @@ static void compileWhileStatement(CarbonStmtWhile *whl, CarbonChunk *chunk,
 							// that arises Even though the variable is
 							// guaranteed to be inited if used
 
-	if (whl->body != NULL) {
-		c->loopDepth++;
-		carbon_compileStatement((CarbonStmt *) whl->body, chunk, c, vm);
-		c->loopDepth--;
-		if (whl->body->hasBreak && whl->body->locals > 0) {
-			uint32_t eject = emitJump(chunk, whl->token.line);
-			for (uint8_t i = c->breaksCount - 1;
-				 c->breaks[i].depth == c->loopDepth + 1; i--) {
-				if (c->breaks[i].isBreak) {
-					patchJump(chunk, c->breaks[i].position, c->breaks[i].token,
-							  c);
-				}
+	c->loopDepth++;
+	c->depth++;
+
+	for (uint32_t i = 0; i < whl->body->statements.count; i++) {
+		carbon_compileStatement(whl->body->statements.arr[i], chunk, c, vm);
+	}
+	c->loopDepth--;
+
+	if (c->breaksCount > 0)
+		for (uint8_t i = c->breaksCount - 1;
+			 c->breaks[i].depth == c->loopDepth + 1; i--) {
+			if (!c->breaks[i].isBreak) {
+				patchJump(chunk, c->breaks[i].position, c->breaks[i].token, c);
 			}
-			if (whl->body->locals == 1) {
-				carbon_writeToChunk(chunk, OpPop, whl->body->locals);
-			} else if (whl->body->locals >= 1) {
-				carbon_writeToChunk(chunk, OpPopn, whl->body->locals);
-				carbon_writeToChunk(chunk, whl->body->locals,
-									whl->body->locals);
-			}
-			ejectExit = emitJump(chunk, whl->token.line);
-			patchJump(chunk, eject, whl->token, c);
 		}
+
+	if (whl->body->locals == 1) {
+		carbon_writeToChunk(chunk, OpPop, whl->body->locals);
+	} else if (whl->body->locals >= 1) {
+		carbon_writeToChunk(chunk, OpPopn, whl->body->locals);
+		carbon_writeToChunk(chunk, whl->body->locals, whl->body->locals);
 	}
 
-	for (uint8_t i = c->breaksCount - 1; c->breaks[i].depth == c->loopDepth + 1;
-		 i--) {
-		if (!c->breaks[i].isBreak) {
-			patchJump(chunk, c->breaks[i].position, c->breaks[i].token, c);
+	c->depth--;
+	if (c->localCount > 0)
+		while (c->locals[c->localCount - 1].depth > c->depth)
+			carbon_freeType(c->locals[c->localCount--].type);
+
+
+	if (whl->body->hasBreak && whl->body->locals > 0) {
+		uint32_t eject = emitJump(chunk, whl->token.line);
+		for (uint8_t i = c->breaksCount - 1;
+			 c->breaks[i].depth == c->loopDepth + 1; i--) {
+			if (c->breaks[i].isBreak) {
+				patchJump(chunk, c->breaks[i].position, c->breaks[i].token, c);
+			}
 		}
+		if (whl->body->locals == 1) {
+			carbon_writeToChunk(chunk, OpPop, whl->body->locals);
+		} else if (whl->body->locals >= 1) {
+			carbon_writeToChunk(chunk, OpPopn, whl->body->locals);
+			carbon_writeToChunk(chunk, whl->body->locals, whl->body->locals);
+		}
+		ejectExit = emitJump(chunk, whl->token.line);
+		patchJump(chunk, eject, whl->token, c);
 	}
 
 	uint32_t offset = chunk->count - backpos + 2;
@@ -1866,7 +1881,7 @@ static void compileWhileStatement(CarbonStmtWhile *whl, CarbonChunk *chunk,
 	carbon_writeToChunk(chunk, offset, whl->token.line);
 
 	patchJump(chunk, p, whl->token, c);
-	if (whl->body != NULL && whl->body->hasBreak) {
+	if (whl->body->hasBreak) {
 		if (whl->body->locals == 0)
 			for (uint8_t i = c->breaksCount - 1;
 				 c->breaks[i].depth == c->depth + 1; i--) {
@@ -1892,6 +1907,117 @@ static void compileBreakStatement(CarbonStmtBreak *brk, CarbonChunk *chunk,
 	c->breaks[c->breaksCount].token = brk->token;
 	c->breaks[c->breaksCount].position = emitJump(chunk, brk->token.line);
 	c->breaksCount++;
+}
+
+static void compileForStatement(CarbonStmtFor *fr, CarbonChunk *chunk,
+								CarbonCompiler *c, CarbonVM *vm) {
+	if (fr->arr == NULL)
+		return;
+	typecheck(fr->arr, c, vm);
+	CarbonValueType varType;
+	switch (fr->arr->evalsTo.tag) {
+		case ValueString:
+			varType = newType(ValueString);
+			break;
+		case ValueArray:
+		case ValueGenerator:
+			varType = carbon_cloneType(*fr->arr->evalsTo.compound.memberType);
+			break;
+		default:
+			unindexableType(fr->arr->first, fr->arr->evalsTo, c);
+			return;
+	}
+
+	carbon_compileExpression(fr->arr, chunk, c, vm);
+	carbon_writeToChunk(chunk, OpPush0, fr->arr->first.line);
+	c->localCount += 2;
+
+	uint32_t forpos = emitLogicalJump(chunk, fr->token.line, OpFor);
+
+	// We have to compile the body ourselved instead of relying the function
+	// because we need finer control
+
+	c->depth++;
+	c->loopDepth++;
+
+	CarbonLocal l = {c->depth, carbon_strFromToken(fr->var, vm), varType};
+	if (c->localCount != 255)
+		c->locals[c->localCount++] = l;
+	else {
+		tooManyLocals(fr->var, c);
+	}
+
+	for (uint32_t i = 0; i < fr->body->statements.count; i++) {
+		carbon_compileStatement(fr->body->statements.arr[i], chunk, c, vm);
+	}
+
+	c->loopDepth--;
+	c->depth--;
+
+	if (c->breaksCount > 0)
+		for (uint8_t i = c->breaksCount - 1;
+			 c->breaks[i].depth == c->loopDepth + 1; i--) {
+			if (!c->breaks[i].isBreak) {
+				patchJump(chunk, c->breaks[i].position, c->breaks[i].token, c);
+			}
+		}
+
+	if (fr->body->locals == 0) {
+		carbon_writeToChunk(chunk, OpPop, fr->body->locals + 1);
+	} else if (fr->body->locals >= 1) {
+		carbon_writeToChunk(chunk, OpPopn, fr->body->locals);
+		carbon_writeToChunk(chunk, fr->body->locals + 1, fr->body->locals);
+	}
+
+	while (c->locals[c->localCount - 1].depth > c->depth)
+		carbon_freeType(c->locals[c->localCount--].type);
+
+	// BREAK SECTION
+	uint32_t jumpAfterBreak;
+	if (fr->body->hasBreak) {
+		uint32_t jumpOverBreak = emitJump(chunk, fr->token.line); // 1963
+
+		if (c->breaksCount > 0)
+			for (uint8_t i = c->breaksCount - 1;
+				 c->breaks[i].depth == c->loopDepth + 1; i--) {
+				if (c->breaks[i].isBreak) {
+					patchJump(chunk, c->breaks[i].position, c->breaks[i].token,
+							  c);
+				}
+			}
+
+		if (fr->body->locals == 0) {
+			carbon_writeToChunk(chunk, OpPop, fr->body->locals + 1);
+		} else {
+			carbon_writeToChunk(chunk, OpPopn, fr->body->locals);
+			carbon_writeToChunk(chunk, fr->body->locals + 1, fr->body->locals);
+		}
+		jumpAfterBreak = emitJump(chunk, fr->token.line); // 1976
+		patchJump(chunk, jumpOverBreak, fr->token, c);
+	}
+	// BREAK SECTION OVER
+	if (forpos > UINT16_MAX) {
+		jumpTooLong(fr->token, c);
+		return;
+	}
+
+	uint16_t offset = chunk->count - forpos + 2;
+
+	carbon_writeToChunk(chunk, OpLoop, fr->token.line);
+	carbon_writeToChunk(chunk, offset >> 8, fr->token.line);
+	carbon_writeToChunk(chunk, offset, fr->token.line);
+
+	patchJump(chunk, forpos, fr->token, c);
+	if (fr->body->hasBreak)
+		patchJump(chunk, jumpAfterBreak, fr->token, c);
+
+	carbon_writeToChunk(chunk, OpPopn, fr->token.line);
+	carbon_writeToChunk(chunk, 2, fr->token.line);
+
+	c->localCount -= 2;
+	if (c->breaksCount > 0)
+		while (c->breaks[c->breaksCount - 1].depth == c->loopDepth + 1)
+			c->breaksCount--;
 }
 
 void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
@@ -1932,6 +2058,10 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 		}
 		case StmtBreak: {
 			compileBreakStatement((CarbonStmtBreak *) stmt, chunk, c, vm);
+			break;
+		}
+		case StmtFor: {
+			compileForStatement((CarbonStmtFor *) stmt, chunk, c, vm);
 			break;
 		}
 	}

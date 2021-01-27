@@ -81,6 +81,7 @@ static char *names[] = {
 	[OpJump] = "jmp",
 	[OpIf] = "if",
 	[OpLoop] = "loop",
+	[OpFor] = "for",
 
 };
 
@@ -158,6 +159,7 @@ void carbon_disassemble(CarbonChunk *chunk) {
 			case OpIf:
 			case OpLoop:
 			case OpJump:
+			case OpFor:
 				ip++;
 				uint8_t higher = *ip;
 				ip++;
