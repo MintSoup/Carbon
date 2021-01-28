@@ -1840,17 +1840,16 @@ static void compileWhileStatement(CarbonStmtWhile *whl, CarbonChunk *chunk,
 		}
 
 	if (whl->body->locals == 1) {
-		carbon_writeToChunk(chunk, OpPop, whl->body->locals);
+		carbon_writeToChunk(chunk, OpPop, whl->token.line);
 	} else if (whl->body->locals >= 1) {
-		carbon_writeToChunk(chunk, OpPopn, whl->body->locals);
-		carbon_writeToChunk(chunk, whl->body->locals, whl->body->locals);
+		carbon_writeToChunk(chunk, OpPopn, whl->token.line);
+		carbon_writeToChunk(chunk, whl->body->locals, whl->token.line);
 	}
 
 	c->depth--;
 	if (c->localCount > 0)
 		while (c->locals[c->localCount - 1].depth > c->depth)
 			carbon_freeType(c->locals[c->localCount--].type);
-
 
 	if (whl->body->hasBreak && whl->body->locals > 0) {
 		uint32_t eject = emitJump(chunk, whl->token.line);
@@ -1861,10 +1860,10 @@ static void compileWhileStatement(CarbonStmtWhile *whl, CarbonChunk *chunk,
 			}
 		}
 		if (whl->body->locals == 1) {
-			carbon_writeToChunk(chunk, OpPop, whl->body->locals);
+			carbon_writeToChunk(chunk, OpPop, whl->token.line);
 		} else if (whl->body->locals >= 1) {
-			carbon_writeToChunk(chunk, OpPopn, whl->body->locals);
-			carbon_writeToChunk(chunk, whl->body->locals, whl->body->locals);
+			carbon_writeToChunk(chunk, OpPopn, whl->token.line);
+			carbon_writeToChunk(chunk, whl->body->locals, whl->token.line);
 		}
 		ejectExit = emitJump(chunk, whl->token.line);
 		patchJump(chunk, eject, whl->token, c);
@@ -1963,10 +1962,10 @@ static void compileForStatement(CarbonStmtFor *fr, CarbonChunk *chunk,
 		}
 
 	if (fr->body->locals == 0) {
-		carbon_writeToChunk(chunk, OpPop, fr->body->locals + 1);
+		carbon_writeToChunk(chunk, OpPop, fr->token.line);
 	} else if (fr->body->locals >= 1) {
-		carbon_writeToChunk(chunk, OpPopn, fr->body->locals);
-		carbon_writeToChunk(chunk, fr->body->locals + 1, fr->body->locals);
+		carbon_writeToChunk(chunk, OpPopn, fr->token.line);
+		carbon_writeToChunk(chunk, fr->body->locals + 1, fr->token.line);
 	}
 
 	while (c->locals[c->localCount - 1].depth > c->depth)
@@ -1987,10 +1986,10 @@ static void compileForStatement(CarbonStmtFor *fr, CarbonChunk *chunk,
 			}
 
 		if (fr->body->locals == 0) {
-			carbon_writeToChunk(chunk, OpPop, fr->body->locals + 1);
+			carbon_writeToChunk(chunk, OpPop, fr->token.line);
 		} else {
-			carbon_writeToChunk(chunk, OpPopn, fr->body->locals);
-			carbon_writeToChunk(chunk, fr->body->locals + 1, fr->body->locals);
+			carbon_writeToChunk(chunk, OpPopn, fr->token.line);
+			carbon_writeToChunk(chunk, fr->body->locals + 1, fr->token.line);
 		}
 		jumpAfterBreak = emitJump(chunk, fr->token.line); // 1976
 		patchJump(chunk, jumpOverBreak, fr->token, c);
