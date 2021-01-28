@@ -1972,7 +1972,7 @@ static void compileForStatement(CarbonStmtFor *fr, CarbonChunk *chunk,
 		carbon_freeType(c->locals[c->localCount--].type);
 
 	// BREAK SECTION
-	uint32_t jumpAfterBreak;
+	uint32_t jumpAfterBreak = 0; // to avoid "may be uninitialized" warnins
 	if (fr->body->hasBreak) {
 		uint32_t jumpOverBreak = emitJump(chunk, fr->token.line); // 1963
 
