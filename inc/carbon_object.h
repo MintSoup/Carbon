@@ -46,6 +46,7 @@ typedef struct carbon_generator {
 	CarbonValue last;
 	CarbonValue delta;
 	uint64_t n;
+	enum CarbonValueTag type;
 } CarbonGenerator;
 
 CarbonString *carbon_copyString(char *chars, uint32_t length, CarbonVM *vm);
