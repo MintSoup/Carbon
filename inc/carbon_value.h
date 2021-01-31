@@ -7,11 +7,16 @@ typedef struct carbon_valueType CarbonValueType;
 
 typedef struct {
 	CarbonValueType *returnType;
-	uint8_t arity;
 	CarbonValueType *arguments;
+	uint8_t arity;
 } CarbonFunctionSignature;
 
 typedef struct carbon_valueType {
+	union carbon_typeData {
+		struct carbon_valueType *memberType;
+		CarbonFunctionSignature *signature;
+		struct carbon_string *instanceName;
+	} compound;
 	enum CarbonValueTag {
 		ValueUInt,	 // The order of these three is important
 		ValueInt,	 // The order of these three is important
@@ -29,11 +34,6 @@ typedef struct carbon_valueType {
 		ValueUntypechecked,
 		ValueNull
 	} tag;
-	union carbon_typeData {
-		struct carbon_valueType *memberType;
-		CarbonFunctionSignature *signature;
-		struct carbon_string *instanceName;
-	} compound;
 } CarbonValueType;
 
 typedef union {

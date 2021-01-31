@@ -54,9 +54,9 @@ typedef struct {
 		CarbonToken name;
 	} * arguments;
 	CarbonStmtList statements;
-	uint8_t arity;
-	uint16_t argumentCapacity;
 	uint32_t end;
+	uint16_t argumentCapacity;
+	uint8_t arity;
 } CarbonStmtFunc;
 
 typedef struct {

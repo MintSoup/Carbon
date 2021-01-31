@@ -14,8 +14,8 @@ typedef enum {
 } CarbonObjectType;
 
 typedef struct carbon_object {
-	CarbonObjectType type;
 	struct carbon_object *next;
+	CarbonObjectType type;
 	uint32_t hashCode;
 } CarbonObj;
 typedef struct carbon_string {
@@ -28,8 +28,8 @@ typedef struct carbon_function {
 	CarbonObj obj;
 	CarbonChunk chunk;
 	CarbonString *name;
-	uint16_t arity;
 	CarbonValueType returnType;
+	uint16_t arity;
 } CarbonFunction;
 
 typedef struct carbon_array {
@@ -45,7 +45,6 @@ typedef struct carbon_generator {
 	CarbonValue first;
 	CarbonValue last;
 	CarbonValue delta;
-	enum CarbonValueTag type;
 	uint64_t n;
 } CarbonGenerator;
 

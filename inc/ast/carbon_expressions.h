@@ -5,8 +5,8 @@
 
 typedef struct carbon_stmtTypename {
 	CarbonToken base;
-	uint8_t templateCount;
 	struct carbon_stmtTypename *templates;
+	uint8_t templateCount;
 } CarbonTypename;
 
 typedef enum {
@@ -78,9 +78,9 @@ typedef struct {
 	CarbonExpr expr;
 	CarbonExpr *callee;
 	CarbonExpr **arguments;
-	uint8_t arity;
-	uint16_t argumentCapacity;
 	uint32_t line;
+	uint16_t argumentCapacity;
+	uint8_t arity;
 } CarbonExprCall;
 
 typedef struct {

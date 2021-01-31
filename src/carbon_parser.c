@@ -245,7 +245,7 @@ static CarbonExpr *expression(CarbonParser *p) {
 static CarbonTypename parseType(CarbonParser *p) {
 	CarbonToken base = next(p);
 	CarbonTypename tn = {
-		.base = {TokenNone}, .templateCount = 0, .templates = NULL};
+		.base = {.type = TokenNone}, .templateCount = 0, .templates = NULL};
 	if (!isTypename(base)) {
 		error(base, "Expected a type", p);
 		return tn;
@@ -337,7 +337,8 @@ static CarbonStmtBreak *breakStatement(CarbonParser *p) {
 	if (p->innermostLoop == NULL)
 		error(tok, "Cannot have break/continue statements outside loops.", p);
 	else
-		p->innermostLoop->hasBreak = p->innermostLoop->hasBreak || tok.type == TokenBreak;
+		p->innermostLoop->hasBreak =
+			p->innermostLoop->hasBreak || tok.type == TokenBreak;
 	return carbon_newBreakStmt(tok);
 }
 

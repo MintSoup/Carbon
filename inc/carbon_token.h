@@ -76,8 +76,8 @@ typedef enum {
 } CarbonTokenType;
 
 typedef struct {
-	CarbonTokenType type;
 	char *lexeme;
+	CarbonTokenType type;
 	uint32_t length;
 	uint32_t line;
 } CarbonToken;
