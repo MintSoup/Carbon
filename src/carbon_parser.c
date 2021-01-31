@@ -105,7 +105,8 @@ static void sync(CarbonParser *p) {
 			case TokenBool:
 			case TokenGenerator:
 			case TokenArray:
-				if (peekn(1, p).type != TokenRightParen) {
+				if (peekn(1, p).type == TokenIdentifier ||
+					peekn(1, p).type == TokenGreaterThan) {
 					p->panic = false;
 					return;
 				}
