@@ -8,6 +8,7 @@ typedef enum {
 	OpConcat,
 	OpCall,
 	OpLen,
+	OpBuiltin,
 
 	// Constants
 	OpLoadConstant,

@@ -1,3 +1,4 @@
+#include "carbon_object.h"
 #include "utils/carbon_commons.h"
 #include "utils/carbon_disassembler.h"
 #include "vm/carbon_chunk.h"
@@ -25,6 +26,7 @@ static char *names[] = {
 	[OpMakeArray64] = "mkarr64",
 	[OpInitArray] = "initarr",
 	[OpMakeGenerator] = "mkgen",
+	[OpBuiltin] = "builtin",
 
 	// Binary Operations
 	[OpAddInt] = "iadd",
@@ -83,6 +85,10 @@ static char *names[] = {
 	[OpLoop] = "loop",
 	[OpFor] = "for",
 
+};
+
+char* builtinFunctionNames[] = {
+	[BuiltinAppend] = "append"
 };
 
 void carbon_disassemble(CarbonChunk *chunk) {
@@ -179,6 +185,12 @@ void carbon_disassemble(CarbonChunk *chunk) {
 				ip++;
 				printf("\t%s", CarbonValueTypeLexeme[*ip]);
 				ip++;
+				break;
+			case OpBuiltin:
+				ip++;
+				printf("\t%s", builtinFunctionNames[*ip]);
+				ip++;
+				break;
 		}
 		puts("");
 		instructionNumber++;

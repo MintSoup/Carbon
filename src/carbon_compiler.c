@@ -13,9 +13,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
 extern char *CarbonValueTypeLexeme[];
-
 static CarbonToken v2token[] = {
 	[ValueDouble] = {.type = TokenDouble,
 					 .lexeme = NULL,
@@ -1071,6 +1069,21 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			typecheck(dot->left, c, vm);
 			switch (dot->left->evalsTo.tag) {
 				case ValueArray:
+					if (idntfLexCmp(dot->right, "append", strlen("append"))) {
+						CarbonValueType t = newType(ValueFunction);
+						t.compound.signature = carbon_reallocate(
+							0, sizeof(CarbonFunctionSignature), NULL);
+						t.compound.signature->arity = 1;
+						t.compound.signature->arguments =
+							carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+						t.compound.signature->returnType =
+							carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+						*t.compound.signature->arguments = carbon_cloneType(
+							*dot->left->evalsTo.compound.memberType);
+						*t.compound.signature->returnType = newType(ValueVoid);
+						expr->evalsTo = t;
+						break;
+					}
 				case ValueString:
 				case ValueGenerator: {
 					if (idntfLexCmp(dot->right, "length", strlen("length"))) {
@@ -1480,19 +1493,32 @@ carbon_compileIndexAssignmentExpression(CarbonExprIndexAssignment *ie,
 	carbon_writeToChunk(chunk, OpSetIndex, ie->equals.line);
 }
 
-static void compileDotExpression(CarbonExprDot *dot, CarbonChunk *chunk,
-								 CarbonCompiler *c, CarbonVM *vm) {
-	carbon_compileExpression(dot->left, chunk, c, vm);
+static void compileBuiltinDot(CarbonExprDot *dot, CarbonChunk *chunk,
+							  CarbonCompiler *c, CarbonVM *vm) {
 	switch (dot->left->evalsTo.tag) {
 		case ValueArray:
+			if (idntfLexCmp(dot->right, "append", strlen("append"))) {
+				carbon_writeToChunk(chunk, OpBuiltin, dot->right.line);
+				carbon_writeToChunk(chunk, BuiltinAppend, dot->right.line);
+				break;
+			}
 		case ValueString:
 		case ValueGenerator: {
 			if (idntfLexCmp(dot->right, "length", strlen("length")))
-				carbon_writeToChunk(chunk, OpLen, dot->dot.line);
+				carbon_writeToChunk(chunk, OpLen, dot->right.line);
 			break;
 		}
 		default:
 			break;
+	}
+}
+
+static void compileDotExpression(CarbonExprDot *dot, CarbonChunk *chunk,
+								 CarbonCompiler *c, CarbonVM *vm) {
+	carbon_compileExpression(dot->left, chunk, c, vm);
+	if (dot->expr.evalsTo.tag != ValueInstance) {
+		compileBuiltinDot(dot, chunk, c, vm);
+		return;
 	}
 }
 

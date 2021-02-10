@@ -1,2 +1,17 @@
 void main():
+	array<uint> primes = [<uint, 0, 16>]
+	function<void, uint> app = primes.append
+	for g in [4 .. 1000]:
+		if prime(g): app(g); end
+	end
+	print(primes)
 end
+
+
+bool prime(uint a):
+	for i in [2 .. a / 2 + 1]:
+		if a % i == 0: return false; end
+	end
+	return true
+end
+

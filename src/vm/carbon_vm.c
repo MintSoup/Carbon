@@ -10,6 +10,10 @@
 #include <string.h>
 
 extern char *CarbonValueTypeLexeme[];
+extern char *builtinFunctionNames[];
+
+static char *(*builtinPtrs[])(CarbonObj *, CarbonValue *, CarbonVM *) = {
+	[BuiltinAppend] = carbon_appendArray};
 
 void carbon_initVM(CarbonVM *vm) {
 	vm->stackTop = 0;
@@ -136,6 +140,10 @@ static void printObject(CarbonObj *obj) {
 			}
 			break;
 		}
+		case CrbnObjBuiltin: {
+			printf("<builtin function>");
+			break;
+		}
 	}
 #undef castObj
 }
@@ -232,6 +240,14 @@ static void append(CarbonArray *arr, CarbonValue val, CarbonVM *vm) {
 	arr->members[arr->count++] = val;
 }
 
+static CarbonRunResult runtimeError(char *msg, CarbonVM *vm) {
+	CarbonCallframe *frame = &vm->callStack[vm->callDepth - 1];
+	CarbonChunk *chunk = &frame->func->chunk;
+	uint32_t line = chunk->lines[frame->ip - chunk->code];
+	fprintf(stderr, "[Line %d] %s.", line, msg);
+	return Carbon_Runtime_Error;
+}
+
 static uint8_t callFunction(CarbonFunction *func, CarbonVM *vm) {
 	if (vm->callDepth == 255) {
 		fprintf(stderr,
@@ -246,18 +262,20 @@ static uint8_t callFunction(CarbonFunction *func, CarbonVM *vm) {
 	return 0;
 }
 
-static uint8_t call(CarbonObj *obj, CarbonVM *vm) {
+static uint8_t call(CarbonObj *obj, CarbonVM *vm, uint8_t arity) {
 	if (obj->type == CrbnObjFunc)
 		return callFunction((CarbonFunction *) obj, vm);
+	if (obj->type == CrbnObjBuiltin) {
+		CarbonBuiltin *bltin = (CarbonBuiltin *) obj;
+		char *msg =
+			bltin->func(bltin->parent, &vm->stack[vm->stackTop - arity], vm);
+		if (msg != NULL) {
+			runtimeError(msg, vm);
+			return 1;
+		}
+		vm->stackTop -= arity + 1;
+	}
 	return 0; // should never reach here
-}
-
-static CarbonRunResult runtimeError(char *msg, CarbonVM *vm) {
-	CarbonCallframe *frame = &vm->callStack[vm->callDepth - 1];
-	CarbonChunk *chunk = &frame->func->chunk;
-	uint32_t line = chunk->lines[frame->ip - chunk->code];
-	printf("[Line %d] %s.", line, msg);
-	return Carbon_Runtime_Error;
 }
 
 static bool nullcheck(CarbonObj *obj, char *msg, CarbonVM *vm) {
@@ -588,12 +606,12 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 			}
 			case OpCall: {
 				frame->ip++;
-				uint8_t args = ReadByte();
+				uint8_t arity = ReadByte();
 				frame->ip++;
-				CarbonObj *func = vm->stack[vm->stackTop - args - 1].obj;
+				CarbonObj *func = vm->stack[vm->stackTop - arity - 1].obj;
 				if (nullcheck(func, "Cannot call a null function", vm))
 					return Carbon_Runtime_Error;
-				if (call(func, vm)) {
+				if (call(func, vm, arity)) {
 					return Carbon_Runtime_Error;
 				}
 				frame = &vm->callStack[vm->callDepth - 1];
@@ -666,7 +684,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 			}
 			case OpMakeArray: {
 				frame->ip++;
-				uint64_t size = ReadByte();
+				uint8_t size = ReadByte();
 				frame->ip++;
 				enum CarbonValueTag type = ReadByte();
 				push(CarbonObject(
@@ -746,7 +764,6 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				push(v);
 				frame->ip++;
 				break;
-
 			}
 			case OpFor: {
 				frame->ip++;
@@ -757,13 +774,22 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 
 				uint64_t i = peek().uint;
 				CarbonObj *obj = vm->stack[vm->stackTop - 2].obj;
-				if(i < length(obj)){
+				if (i < length(obj)) {
 					vm->stack[vm->stackTop - 1].uint++;
 					push(getIndex(obj, CarbonUInt(i), vm));
 					frame->ip++;
-				}else{
+				} else {
 					frame->ip += range;
 				}
+				break;
+			}
+			case OpBuiltin: {
+				frame->ip++;
+				CarbonObj *obj = pop().obj;
+				CarbonBuiltin *bltin =
+					carbon_newBuiltin(obj, builtinPtrs[*frame->ip], vm);
+				push(CarbonObject((CarbonObj *) bltin));
+				frame->ip++;
 				break;
 			}
 		}

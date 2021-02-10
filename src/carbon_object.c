@@ -1,9 +1,9 @@
 #include "carbon_object.h"
 #include "carbon_value.h"
 #include "utils/carbon_memory.h"
-#include "utils/carbon_table.h"
 #include "vm/carbon_chunk.h"
 #include "carbon_token.h"
+#include "vm/carbon_vm.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -138,6 +138,37 @@ CarbonGenerator *carbon_newGenerator(CarbonValue first, CarbonValue last,
 	}
 	return gen;
 }
+
+CarbonBuiltin *carbon_newBuiltin(CarbonObj *parent,
+								 char *(*func)(CarbonObj *, CarbonValue *,
+											   CarbonVM *vm),
+								 CarbonVM *vm) {
+	CarbonBuiltin *bltin =
+		(CarbonBuiltin *) ALLOC(CarbonBuiltin, CrbnObjBuiltin);
+	bltin->func = func;
+	bltin->parent = parent;
+	return bltin;
+}
+
+char *carbon_appendArray(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
+	CarbonArray *arr = (CarbonArray *) parent;
+	if (arr == NULL)
+		return "Cannot append to a null array";
+	CarbonValue val = args[0];
+
+	if (arr->count == arr->capacity) {
+		uint32_t oldSize = arr->capacity * sizeof(CarbonValue);
+		if (arr->capacity > 0)
+			arr->capacity *= 1.5;
+		else
+			arr->capacity = 8;
+		uint32_t newSize = arr->capacity * sizeof(CarbonValue);
+		arr->members = carbon_reallocateObj(oldSize, newSize, arr->members, vm);
+	}
+	arr->members[arr->count++] = val;
+	return NULL;
+}
+
 void carbon_freeObject(CarbonObj *obj, CarbonVM *vm) {
 
 #define castObj(type, name) type *name = (type *) obj;
@@ -177,6 +208,10 @@ void carbon_freeObject(CarbonObj *obj, CarbonVM *vm) {
 		}
 		case CrbnObjGenerator: {
 			carbon_reallocateObj(sizeof(CarbonGenerator), 0, obj, vm);
+			break;
+		}
+		case CrbnObjBuiltin: {
+			carbon_reallocateObj(sizeof(CarbonBuiltin), 0, obj, vm);
 			break;
 		}
 	}

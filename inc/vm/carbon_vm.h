@@ -7,7 +7,6 @@
 
 typedef struct carbon_object CarbonObj;
 typedef struct carbon_function CarbonFunction;
-
 typedef enum carbon_runresult CarbonRunResult;
 
 typedef struct {

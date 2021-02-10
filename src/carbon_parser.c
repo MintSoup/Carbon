@@ -709,7 +709,7 @@ static CarbonExpr *postfix(CarbonParser *p) {
 			CarbonToken dot = previous(p);
 			consume(TokenIdentifier, "Expected identifier after '.'", p);
 			CarbonToken right = previous(p);
-			return (CarbonExpr *) carbon_newDotExpr(expr, right, dot);
+			expr = (CarbonExpr *) carbon_newDotExpr(expr, right, dot);
 		}
 	}
 	return expr;
