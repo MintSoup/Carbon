@@ -12,6 +12,7 @@ struct Identifier {
 struct Identifier identifierList[] = {
 	{.name = "and", .type = TokenAnd},
 	{.name = "or", .type = TokenOr},
+	{.name = "is", .type = TokenIs},
 
 	{.name = "bool", .type = TokenBool},
 	{.name = "uint", .type = TokenUInt},
@@ -23,6 +24,8 @@ struct Identifier identifierList[] = {
 	{.name = "error", .type = TokenError},
 	{.name = "table", .type = TokenTable},
 	{.name = "function", .type = TokenFunction},
+	{.name = "object", .type = TokenObject},
+
 
 	{.name = "while", .type = TokenWhile},
 	{.name = "break", .type = TokenBreak},

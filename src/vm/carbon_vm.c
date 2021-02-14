@@ -53,6 +53,52 @@ static inline CarbonValue c16(CarbonVM *vm, uint8_t *ip) {
 	return getChunk(vm).constants.arr[index];
 }
 
+static inline CarbonValueType *t16(CarbonVM *vm, uint8_t *ip) {
+	uint8_t higher = *ip;
+	ip++;
+	uint8_t lower = *ip;
+	uint16_t index = (higher << 8) | lower;
+	return &getChunk(vm).typeData[index];
+}
+
+static inline CarbonValueType newType(enum CarbonValueTag tag) {
+	CarbonValueType typ;
+	typ.tag = tag;
+	typ.compound.instanceName = NULL;
+	return typ;
+}
+
+static inline bool isInstance(CarbonObj *obj, CarbonValueType *type) {
+	switch (obj->type) {
+		case CrbnObjGenerator: {
+			CarbonGenerator *gen = (CarbonGenerator *) obj;
+			return type->tag == ValueGenerator &&
+				   carbon_typesEqual(*gen->type, *type->compound.memberType);
+		}
+		case CrbnObjArray: {
+			CarbonArray *arr = (CarbonArray *) obj;
+			return type->tag == ValueArray &&
+				   carbon_typesEqual(*type->compound.memberType, *arr->member);
+		}
+		case CrbnObjString:
+			return carbon_canAssign(*type, newType(ValueString));
+		case CrbnObjFunc: {
+			CarbonFunction *func = (CarbonFunction *) obj;
+			CarbonValueType t = newType(ValueFunction);
+			t.compound.signature = func->sig;
+			return carbon_canAssign(*type, t);
+		}
+		case CrbnObjBuiltin: {
+			CarbonBuiltin *func = (CarbonBuiltin *) obj;
+			CarbonValueType t = newType(ValueFunction);
+			t.compound.signature = func->sig;
+			return carbon_canAssign(*type, t);
+		}
+		default:
+			return false; // Should never reach here
+	}
+}
+
 static void printObject(CarbonObj *obj) {
 
 #define castObj(type, name) type *name = (type *) obj;
@@ -72,10 +118,10 @@ static void printObject(CarbonObj *obj) {
 			castObj(CarbonArray, arr);
 			printf("[");
 			if (arr->count == 0) {
-				printf("<%s>]", CarbonValueTypeLexeme[arr->type]);
+				printf("<%s>]", CarbonValueTypeLexeme[arr->member->tag]);
 				return;
 			}
-			switch (arr->type) {
+			switch (arr->member->tag) {
 				case ValueUInt:
 					for (uint32_t i = 0; i < arr->count - 1; i++) {
 						printf("%" PRIu64 ", ", arr->members[i].uint);
@@ -103,17 +149,17 @@ static void printObject(CarbonObj *obj) {
 					break;
 				default:
 					for (uint32_t i = 0; i < arr->count - 1; i++) {
-						if (arr->type == ValueString)
+						if (arr->member->tag == ValueString)
 							printf("'");
 						printObject(arr->members[i].obj);
-						if (arr->type == ValueString)
+						if (arr->member->tag == ValueString)
 							printf("'");
 						printf(", ");
 					}
-					if (arr->type == ValueString)
+					if (arr->member->tag == ValueString)
 						printf("'");
 					printObject(arr->members[arr->count - 1].obj);
-					if (arr->type == ValueString)
+					if (arr->member->tag == ValueString)
 						printf("'");
 					break;
 			}
@@ -122,7 +168,7 @@ static void printObject(CarbonObj *obj) {
 		}
 		case CrbnObjGenerator: {
 			castObj(CarbonGenerator, gen);
-			switch (gen->type) {
+			switch (gen->type->tag) {
 				case ValueUInt:
 					printf("[%" PRIu64 "..%" PRIu64 ":%" PRIu64 "]",
 						   gen->first.uint, gen->last.uint, gen->delta.uint);
@@ -185,7 +231,7 @@ static bool checkBounds(CarbonObj *obj, CarbonValue index, char **msg) {
 }
 
 static CarbonValue getGeneratorIndex(CarbonGenerator *g, uint64_t i) {
-	switch (g->type) {
+	switch (g->type->tag) {
 		case ValueUInt:
 			return CarbonUInt(g->first.uint + g->delta.uint * i);
 		case ValueInt:
@@ -244,7 +290,7 @@ static CarbonRunResult runtimeError(char *msg, CarbonVM *vm) {
 	CarbonCallframe *frame = &vm->callStack[vm->callDepth - 1];
 	CarbonChunk *chunk = &frame->func->chunk;
 	uint32_t line = chunk->lines[frame->ip - chunk->code];
-	fprintf(stderr, "[Line %d] %s.", line, msg);
+	fprintf(stderr, "[Line %d] %s.\n", line, msg);
 	return Carbon_Runtime_Error;
 }
 
@@ -321,6 +367,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 #define cast(from, to, nativeType) push(to((nativeType) pop().from))
 #define ReadConstant8() getChunk(vm).constants.arr[*frame->ip]
 #define ReadConstant16() c16(vm, frame->ip)
+#define ReadType() t16(vm, frame->ip)
 
 	vm->callDepth = 1;
 	vm->callStack[0].func = func;
@@ -686,19 +733,17 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				frame->ip++;
 				uint8_t size = ReadByte();
 				frame->ip++;
-				enum CarbonValueTag type = ReadByte();
 				push(CarbonObject(
-					(CarbonObj *) carbon_newArray(size, type, vm)));
-				frame->ip++;
+					(CarbonObj *) carbon_newArray(size, ReadType(), vm)));
+				frame->ip += 2;
 				break;
 			}
 			case OpMakeArray64: {
 				frame->ip++;
-				enum CarbonValueTag type = ReadByte();
 				uint64_t size = pop().uint;
 				push(CarbonObject(
-					(CarbonObj *) carbon_newArray(size, type, vm)));
-				frame->ip++;
+					(CarbonObj *) carbon_newArray(size, ReadType(), vm)));
+				frame->ip += 2;
 				break;
 			}
 			case OpInitArray: {
@@ -713,16 +758,15 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 			}
 			case OpMakeGenerator: {
 				frame->ip++;
-				enum CarbonValueTag type = ReadByte();
 				CarbonValue first = pop();
 				CarbonValue last = pop();
 				CarbonValue delta = pop();
 				CarbonGenerator *g;
-				if ((g = carbon_newGenerator(first, last, delta, type, vm)) ==
-					NULL)
+				if ((g = carbon_newGenerator(first, last, delta, ReadType(),
+											 vm)) == NULL)
 					return runtimeError("Invalid numbers for generator", vm);
 				push(CarbonObject((CarbonObj *) g));
-				frame->ip++;
+				frame->ip += 2;
 				break;
 			}
 			case OpAppend: {
@@ -786,10 +830,29 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 			case OpBuiltin: {
 				frame->ip++;
 				CarbonObj *obj = pop().obj;
-				CarbonBuiltin *bltin =
-					carbon_newBuiltin(obj, builtinPtrs[*frame->ip], vm);
+				char *(*func)(CarbonObj *, CarbonValue *, CarbonVM *) =
+					builtinPtrs[*frame->ip++];
+				CarbonBuiltin *bltin = carbon_newBuiltin(
+					obj, func, ReadType()->compound.signature, vm);
 				push(CarbonObject((CarbonObj *) bltin));
+				frame->ip += 2;
+				break;
+			}
+			case OpIs: {
 				frame->ip++;
+				CarbonValueType *wanted = ReadType();
+				CarbonObj *object = pop().obj;
+				push(CarbonBool(isInstance(object, wanted)));
+				frame->ip += 2;
+				break;
+			}
+			case OpCastcheck: {
+				frame->ip++;
+				CarbonValueType *wanted = ReadType();
+				CarbonObj *object = peek().obj;
+				if (!isInstance(object, wanted))
+					return runtimeError("Cast failed", vm);
+				frame->ip += 2;
 				break;
 			}
 		}

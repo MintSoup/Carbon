@@ -105,6 +105,7 @@ static void sync(CarbonParser *p) {
 			case TokenBool:
 			case TokenGenerator:
 			case TokenArray:
+			case TokenObject:
 				if (peekn(1, p).type == TokenIdentifier ||
 					peekn(1, p).type == TokenGreaterThan) {
 					p->panic = false;
@@ -207,6 +208,7 @@ static bool isTypename(CarbonToken token) {
 		case TokenFunction:
 		case TokenArray:
 		case TokenGenerator:
+		case TokenObject:
 			return true;
 		default:
 			return false;
@@ -608,8 +610,12 @@ static CarbonExpr *equality(CarbonParser *p) {
 static CarbonExpr *comparison(CarbonParser *p) {
 	CarbonExpr *expr = addition(p);
 	while (match(TokenGreaterThan, p) || match(TokenLessThan, p) ||
-		   match(TokenLEQ, p) || match(TokenGEQ, p)) {
+		   match(TokenLEQ, p) || match(TokenGEQ, p) || match(TokenIs, p)) {
 		CarbonToken tok = previous(p);
+		if (tok.type == TokenIs) {
+			expr = (CarbonExpr *) carbon_newIsExpr(expr, parseType(p), tok);
+			break;
+		}
 		expr = (CarbonExpr *) carbon_newBinaryExpr(expr, addition(p), tok);
 	}
 	return expr;

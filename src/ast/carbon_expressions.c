@@ -130,6 +130,27 @@ CarbonExprDot *carbon_newDotExpr(CarbonExpr *left, CarbonToken right,
 	return node;
 }
 
+CarbonExprIs *carbon_newIsExpr(CarbonExpr *left, CarbonTypename type,
+							   CarbonToken tok) {
+	CarbonExprIs *is = (CarbonExprIs *) allocateNode(CarbonExprIs, ExprIs);
+	is->left = left;
+	is->right = type;
+	is->tok = tok;
+	return is;
+}
+
+void carbon_freeSignature(CarbonFunctionSignature *sig) {
+	if (sig->returnType != NULL) {
+		carbon_freeType(*sig->returnType);
+		carbon_reallocate(sizeof(CarbonValueType), 0, sig->returnType);
+	}
+	for (uint8_t i = 0; i < sig->arity; i++) {
+		carbon_freeType(sig->arguments[i]);
+	}
+	carbon_reallocate(sig->arity * sizeof(CarbonValueType), 0, sig->arguments);
+	carbon_reallocate(sizeof(CarbonFunctionSignature), 0, sig);
+}
+
 void carbon_freeType(CarbonValueType t) {
 	if (t.compound.memberType == NULL)
 		return;
@@ -142,20 +163,7 @@ void carbon_freeType(CarbonValueType t) {
 			break;
 		}
 		case ValueFunction: {
-			if (t.compound.signature->returnType != NULL) {
-				carbon_freeType(*t.compound.signature->returnType);
-				carbon_reallocate(sizeof(CarbonValueType), 0,
-								  t.compound.signature->returnType);
-			}
-			for (uint8_t i = 0; i < t.compound.signature->arity; i++) {
-				carbon_freeType(t.compound.signature->arguments[i]);
-			}
-			carbon_reallocate(t.compound.signature->arity *
-								  sizeof(CarbonValueType),
-							  0, t.compound.signature->arguments);
-
-			carbon_reallocate(sizeof(CarbonFunctionSignature), 0,
-							  t.compound.signature);
+			carbon_freeSignature(t.compound.signature);
 			break;
 		}
 		default:
@@ -299,37 +307,15 @@ void carbon_freeExpr(CarbonExpr *expr) {
 			carbon_reallocate(sizeof(CarbonExprDot), 0, expr);
 			break;
 		}
+		case ExprIs: {
+			castNode(CarbonExprIs, is);
+			carbon_freeExpr(is->left);
+			carbon_freeTypename(is->right);
+			carbon_reallocate(sizeof(CarbonExprIs), 0, expr);
+			break;
+		}
 	}
 #undef castNode
-}
-
-bool carbon_typesEqual(CarbonValueType a, CarbonValueType b) {
-	if (a.tag != b.tag)
-		return false;
-	switch (a.tag) {
-		case ValueFunction: {
-			if (a.compound.signature->arity != b.compound.signature->arity)
-				return false;
-			if (!carbon_typesEqual(*a.compound.signature->returnType,
-								   *b.compound.signature->returnType))
-				return false;
-			for (uint8_t i = 0; i < a.compound.signature->arity; i++)
-				if (!carbon_typesEqual(a.compound.signature->arguments[i],
-									   b.compound.signature->arguments[i]))
-					return false;
-			return true;
-		}
-		case ValueGenerator:
-		case ValueArray: {
-			return carbon_typesEqual(*a.compound.memberType,
-									 *b.compound.memberType);
-		}
-		case ValueInstance: {
-			return a.compound.instanceName == b.compound.instanceName;
-		}
-		default:
-			return true;
-	}
 }
 
 void carbon_freeTypename(CarbonTypename t) {

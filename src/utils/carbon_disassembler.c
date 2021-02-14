@@ -1,8 +1,8 @@
 #include "carbon_object.h"
+#include "carbon_value.h"
 #include "utils/carbon_commons.h"
 #include "utils/carbon_disassembler.h"
 #include "vm/carbon_chunk.h"
-#include <stdio.h>
 
 extern char *CarbonValueTypeLexeme[];
 
@@ -27,6 +27,8 @@ static char *names[] = {
 	[OpInitArray] = "initarr",
 	[OpMakeGenerator] = "mkgen",
 	[OpBuiltin] = "builtin",
+	[OpIs] = "is",
+	[OpCastcheck] = "castchk",
 
 	// Binary Operations
 	[OpAddInt] = "iadd",
@@ -87,9 +89,7 @@ static char *names[] = {
 
 };
 
-char* builtinFunctionNames[] = {
-	[BuiltinAppend] = "append"
-};
+char *builtinFunctionNames[] = {[BuiltinAppend] = "append"};
 
 void carbon_disassemble(CarbonChunk *chunk) {
 	uint32_t instructionNumber = 0;
@@ -165,7 +165,7 @@ void carbon_disassemble(CarbonChunk *chunk) {
 			case OpIf:
 			case OpLoop:
 			case OpJump:
-			case OpFor:
+			case OpFor: {
 				ip++;
 				uint8_t higher = *ip;
 				ip++;
@@ -173,26 +173,87 @@ void carbon_disassemble(CarbonChunk *chunk) {
 				printf("\t%d", (higher << 8) | lower);
 				ip++;
 				break;
+			}
 			case OpMakeGenerator:
-			case OpMakeArray64:
+			case OpMakeArray64: {
 				ip++;
-				printf("\t%s", CarbonValueTypeLexeme[*ip]);
+				uint8_t higher = *ip;
 				ip++;
-				break;
-			case OpMakeArray:
-				ip++;
-				printf("\t%u", *ip);
-				ip++;
-				printf("\t%s", CarbonValueTypeLexeme[*ip]);
+				uint8_t lower = *ip;
+				printf("\t");
+				carbon_printType(stdout,
+								 chunk->typeData[(higher << 8) | lower]);
 				ip++;
 				break;
-			case OpBuiltin:
+			}
+			case OpMakeArray: {
 				ip++;
-				printf("\t%s", builtinFunctionNames[*ip]);
+				printf("\t%u\t", *ip);
+				ip++;
+				uint8_t higher = *ip;
+				ip++;
+				uint8_t lower = *ip;
+				carbon_printType(stdout,
+								 chunk->typeData[(higher << 8) | lower]);
 				ip++;
 				break;
+			}
+			case OpBuiltin: {
+				ip++;
+				printf("\t%s\t", builtinFunctionNames[*ip]);
+				ip += 3;
+				break;
+			}
+			case OpIs:
+			case OpCastcheck: {
+				ip++;
+				printf("\t");
+				uint8_t higher = *ip;
+				ip++;
+				uint8_t lower = *ip;
+				carbon_printType(stdout,
+								 chunk->typeData[(higher << 8) | lower]);
+				ip++;
+				break;
+			}
 		}
 		puts("");
 		instructionNumber++;
 	}
+}
+
+static void printSig(FILE *f, CarbonFunctionSignature sig) {
+	fprintf(f, "<");
+	carbon_printType(f, *sig.returnType);
+	if (sig.arity > 0)
+		fprintf(f, ", ");
+
+	for (uint8_t i = 0; i < sig.arity; i++) {
+		carbon_printType(f, sig.arguments[i]);
+		if (i + 1 < sig.arity)
+			fprintf(f, ", ");
+	}
+	fprintf(f, ">");
+}
+
+void carbon_printType(FILE *f, CarbonValueType type) {
+	if (type.tag != ValueInstance)
+		fprintf(f, "%s", CarbonValueTypeLexeme[type.tag]);
+	else
+		fprintf(f, "%s", type.compound.instanceName->chars);
+
+	if (type.compound.memberType != NULL)
+		switch (type.tag) {
+			case ValueGenerator:
+			case ValueArray:
+				fprintf(f, "<");
+				carbon_printType(f, *type.compound.memberType);
+				fprintf(f, ">");
+				break;
+			case ValueFunction:
+				printSig(f, *type.compound.signature);
+				break;
+			default:
+				break;
+		}
 }

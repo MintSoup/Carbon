@@ -4,6 +4,7 @@
 
 typedef struct carbon_object CarbonObj;
 typedef struct carbon_valueType CarbonValueType;
+typedef struct carbon_string CarbonString;
 
 typedef struct {
 	CarbonValueType *returnType;
@@ -18,9 +19,9 @@ typedef struct carbon_valueType {
 		struct carbon_string *instanceName;
 	} compound;
 	enum CarbonValueTag {
-		ValueUInt,	 // The order of these three is important
-		ValueInt,	 // The order of these three is important
-		ValueDouble, // The order of these three is important
+		ValueUInt,	 // -|
+		ValueInt,	 //	 |--- The order of these three is important
+		ValueDouble, // -|
 		ValueBool,
 		ValueString,
 		ValueInstance,
@@ -28,6 +29,7 @@ typedef struct carbon_valueType {
 		ValueArray,
 		ValueGenerator,
 		ValueFunction,
+		ValueObject,
 		ValueError,
 		ValueVoid,
 		ValueUnresolved,
@@ -53,6 +55,11 @@ typedef struct {
 uint16_t carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val);
 void carbon_initValueArray(CarbonValueArray *arr);
 void carbon_freeCarbonValueArray(CarbonValueArray *arr);
+bool carbon_typesEqual(CarbonValueType a, CarbonValueType b);
+bool carbon_canAssign(CarbonValueType to, CarbonValueType from);
+static bool inline isObject(CarbonValueType type) {
+	return type.tag >= ValueString && type.tag <= ValueError;
+}
 
 #define CarbonInt(x)                                                           \
 	(CarbonValue) { .sint = x }

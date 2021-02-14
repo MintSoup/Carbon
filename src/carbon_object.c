@@ -1,4 +1,5 @@
 #include "carbon_object.h"
+#include "ast/carbon_expressions.h"
 #include "carbon_value.h"
 #include "utils/carbon_memory.h"
 #include "vm/carbon_chunk.h"
@@ -72,19 +73,19 @@ CarbonString *carbon_strFromToken(CarbonToken token, CarbonVM *vm) {
 }
 
 CarbonFunction *carbon_newFunction(CarbonString *name, uint32_t arity,
-								   CarbonValueType returnType, CarbonVM *vm) {
+								   CarbonFunctionSignature *sig, CarbonVM *vm) {
 	CarbonFunction *func =
 		(CarbonFunction *) ALLOC(CarbonFunction, CrbnObjFunc);
 	func->arity = arity;
 	func->name = name;
-	func->returnType = returnType;
+	func->sig = sig;
 	carbon_initChunk(&func->chunk);
 	return func;
 }
-CarbonArray *carbon_newArray(uint64_t initSize, enum CarbonValueTag type,
+CarbonArray *carbon_newArray(uint64_t initSize, CarbonValueType *type,
 							 CarbonVM *vm) {
 	CarbonArray *arr = (CarbonArray *) ALLOC(CarbonArray, CrbnObjArray);
-	arr->type = type;
+	arr->member = type;
 	arr->count = 0;
 	arr->capacity = initSize;
 	arr->members =
@@ -93,11 +94,11 @@ CarbonArray *carbon_newArray(uint64_t initSize, enum CarbonValueTag type,
 }
 
 CarbonGenerator *carbon_newGenerator(CarbonValue first, CarbonValue last,
-									 CarbonValue delta,
-									 enum CarbonValueTag type, CarbonVM *vm) {
+									 CarbonValue delta, CarbonValueType *type,
+									 CarbonVM *vm) {
 	if (last.uint == first.uint)
 		return NULL;
-	switch (type) {
+	switch (type->tag) {
 		case ValueUInt:
 			if (delta.uint == 0)
 				return NULL;
@@ -123,7 +124,7 @@ CarbonGenerator *carbon_newGenerator(CarbonValue first, CarbonValue last,
 	gen->delta = delta;
 	gen->type = type;
 
-	switch (type) {
+	switch (type->tag) {
 		case ValueUInt:
 			gen->n = ceil((float) (last.uint - first.uint) / delta.uint);
 			break;
@@ -142,11 +143,12 @@ CarbonGenerator *carbon_newGenerator(CarbonValue first, CarbonValue last,
 CarbonBuiltin *carbon_newBuiltin(CarbonObj *parent,
 								 char *(*func)(CarbonObj *, CarbonValue *,
 											   CarbonVM *vm),
-								 CarbonVM *vm) {
+								 CarbonFunctionSignature *sig, CarbonVM *vm) {
 	CarbonBuiltin *bltin =
 		(CarbonBuiltin *) ALLOC(CarbonBuiltin, CrbnObjBuiltin);
 	bltin->func = func;
 	bltin->parent = parent;
+	bltin->sig = sig;
 	return bltin;
 }
 

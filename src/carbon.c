@@ -31,8 +31,7 @@ CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
 			carbon_stmtList_add(&instance->statements, stmt);
 	}
 
-	CarbonValueType v0id = {.tag = ValueVoid};
-	CarbonFunction *topLevel = carbon_newFunction(NULL, 0, v0id, &instance->vm);
+	CarbonFunction *topLevel = carbon_newFunction(NULL, 0, NULL, &instance->vm);
 
 	for (uint32_t i = 0; i < instance->statements.count; i++) {
 		CarbonStmt *stmt = instance->statements.arr[i];

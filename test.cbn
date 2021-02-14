@@ -1,17 +1,20 @@
 void main():
-	array<uint> primes = [<uint, 0, 16>]
-	function<void, uint> app = primes.append
-	for g in [4 .. 1000]:
-		if prime(g): app(g); end
-	end
-	print(primes)
+	polymorph('lol')
+	polymorph([3, 5, 2])
+	polymorph([3..6])
+	polymorph(main)
 end
 
-
-bool prime(uint a):
-	for i in [2 .. a / 2 + 1]:
-		if a % i == 0: return false; end
+void polymorph(object o):
+	if o is string:
+		print('Your string was ' + (string) o)
+	elif o is array<uint>:
+		print(o)
+	elif o is generator<uint>:
+		for g in (generator<uint>) o:
+			print(g * 3)	
+		end
+	else:
+		print('Unknown Type')
 	end
-	return true
 end
-

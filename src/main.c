@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
 			if (!carbon_isPrimitive(&instance, "main"))
 				if (mainFunction.obj->type == CrbnObjFunc) {
 					CarbonFunction *func = (CarbonFunction *) mainFunction.obj;
-					if (func->arity == 0 && func->returnType.tag == ValueVoid) {
+					if (func->arity == 0 && func->sig->returnType->tag == ValueVoid) {
 						if (!flags.norun)
 							carbon_run(&instance.vm, func);
 						success = true;

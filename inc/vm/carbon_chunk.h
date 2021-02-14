@@ -9,6 +9,8 @@ typedef enum {
 	OpCall,
 	OpLen,
 	OpBuiltin,
+	OpIs,
+	OpCastcheck,
 
 	// Constants
 	OpLoadConstant,
@@ -100,9 +102,13 @@ typedef struct {
 	uint32_t capacity;
 	uint32_t count;
 	CarbonValueArray constants;
+	uint16_t typeCount;
+	uint16_t typeCapacity;
+	CarbonValueType *typeData;
 } CarbonChunk;
 
 void carbon_initChunk(CarbonChunk *chunk);
 void carbon_writeToChunk(CarbonChunk *chunk, uint8_t data, uint32_t line);
 void carbon_freeChunk(CarbonChunk *chunk);
+uint16_t carbon_pushType(CarbonChunk *chunk, CarbonValueType type);
 uint16_t carbon_addConstant(CarbonChunk *chunk, CarbonValue constant);

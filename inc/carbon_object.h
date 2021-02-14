@@ -31,7 +31,7 @@ typedef struct carbon_function {
 	CarbonObj obj;
 	CarbonChunk chunk;
 	CarbonString *name;
-	CarbonValueType returnType;
+	CarbonFunctionSignature *sig;
 	uint16_t arity;
 } CarbonFunction;
 
@@ -40,7 +40,7 @@ typedef struct {
 	CarbonValue *members;
 	uint64_t count;
 	uint64_t capacity;
-	enum CarbonValueTag type;
+	CarbonValueType *member;
 } CarbonArray;
 
 typedef struct {
@@ -48,30 +48,31 @@ typedef struct {
 	CarbonValue first;
 	CarbonValue last;
 	CarbonValue delta;
+	CarbonValueType *type;
 	uint64_t n;
-	enum CarbonValueTag type;
 } CarbonGenerator;
 
 typedef struct {
 	CarbonObj obj;
-	CarbonObj* parent;
+	CarbonObj *parent;
+	CarbonFunctionSignature *sig;
 	char *(*func)(CarbonObj *, CarbonValue *, CarbonVM *);
 } CarbonBuiltin;
 
 CarbonString *carbon_copyString(char *chars, uint32_t length, CarbonVM *vm);
 CarbonString *carbon_takeString(char *chars, uint32_t length, CarbonVM *vm);
 CarbonString *carbon_strFromToken(CarbonToken token, CarbonVM *vm);
-
 CarbonFunction *carbon_newFunction(CarbonString *name, uint32_t arity,
-								   CarbonValueType returnType, CarbonVM *vm);
-CarbonArray *carbon_newArray(uint64_t initSize, enum CarbonValueTag type,
+								   CarbonFunctionSignature *sig, CarbonVM *vm);
+CarbonArray *carbon_newArray(uint64_t initSize, CarbonValueType *type,
 							 CarbonVM *vm);
 CarbonGenerator *carbon_newGenerator(CarbonValue first, CarbonValue last,
-									 CarbonValue delta,
-									 enum CarbonValueTag type, CarbonVM *vm);
-CarbonBuiltin *carbon_newBuiltin(CarbonObj* parent, char *(*func)(CarbonObj *, CarbonValue *,
+									 CarbonValue delta, CarbonValueType *type,
+									 CarbonVM *vm);
+CarbonBuiltin *carbon_newBuiltin(CarbonObj *parent,
+								 char *(*func)(CarbonObj *, CarbonValue *,
 											   CarbonVM *vm),
-								 CarbonVM *vm);
+								 CarbonFunctionSignature *sig, CarbonVM *vm);
 
 char *carbon_appendArray(CarbonObj *arr, CarbonValue *args, CarbonVM *vm);
 
