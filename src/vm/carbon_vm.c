@@ -840,16 +840,20 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 			}
 			case OpIs: {
 				frame->ip++;
-				CarbonValueType *wanted = ReadType();
 				CarbonObj *object = pop().obj;
+				if (nullcheck(object, "Cannot check type of a null object", vm))
+					return Carbon_Runtime_Error;
+				CarbonValueType *wanted = ReadType();
 				push(CarbonBool(isInstance(object, wanted)));
 				frame->ip += 2;
 				break;
 			}
 			case OpCastcheck: {
 				frame->ip++;
-				CarbonValueType *wanted = ReadType();
 				CarbonObj *object = peek().obj;
+				if (nullcheck(object, "Cannot cast a null object", vm))
+					return Carbon_Runtime_Error;
+				CarbonValueType *wanted = ReadType();
 				if (!isInstance(object, wanted))
 					return runtimeError("Cast failed", vm);
 				frame->ip += 2;
