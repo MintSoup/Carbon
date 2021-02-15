@@ -380,14 +380,21 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 		switch (*frame->ip) {
 			case OpReturnVoid:
 				vm->callDepth--;
-				vm->stackTop = frame->slots - vm->stack;
-				frame = &vm->callStack[vm->callDepth - 1];
-				if (vm->callDepth == 0)
+				if (vm->callDepth == 0) {
+					vm->stackTop = 0;
 					return Carbon_OK;
+				}
+				vm->stackTop = frame->slots - vm->stack - 1;
+				frame = &vm->callStack[vm->callDepth - 1];
 				break;
 			case OpReturn: {
 				CarbonValue v = peek();
 				vm->callDepth--;
+				if (vm->callDepth == 0) {
+					vm->stackTop = 1;
+					vm->stack[0] = v;
+					return Carbon_OK;
+				}
 				vm->stackTop = frame->slots - vm->stack - 1;
 				frame = &vm->callStack[vm->callDepth - 1];
 				push(v);
@@ -871,4 +878,5 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 #undef cast
 #undef ReadConstant8
 #undef ReadConstant16
+#undef ReadType
 }

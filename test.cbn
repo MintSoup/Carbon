@@ -1,8 +1,9 @@
 void main():
-	polymorph('lol')
-	polymorph([3, 5, 2])
-	polymorph([3..6])
 	polymorph(main)
+	print(3)
+
+	int g = 3.2 as int
+	print(g)
 end
 
 void polymorph(object o):

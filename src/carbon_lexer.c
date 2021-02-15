@@ -114,6 +114,12 @@ static bool canEndStatement(CarbonTokenType type) {
 		case TokenTrue:
 		case TokenFalse:
 		case TokenNull:
+		case TokenUInt:
+		case TokenInt:
+		case TokenString:
+		case TokenBool:
+		case TokenDouble:
+		case TokenObject:
 			return true;
 		default:
 			return false;
