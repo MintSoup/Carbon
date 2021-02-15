@@ -13,6 +13,7 @@ struct Identifier identifierList[] = {
 	{.name = "and", .type = TokenAnd},
 	{.name = "or", .type = TokenOr},
 	{.name = "is", .type = TokenIs},
+	{.name = "as", .type = TokenAs},
 
 	{.name = "bool", .type = TokenBool},
 	{.name = "uint", .type = TokenUInt},

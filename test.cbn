@@ -7,11 +7,11 @@ end
 
 void polymorph(object o):
 	if o is string:
-		print('Your string was ' + (string) o)
+		print('Your string was ' + o as string)
 	elif o is array<uint>:
 		print(o)
 	elif o is generator<uint>:
-		for g in (generator<uint>) o:
+		for g in o as generator<uint>:
 			print(g * 3)	
 		end
 	else:

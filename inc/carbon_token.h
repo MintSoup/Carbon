@@ -43,6 +43,7 @@ typedef enum {
 	TokenWhile,
 	TokenAnd,
 	TokenIs,
+	TokenAs,
 	TokenOr,
 	TokenEnd,
 	TokenComma,

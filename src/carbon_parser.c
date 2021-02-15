@@ -106,8 +106,7 @@ static void sync(CarbonParser *p) {
 			case TokenGenerator:
 			case TokenArray:
 			case TokenObject:
-				if (peekn(1, p).type == TokenIdentifier ||
-					peekn(1, p).type == TokenGreaterThan) {
+				if (peekn(1, p).type == TokenIdentifier) {
 					p->panic = false;
 					return;
 				}
@@ -233,6 +232,7 @@ static CarbonExpr *equality(CarbonParser *p);
 static CarbonExpr *comparison(CarbonParser *p);
 static CarbonExpr *addition(CarbonParser *p);
 static CarbonExpr *multiplication(CarbonParser *p);
+static CarbonExpr *cast(CarbonParser *p);
 static CarbonExpr *unary(CarbonParser *p);
 static CarbonExpr *postfix(CarbonParser *p);
 static CarbonExpr *primary(CarbonParser *p);
@@ -632,11 +632,20 @@ static CarbonExpr *addition(CarbonParser *p) {
 }
 
 static CarbonExpr *multiplication(CarbonParser *p) {
-	CarbonExpr *expr = unary(p);
+	CarbonExpr *expr = cast(p);
 	while (match(TokenStar, p) || match(TokenSlash, p) ||
 		   match(TokenPercent, p)) {
 		CarbonToken tok = previous(p);
-		expr = (CarbonExpr *) carbon_newBinaryExpr(expr, unary(p), tok);
+		expr = (CarbonExpr *) carbon_newBinaryExpr(expr, cast(p), tok);
+	}
+	return expr;
+}
+
+static CarbonExpr *cast(CarbonParser *p) {
+	CarbonExpr *expr = unary(p);
+	if (match(TokenAs, p)) {
+		CarbonTypename to = parseType(p);
+		expr = (CarbonExpr *) carbon_newCastExpr(to, expr);
 	}
 	return expr;
 }
@@ -645,14 +654,6 @@ static CarbonExpr *unary(CarbonParser *p) {
 	if (match(TokenBang, p) || match(TokenMinus, p)) {
 		CarbonToken tok = previous(p);
 		return (CarbonExpr *) carbon_newUnaryExpr(unary(p), tok);
-	}
-	if (peek(p).type == TokenLeftParen) {
-		if (isTypename(peekn(1, p)) && peekn(1, p).type != TokenVoid) {
-			next(p);
-			CarbonTypename to = parseType(p);
-			consume(TokenRightParen, "Expected ')' after cast type", p);
-			return (CarbonExpr *) carbon_newCastExpr(to, unary(p));
-		}
 	}
 	return postfix(p);
 }
