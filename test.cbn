@@ -1,21 +1,27 @@
 void main():
-	polymorph(main)
-	print(3)
+	@Vector self = @Vector(1.5, 1.6)	
+	self.out()
+	call(self.out)
+	self.Vector(1, 6)
+	self.out()
 
-	int g = 3.2 as int
-	print(g)
 end
 
-void polymorph(object o):
-	if o is string:
-		print('Your string was ' + o as string)
-	elif o is array<uint>:
-		print(o)
-	elif o is generator<uint>:
-		for g in o as generator<uint>:
-			print(g * 3)	
-		end
-	else:
-		print('Unknown Type')
+void call(function<void> a):
+	a()
+end
+
+class @Vector:
+	double x
+	double y
+	void Vector(double x, double y):
+		self.x = x
+		self.y = y
+	end
+	void out():
+		print(self.x)
+		print(self.y)
+		self.x += 1
+		self.y += 1
 	end
 end

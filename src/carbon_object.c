@@ -152,6 +152,22 @@ CarbonBuiltin *carbon_newBuiltin(CarbonObj *parent,
 	return bltin;
 }
 
+CarbonInstance *carbon_newInstance(uint8_t type, CarbonVM *vm) {
+	CarbonInstance *inst =
+		(CarbonInstance *) ALLOC(CarbonInstance, CrbnObjInstance);
+	inst->type = type;
+	inst->fields = carbon_reallocateObj(
+		0, sizeof(CarbonValue) * vm->classes[type].fieldCount, NULL, vm);
+	return inst;
+}
+CarbonMethod *carbon_newMethod(CarbonInstance *parent, CarbonFunction *func,
+							   CarbonVM *vm) {
+	CarbonMethod *method = (CarbonMethod *) ALLOC(CarbonMethod, CrbnObjMethod);
+	method->func = func;
+	method->parent = parent;
+	return method;
+}
+
 char *carbon_appendArray(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
 	CarbonArray *arr = (CarbonArray *) parent;
 	if (arr == NULL)
@@ -214,6 +230,18 @@ void carbon_freeObject(CarbonObj *obj, CarbonVM *vm) {
 		}
 		case CrbnObjBuiltin: {
 			carbon_reallocateObj(sizeof(CarbonBuiltin), 0, obj, vm);
+			break;
+		}
+		case CrbnObjInstance: {
+			castObj(CarbonInstance, inst);
+			carbon_reallocateObj(sizeof(CarbonValue) *
+									 vm->classes[inst->type].fieldCount,
+								 0, inst->fields, vm);
+			carbon_reallocateObj(sizeof(CarbonInstance), 0, obj, vm);
+			break;
+		}
+		case CrbnObjMethod: {
+			carbon_reallocateObj(sizeof(CarbonMethod), 0, obj, vm);
 			break;
 		}
 	}

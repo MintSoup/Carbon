@@ -60,10 +60,7 @@ typedef enum {
 	TokenBool,
 	TokenQuestion,
 	TokenClass,
-	TokenAbstract,
 	TokenSuper,
-	TokenPrivate,
-	TokenSelf,
 	ErrorToken,
 	TokenEOF,
 	TokenEOS,
@@ -75,6 +72,7 @@ typedef enum {
 	TokenPrint,
 	TokenVoid,
 	TokenNull,
+	TokenClassname,
 	TokenNone
 } CarbonTokenType;
 

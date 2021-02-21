@@ -22,7 +22,9 @@ typedef enum {
 	ExprIndex,
 	ExprIndexAssignment,
 	ExprDot,
-	ExprIs
+	ExprDotAssignment,
+	ExprIs,
+	ExprInit
 } CarbonExprType;
 
 typedef struct {
@@ -126,6 +128,13 @@ typedef struct {
 	CarbonToken tok;
 } CarbonExprIs;
 
+typedef struct {
+	CarbonExpr expr;
+	CarbonExprDot* left;
+	CarbonExpr* right;
+	CarbonToken equals;
+} CarbonExprDotAssignment;
+
 CarbonExprBinary *carbon_newBinaryExpr(CarbonExpr *left, CarbonExpr *right,
 									   CarbonToken op);
 
@@ -150,10 +159,12 @@ CarbonExprIndex *carbon_newIndexExpr(CarbonExpr *object, CarbonExpr *index,
 
 CarbonExprDot *carbon_newDotExpr(CarbonExpr *left, CarbonToken right,
 								 CarbonToken dot);
+CarbonExprDotAssignment *carbon_newDotAssignmentExpr(CarbonExprDot *left, CarbonExpr* right,
+								 CarbonToken equals);
 CarbonExprIs *carbon_newIsExpr(CarbonExpr *left, CarbonTypename type,
 							   CarbonToken is);
 
-void carbon_freeSignature(CarbonFunctionSignature *sig);
+void carbon_freeSignature(CarbonFunctionSignature sig);
 void carbon_freeExpr(CarbonExpr *expr);
 void carbon_freeTypename(CarbonTypename t);
 void carbon_freeType(CarbonValueType t);

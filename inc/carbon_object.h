@@ -1,5 +1,6 @@
 #pragma once
 
+#include "carbon.h"
 #include "carbon_value.h"
 #include "utils/carbon_commons.h"
 #include "vm/carbon_chunk.h"
@@ -13,7 +14,9 @@ typedef enum {
 	CrbnObjFunc,
 	CrbnObjArray,
 	CrbnObjGenerator,
-	CrbnObjBuiltin
+	CrbnObjBuiltin,
+	CrbnObjInstance,
+	CrbnObjMethod,
 } CarbonObjectType;
 
 typedef struct carbon_object {
@@ -59,6 +62,18 @@ typedef struct {
 	char *(*func)(CarbonObj *, CarbonValue *, CarbonVM *);
 } CarbonBuiltin;
 
+typedef struct {
+	CarbonObj obj;
+	CarbonValue *fields;
+	uint8_t type;
+} CarbonInstance;
+
+typedef struct {
+	CarbonObj obj;
+	CarbonFunction *func;
+	CarbonInstance *parent;
+} CarbonMethod;
+
 CarbonString *carbon_copyString(char *chars, uint32_t length, CarbonVM *vm);
 CarbonString *carbon_takeString(char *chars, uint32_t length, CarbonVM *vm);
 CarbonString *carbon_strFromToken(CarbonToken token, CarbonVM *vm);
@@ -73,6 +88,9 @@ CarbonBuiltin *carbon_newBuiltin(CarbonObj *parent,
 								 char *(*func)(CarbonObj *, CarbonValue *,
 											   CarbonVM *vm),
 								 CarbonFunctionSignature *sig, CarbonVM *vm);
+CarbonInstance *carbon_newInstance(uint8_t type, CarbonVM *vm);
+CarbonMethod *carbon_newMethod(CarbonInstance *parent, CarbonFunction *func,
+							   CarbonVM *vm);
 
 char *carbon_appendArray(CarbonObj *arr, CarbonValue *args, CarbonVM *vm);
 

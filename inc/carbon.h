@@ -12,7 +12,7 @@ typedef struct {
 	CarbonCompiler compiler;
 	CarbonVM vm;
 	CarbonStmtList statements;
-} CarbonInstance;
+} CarbonState;
 
 typedef enum carbon_runresult {
 	Carbon_OK,
@@ -26,9 +26,9 @@ struct CarbonFlags {
 	bool norun;
 };
 
-CarbonRunResult carbon_execute(CarbonInstance *instance, char *source,
+CarbonRunResult carbon_execute(CarbonState *instance, char *source,
 							   uint32_t length, struct CarbonFlags flags);
-void carbon_init(CarbonInstance *instance);
-void carbon_free(CarbonInstance *instance);
-bool carbon_isPrimitive(CarbonInstance *instance, char *name) ;
-bool carbon_getValue(CarbonInstance *instance, char *name, CarbonValue *out) ;
+void carbon_init(CarbonState *instance);
+void carbon_free(CarbonState *instance);
+bool carbon_isPrimitive(CarbonState *instance, char *name) ;
+bool carbon_getValue(CarbonState *instance, char *name, CarbonValue *out) ;

@@ -106,10 +106,12 @@ static void sync(CarbonParser *p) {
 			case TokenGenerator:
 			case TokenArray:
 			case TokenObject:
+			case TokenClassname:
 				if (peekn(1, p).type == TokenIdentifier) {
 					p->panic = false;
 					return;
 				}
+
 			default:
 				next(p);
 		}
@@ -208,6 +210,7 @@ static bool isTypename(CarbonToken token) {
 		case TokenArray:
 		case TokenGenerator:
 		case TokenObject:
+		case TokenClassname:
 			return true;
 		default:
 			return false;
@@ -224,6 +227,7 @@ static CarbonStmtReturn *returnStatement(CarbonParser *p);
 static CarbonStmtPrint *printStatement(CarbonParser *p);
 static CarbonStmtExpr *expressionStatement(CarbonParser *p);
 static CarbonStmtVarDec *varDeclaration(CarbonTypename type, CarbonParser *p);
+static CarbonStmtClass *classDeclaration(CarbonParser *p);
 
 static CarbonExpr *logicalOr(CarbonParser *p);
 static CarbonExpr *logicalAnd(CarbonParser *p);
@@ -317,6 +321,8 @@ CarbonStmt *carbon_parseStatement(CarbonParser *p) {
 		if (n.type == TokenVoid || paren.type == TokenLeftParen)
 			return (CarbonStmt *) funcDeclaration(type, p);
 		return (CarbonStmt *) varDeclaration(type, p);
+	} else if (n.type == TokenClass) {
+		return (CarbonStmt *) classDeclaration(p);
 	} else {
 		next(p);
 		error(previous(p), "Only declarations are allowed in top-level code.",
@@ -327,6 +333,45 @@ CarbonStmt *carbon_parseStatement(CarbonParser *p) {
 
 CarbonExpr *carbon_parseExpression(CarbonParser *p) {
 	return expression(p);
+}
+
+static CarbonStmtClass *classDeclaration(CarbonParser *p) {
+	next(p);
+	consume(TokenClassname, "Expected a class name after 'class'", p);
+	CarbonStmtClass *class = carbon_newClassStmt(previous(p));
+	if (match(TokenLessThan, p)) {
+		consume(TokenClassname,
+				"Expected a class name after '<' to denote superclass", p);
+		class->superclass = previous(p);
+		class->hasSuperclass = true;
+	}
+	consume(TokenColon, "Expected ':' after class declaration", p);
+
+	while (!match(TokenEnd, p)) {
+		if (p->panic)
+			sync(p);
+		CarbonToken n = peek(p);
+		if (n.type == TokenEOF) {
+			errorAtCurrent("Unexpted EOF while parsing class body", p);
+			return class;
+		} else if (isTypename(n)) {
+			CarbonTypename type = parseType(p);
+			CarbonToken paren = peekn(1, p);
+			if (n.type == TokenVoid || paren.type == TokenLeftParen)
+				carbon_stmtList_add(&class->statements,
+									(CarbonStmt *) funcDeclaration(type, p));
+			else
+				carbon_stmtList_add(&class->statements,
+									(CarbonStmt *) varDeclaration(type, p));
+		} else {
+			next(p);
+			error(previous(p),
+				  "Only variable and function definitions are allowed in class "
+				  "bodies.",
+				  p);
+		}
+	}
+	return class;
 }
 
 static CarbonStmtBreak *breakStatement(CarbonParser *p) {
@@ -429,7 +474,8 @@ static CarbonStmtWhile *whileStatement(CarbonParser *p) {
 
 static CarbonStmtFunc *funcDeclaration(CarbonTypename returnType,
 									   CarbonParser *p) {
-	CarbonToken identifier = next(p);
+	consume(TokenIdentifier, "Expected identifier after function type", p);
+	CarbonToken identifier = previous(p);
 	consume(TokenLeftParen, "Expected '(' after function identifier.", p);
 	CarbonStmtFunc *func = carbon_newFuncStmt(returnType, identifier);
 	bool tooMany = false;
@@ -571,6 +617,9 @@ static CarbonExpr *assignment(CarbonParser *p) {
 			case ExprIndex:
 				return (CarbonExpr *) carbon_newIndexAssignmentExpr(
 					(CarbonExprIndex *) target, value, equals);
+			case ExprDot:
+				return (CarbonExpr *) carbon_newDotAssignmentExpr(
+					(CarbonExprDot *) target, value, equals);
 
 			default:
 				error(equals, "Invalid assignment target", p);
@@ -658,54 +707,56 @@ static CarbonExpr *unary(CarbonParser *p) {
 	return postfix(p);
 }
 
+static CarbonExprCall *call(CarbonExpr *expr, CarbonParser *p) {
+	CarbonExprCall *call = carbon_newCallExpr(expr, previous(p).line);
+	bool tooMany = false;
+	if (!match(TokenRightParen, p)) {
+		do {
+			if (!tooMany && call->arity == 255) {
+				errorAtCurrent("Functions can have a maximum of 255 arguments.",
+							   p);
+				tooMany = true;
+			}
+			CarbonExpr *e = expression(p);
+			if (tooMany) {
+				carbon_freeExpr(e);
+				continue;
+			}
+			if (e != NULL) {
+				if (call->arity == call->argumentCapacity) {
+					uint32_t oldSize =
+						call->argumentCapacity * sizeof(CarbonExpr *);
+					if (call->argumentCapacity == 0)
+						call->argumentCapacity = 4;
+					else
+						call->argumentCapacity *= 2;
+					uint32_t newSize =
+						call->argumentCapacity * sizeof(CarbonExpr *);
+					call->arguments =
+						carbon_reallocate(oldSize, newSize, call->arguments);
+				}
+				call->arguments[call->arity] = e;
+				call->arity++;
+			}
+		} while (match(TokenComma, p));
+		consume(TokenRightParen, "Expected ')' after function call arguments.",
+				p);
+	}
+
+	uint32_t oldSize = call->argumentCapacity * sizeof(CarbonExpr *);
+	uint32_t newSize = call->arity * sizeof(CarbonExpr *);
+	call->arguments = carbon_reallocate(oldSize, newSize, call->arguments);
+	call->argumentCapacity = call->arity;
+
+	return call;
+}
+
 static CarbonExpr *postfix(CarbonParser *p) {
 	CarbonExpr *expr = primary(p);
 	while (match(TokenLeftParen, p) || match(TokenLeftBracket, p) ||
 		   match(TokenDot, p)) {
 		if (previous(p).type == TokenLeftParen) {
-			CarbonExprCall *call = carbon_newCallExpr(expr, previous(p).line);
-			bool tooMany = false;
-			if (!match(TokenRightParen, p)) {
-				do {
-					if (!tooMany && call->arity == 255) {
-						errorAtCurrent(
-							"Functions can have a maximum of 255 arguments.",
-							p);
-						tooMany = true;
-					}
-					CarbonExpr *e = expression(p);
-					if (tooMany) {
-						carbon_freeExpr(e);
-						continue;
-					}
-					if (e != NULL) {
-						if (call->arity == call->argumentCapacity) {
-							uint32_t oldSize =
-								call->argumentCapacity * sizeof(CarbonExpr *);
-							if (call->argumentCapacity == 0)
-								call->argumentCapacity = 4;
-							else
-								call->argumentCapacity *= 2;
-							uint32_t newSize =
-								call->argumentCapacity * sizeof(CarbonExpr *);
-							call->arguments = carbon_reallocate(
-								oldSize, newSize, call->arguments);
-						}
-						call->arguments[call->arity] = e;
-						call->arity++;
-					}
-				} while (match(TokenComma, p));
-				consume(TokenRightParen,
-						"Expected ')' after function call arguments.", p);
-			}
-
-			uint32_t oldSize = call->argumentCapacity * sizeof(CarbonExpr *);
-			uint32_t newSize = call->arity * sizeof(CarbonExpr *);
-			call->arguments =
-				carbon_reallocate(oldSize, newSize, call->arguments);
-			call->argumentCapacity = call->arity;
-
-			expr = (CarbonExpr *) call;
+			expr = (CarbonExpr *) call(expr, p);
 		} else if (previous(p).type == TokenLeftBracket) {
 			CarbonToken bracket = previous(p);
 			CarbonExpr *i = expression(p);
@@ -714,7 +765,8 @@ static CarbonExpr *postfix(CarbonParser *p) {
 			expr = (CarbonExpr *) carbon_newIndexExpr(expr, i, bracket);
 		} else if (previous(p).type == TokenDot) {
 			CarbonToken dot = previous(p);
-			consume(TokenIdentifier, "Expected identifier after '.'", p);
+			if (!consume(TokenIdentifier, "Expected identifier after '.'", p))
+				next(p);
 			CarbonToken right = previous(p);
 			expr = (CarbonExpr *) carbon_newDotExpr(expr, right, dot);
 		}
@@ -811,6 +863,17 @@ static CarbonExpr *primary(CarbonParser *p) {
 			return (CarbonExpr *) array(p);
 		case TokenLeftAInit:
 			return (CarbonExpr *) arrayinit(p);
+		case TokenClassname: {
+			CarbonToken cn = next(p);
+			if (!match(TokenLeftParen, p)) {
+				errorAtCurrent("Expected '(' after class name", p);
+				return NULL;
+			}
+			CarbonExpr *e = (CarbonExpr *) call(
+				(CarbonExpr *) carbon_newLiteralExpr(cn), p);
+			e->type = ExprInit;
+			return e;
+		}
 
 		case TokenLeftParen: {
 			next(p);

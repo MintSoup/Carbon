@@ -14,12 +14,13 @@ typedef struct {
 typedef struct {
 	bool parserHadError;
 	bool hadError;
+	bool inMethod;
 	CarbonTable globals;
 	CarbonFunction *compilingTo;
 	CarbonLocal locals[256];
+	CarbonTable classes;
 	uint8_t localCount;
 	uint8_t depth;
-
 	struct {
 		uint32_t position;
 		uint8_t depth;
@@ -28,7 +29,7 @@ typedef struct {
 	} breaks[256];
 	uint8_t breaksCount;
 	uint8_t loopDepth;
-
+	uint8_t classCount;
 } CarbonCompiler;
 
 void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
@@ -38,3 +39,4 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 void carbon_initCompiler(CarbonCompiler *compiler, CarbonParser *parser);
 void carbon_freeCompiler(CarbonCompiler *compiler);
 void carbon_markGlobal(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm);
+void carbon_scoutClass(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm);

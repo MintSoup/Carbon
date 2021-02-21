@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
 	fread(t, size, 1, f);
 	fclose(f);
 
-	CarbonInstance instance;
+	CarbonState instance;
 	carbon_init(&instance);
 
 	CarbonRunResult isOk = carbon_execute(&instance, t, size, flags);

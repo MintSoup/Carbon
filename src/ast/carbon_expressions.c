@@ -130,6 +130,18 @@ CarbonExprDot *carbon_newDotExpr(CarbonExpr *left, CarbonToken right,
 	return node;
 }
 
+CarbonExprDotAssignment *carbon_newDotAssignmentExpr(CarbonExprDot *left,
+													 CarbonExpr *right,
+													 CarbonToken equals) {
+
+	CarbonExprDotAssignment *da = (CarbonExprDotAssignment *) allocateNode(
+		CarbonExprDotAssignment, ExprDotAssignment);
+	da->left = left;
+	da->right = right;
+	da->equals = equals;
+	return da;
+}
+
 CarbonExprIs *carbon_newIsExpr(CarbonExpr *left, CarbonTypename type,
 							   CarbonToken tok) {
 	CarbonExprIs *is = (CarbonExprIs *) allocateNode(CarbonExprIs, ExprIs);
@@ -139,16 +151,15 @@ CarbonExprIs *carbon_newIsExpr(CarbonExpr *left, CarbonTypename type,
 	return is;
 }
 
-void carbon_freeSignature(CarbonFunctionSignature *sig) {
-	if (sig->returnType != NULL) {
-		carbon_freeType(*sig->returnType);
-		carbon_reallocate(sizeof(CarbonValueType), 0, sig->returnType);
+void carbon_freeSignature(CarbonFunctionSignature sig) {
+	if (sig.returnType != NULL) {
+		carbon_freeType(*sig.returnType);
+		carbon_reallocate(sizeof(CarbonValueType), 0, sig.returnType);
 	}
-	for (uint8_t i = 0; i < sig->arity; i++) {
-		carbon_freeType(sig->arguments[i]);
+	for (uint8_t i = 0; i < sig.arity; i++) {
+		carbon_freeType(sig.arguments[i]);
 	}
-	carbon_reallocate(sig->arity * sizeof(CarbonValueType), 0, sig->arguments);
-	carbon_reallocate(sizeof(CarbonFunctionSignature), 0, sig);
+	carbon_reallocate(sig.arity * sizeof(CarbonValueType), 0, sig.arguments);
 }
 
 void carbon_freeType(CarbonValueType t) {
@@ -163,7 +174,9 @@ void carbon_freeType(CarbonValueType t) {
 			break;
 		}
 		case ValueFunction: {
-			carbon_freeSignature(t.compound.signature);
+			carbon_freeSignature(*t.compound.signature);
+			carbon_reallocate(sizeof(CarbonFunctionSignature), 0,
+							  t.compound.signature);
 			break;
 		}
 		default:
@@ -264,6 +277,7 @@ void carbon_freeExpr(CarbonExpr *expr) {
 			carbon_reallocate(sizeof(CarbonExprAssignment), 0, expr);
 			break;
 		}
+		case ExprInit:
 		case ExprCall: {
 			castNode(CarbonExprCall, call);
 			for (uint8_t i = 0; i < call->arity; i++) {
@@ -305,6 +319,13 @@ void carbon_freeExpr(CarbonExpr *expr) {
 			castNode(CarbonExprDot, dot);
 			carbon_freeExpr(dot->left);
 			carbon_reallocate(sizeof(CarbonExprDot), 0, expr);
+			break;
+		}
+		case ExprDotAssignment: {
+			castNode(CarbonExprDotAssignment, da);
+			carbon_freeExpr((CarbonExpr *) da->left);
+			carbon_freeExpr(da->right);
+			carbon_reallocate(sizeof(CarbonExprDotAssignment), 0, expr);
 			break;
 		}
 		case ExprIs: {

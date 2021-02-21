@@ -94,6 +94,13 @@ typedef enum {
 	OpLoop,
 	OpFor,
 
+	// Class
+	OpDot,
+	OpDotSet,
+	OpMethod,
+	OpMakeInstance,
+	OpInitInstance,
+
 } CarbonOpCode;
 
 typedef struct {

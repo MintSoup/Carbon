@@ -1,6 +1,7 @@
 #include "utils/carbon_commons.h"
 #include "carbon_token.h"
 #include "carbon_lexer.h"
+#include <endian.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -27,7 +28,6 @@ struct Identifier identifierList[] = {
 	{.name = "function", .type = TokenFunction},
 	{.name = "object", .type = TokenObject},
 
-
 	{.name = "while", .type = TokenWhile},
 	{.name = "break", .type = TokenBreak},
 	{.name = "continue", .type = TokenContinue},
@@ -39,7 +39,6 @@ struct Identifier identifierList[] = {
 	{.name = "elif", .type = TokenElif},
 
 	{.name = "class", .type = TokenClass},
-	{.name = "self", .type = TokenSelf},
 
 	{.name = "false", .type = TokenFalse},
 	{.name = "true", .type = TokenTrue},
@@ -110,7 +109,6 @@ static bool canEndStatement(CarbonTokenType type) {
 		case TokenBreak:
 		case TokenContinue:
 		case TokenReturn:
-		case TokenSelf:
 		case TokenTrue:
 		case TokenFalse:
 		case TokenNull:
@@ -260,6 +258,15 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 				}
 			}
 			return makeToken(TokenStringLiteral, lexer);
+		}
+		case '@': {
+			if (!isAlpha(peek(lexer)) && !isNumeric(peek(lexer)))
+				return errorToken(peek(lexer), lexer);
+			next(lexer);
+			while (isAlpha(peek(lexer)) || isNumeric(peek(lexer))) {
+				next(lexer);
+			}
+			return makeToken(TokenClassname, lexer);
 		}
 		default: {
 			if (isNumeric(c)) {

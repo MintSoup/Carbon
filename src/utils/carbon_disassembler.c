@@ -28,7 +28,7 @@ static char *names[] = {
 	[OpMakeGenerator] = "mkgen",
 	[OpBuiltin] = "builtin",
 	[OpIs] = "is",
-	[OpCastcheck] = "castchk",
+	[OpCastcheck] = "cstchk",
 
 	// Binary Operations
 	[OpAddInt] = "iadd",
@@ -86,6 +86,11 @@ static char *names[] = {
 	[OpIf] = "if",
 	[OpLoop] = "loop",
 	[OpFor] = "for",
+	[OpDot] = "dot",
+	[OpDotSet] = "dotset",
+	[OpMethod] = "mthd",
+	[OpMakeInstance] = "make",
+	[OpInitInstance] = "iinit",
 
 };
 
@@ -155,6 +160,11 @@ void carbon_disassemble(CarbonChunk *chunk) {
 			case OpGetLocal:
 			case OpCall:
 			case OpPopn:
+			case OpDot:
+			case OpDotSet:
+			case OpMethod:
+			case OpInitInstance:
+			case OpMakeInstance:
 				ip++;
 				printf("\t%u", *ip);
 				ip++;

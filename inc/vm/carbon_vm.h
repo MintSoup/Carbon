@@ -26,10 +26,20 @@ typedef struct {
 	CarbonTable primitives;
 
 	CarbonCallframe callStack[256];
+
+	struct carbon_class {
+		CarbonFunction **methods;
+		int16_t superclass;
+		uint8_t init;
+		uint8_t methodCount;
+		uint8_t fieldCount;
+	} * classes;
+	uint8_t classCount;
+
 	uint8_t callDepth;
 
 } CarbonVM;
 
 void carbon_initVM(CarbonVM *vm);
 void carbon_freeVM(CarbonVM *vm);
-CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction* func);
+CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func);

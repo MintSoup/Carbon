@@ -32,6 +32,14 @@ void carbon_freeVM(CarbonVM *vm) {
 	carbon_tableFree(&vm->strings);
 	carbon_tableFree(&vm->globals);
 	carbon_tableFree(&vm->primitives);
+	for (uint8_t i = 0; i < vm->classCount; i++) {
+		if (vm->classes[i].methodCount == 0)
+			continue;
+		uint32_t size = sizeof(CarbonFunction *) * vm->classes[i].methodCount;
+		carbon_reallocate(size, 0, vm->classes[i].methods);
+	}
+	carbon_reallocate(vm->classCount * sizeof(struct carbon_class), 0,
+					  vm->classes);
 }
 
 static inline CarbonValue pop(CarbonVM *vm) {
@@ -190,6 +198,16 @@ static void printObject(CarbonObj *obj) {
 			printf("<builtin function>");
 			break;
 		}
+		case CrbnObjInstance: {
+			castObj(CarbonInstance, inst);
+			printf("<instance id %u>", inst->type);
+			break;
+		}
+		case CrbnObjMethod: {
+			castObj(CarbonMethod, mthd);
+			printf("<method of %u>", mthd->parent->type);
+			break;
+		}
 	}
 #undef castObj
 }
@@ -294,7 +312,7 @@ static CarbonRunResult runtimeError(char *msg, CarbonVM *vm) {
 	return Carbon_Runtime_Error;
 }
 
-static uint8_t callFunction(CarbonFunction *func, CarbonVM *vm) {
+static uint8_t callFunction(CarbonFunction *func, uint8_t arity, CarbonVM *vm) {
 	if (vm->callDepth == 255) {
 		fprintf(stderr,
 				"Carbon: Stack overflow while trying to call function '%s'.\n",
@@ -303,25 +321,35 @@ static uint8_t callFunction(CarbonFunction *func, CarbonVM *vm) {
 	}
 
 	CarbonCallframe frame = {func, func->chunk.code,
-							 &(vm->stack[vm->stackTop - func->arity])};
+							 &(vm->stack[vm->stackTop - arity])};
 	vm->callStack[vm->callDepth++] = frame;
 	return 0;
 }
 
 static uint8_t call(CarbonObj *obj, CarbonVM *vm, uint8_t arity) {
-	if (obj->type == CrbnObjFunc)
-		return callFunction((CarbonFunction *) obj, vm);
-	if (obj->type == CrbnObjBuiltin) {
-		CarbonBuiltin *bltin = (CarbonBuiltin *) obj;
-		char *msg =
-			bltin->func(bltin->parent, &vm->stack[vm->stackTop - arity], vm);
-		if (msg != NULL) {
-			runtimeError(msg, vm);
-			return 1;
+	switch (obj->type) {
+		case CrbnObjFunc:
+			return callFunction((CarbonFunction *) obj, arity, vm);
+		case CrbnObjBuiltin: {
+			CarbonBuiltin *bltin = (CarbonBuiltin *) obj;
+			char *msg = bltin->func(bltin->parent,
+									&vm->stack[vm->stackTop - arity], vm);
+			if (msg != NULL) {
+				runtimeError(msg, vm);
+				return 1;
+			}
+			vm->stackTop -= arity + 1;
 		}
-		vm->stackTop -= arity + 1;
+		case CrbnObjMethod: {
+			CarbonMethod *mthd = (CarbonMethod *) obj;
+			push(CarbonObject((CarbonObj *) mthd->parent), vm);
+			callFunction(mthd->func, arity + 1, vm);
+			break;
+		}
+		default:
+			break;
 	}
-	return 0; // should never reach here
+	return 0;
 }
 
 static bool nullcheck(CarbonObj *obj, char *msg, CarbonVM *vm) {
@@ -864,6 +892,60 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				if (!isInstance(object, wanted))
 					return runtimeError("Cast failed", vm);
 				frame->ip += 2;
+				break;
+			}
+			case OpDot: {
+				frame->ip++;
+				uint8_t index = ReadByte();
+				CarbonInstance *i = (CarbonInstance *) pop().obj;
+				if (nullcheck((CarbonObj *) i, "Cannot access a null object",
+							  vm))
+					return Carbon_Runtime_Error;
+				push(i->fields[index]);
+				frame->ip++;
+				break;
+			}
+			case OpDotSet: {
+				frame->ip++;
+				uint8_t index = ReadByte();
+				CarbonValue val = pop();
+				CarbonInstance *i = (CarbonInstance *) pop().obj;
+				if (nullcheck((CarbonObj *) i, "Cannot access a null object",
+							  vm))
+					return Carbon_Runtime_Error;
+				i->fields[index] = val;
+				push(val);
+				frame->ip++;
+				break;
+			}
+			case OpMethod: {
+				frame->ip++;
+				uint8_t index = ReadByte();
+				CarbonInstance *i = (CarbonInstance *) pop().obj;
+				if (nullcheck((CarbonObj *) i, "Cannot access a null object",
+							  vm))
+					return Carbon_Runtime_Error;
+				CarbonFunction *f = vm->classes[i->type].methods[index];
+				CarbonMethod *m = carbon_newMethod(i, f, vm);
+				push(CarbonObject((CarbonObj *) m));
+				frame->ip++;
+				break;
+			}
+			case OpMakeInstance: {
+				frame->ip++;
+				uint8_t index = ReadByte();
+				CarbonInstance *i = carbon_newInstance(index, vm);
+				push(CarbonObject((CarbonObj *) i));
+				frame->ip++;
+				break;
+			}
+			case OpInitInstance: {
+				frame->ip++;
+				uint8_t index = ReadByte();
+				struct carbon_class *class = &vm->classes[index];
+				CarbonFunction *init = class->methods[class->init];
+				push(CarbonObject((CarbonObj *) init));
+				frame->ip++;
 				break;
 			}
 		}
