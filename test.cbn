@@ -1,27 +1,38 @@
 void main():
-	@Vector self = @Vector(1.5, 1.6)	
-	self.out()
-	call(self.out)
-	self.Vector(1, 6)
-	self.out()
-
-end
-
-void call(function<void> a):
-	a()
-end
-
-class @Vector:
-	double x
-	double y
-	void Vector(double x, double y):
-		self.x = x
-		self.y = y
+	@Dog john = @Dog('John', 'Black', 'Puddle', 5)
+	@Dog gerome = @Dog('Gerome', 'Yellow', 'Golden Retriever', 3)
+	array<@Dog> dogs = [<@Dog, 0, null>]
+	dogs.append(john)
+	dogs.append(gerome)
+	for dog in dogs:
+		dog.bark()
 	end
-	void out():
-		print(self.x)
-		print(self.y)
-		self.x += 1
-		self.y += 1
-	end
+
 end
+
+
+class @Dog:
+	string name
+	string color
+	string breed
+	uint age
+
+	void Dog(string name, string color, string breed, uint age):
+		self.name = name	
+		self.color = color	
+		self.breed = breed	
+		self.age = age	
+	end
+
+	void bark():
+		print('Woof! here are my details--------')
+		print('Name: ' + self.name)
+		print('Color: ' + self.color)
+		print('Breed: ' + self.breed)
+		print(self.age)
+		print('--------------------------------')
+		print('')
+	end
+
+end
+

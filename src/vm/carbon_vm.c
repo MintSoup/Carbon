@@ -339,6 +339,7 @@ static uint8_t call(CarbonObj *obj, CarbonVM *vm, uint8_t arity) {
 				return 1;
 			}
 			vm->stackTop -= arity + 1;
+			break;
 		}
 		case CrbnObjMethod: {
 			CarbonMethod *mthd = (CarbonMethod *) obj;
