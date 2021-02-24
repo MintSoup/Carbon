@@ -112,6 +112,7 @@ CarbonStmtClass *carbon_newClassStmt(CarbonToken name) {
 }
 
 void carbon_freeStmt(CarbonStmt *stmt) {
+	if(stmt == NULL) return;
 
 #define castNode(type, name) type *name = (type *) stmt;
 

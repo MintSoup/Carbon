@@ -292,8 +292,7 @@ static bool alwaysReturns(CarbonStmt *stmt) {
 
 // ERRORS
 
-
-static void selfAssignment(CarbonToken self, CarbonCompiler* c){
+static void selfAssignment(CarbonToken self, CarbonCompiler *c) {
 	fprintf(stderr, "[Line %u] 'self' cannot be assigned to\n", self.line);
 	c->hadError = true;
 }
@@ -705,6 +704,8 @@ static void markClass(CarbonStmtClass *sClass, CarbonCompiler *c,
 
 	for (uint32_t i = 0; i < sClass->statements.count; i++) {
 		CarbonStmt *st = sClass->statements.arr[i];
+		if (st == NULL)
+			return;
 		if (st->type == StmtVarDec) {
 			CarbonStmtVarDec *vardec = (CarbonStmtVarDec *) st;
 			CarbonString *name = carbon_strFromToken(vardec->identifier, vm);
@@ -748,7 +749,7 @@ static void markClass(CarbonStmtClass *sClass, CarbonCompiler *c,
 }
 
 void carbon_scoutClass(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
-	if (stmt->type != StmtClass)
+	if (stmt == NULL || stmt->type != StmtClass)
 		return;
 	CarbonStmtClass *sClass = (CarbonStmtClass *) stmt;
 	CarbonValue dummy;
@@ -763,6 +764,8 @@ void carbon_scoutClass(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
 }
 
 void carbon_markGlobal(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
+	if (stmt == NULL)
+		return;
 	switch (stmt->type) {
 		case StmtVarDec: {
 			markVar((CarbonStmtVarDec *) stmt, c, vm);
@@ -2549,6 +2552,8 @@ static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 
 void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 							 CarbonCompiler *c, CarbonVM *vm) {
+	if (stmt == NULL)
+		return;
 
 	switch (stmt->type) {
 		case StmtPrint: {
