@@ -874,6 +874,24 @@ static CarbonExpr *primary(CarbonParser *p) {
 			e->type = ExprInit;
 			return e;
 		}
+		case TokenSuper: {
+			CarbonToken t = next(p);
+			CarbonExpr *super = (CarbonExpr *) carbon_newLiteralExpr(t);
+			if (match(TokenDot, p)) {
+				CarbonToken dot = previous(p);
+				consume(TokenIdentifier,
+						"Expected identifier after super access expression", p);
+				CarbonToken idntf = previous(p);
+				CarbonExprDot *ret = carbon_newDotExpr(super, idntf, dot);
+				return (CarbonExpr *) ret;
+			} else if (match(TokenLeftParen, p)) {
+				return (CarbonExpr *) call(super, p);
+			} else {
+				carbon_freeExpr(super);
+				errorAtCurrent("Expected a '.' or '(' after 'super'", p);
+				return NULL;
+			}
+		}
 
 		case TokenLeftParen: {
 			next(p);

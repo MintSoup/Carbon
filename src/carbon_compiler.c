@@ -42,31 +42,14 @@ typedef struct {
 	CarbonValueType valueType;
 } Global;
 
-typedef struct klass {
-	struct klass *parent;
-	struct field {
-		CarbonValueType type;
-		CarbonString *name;
-	} * fields;
-	struct method {
-		CarbonFunctionSignature sig;
-		CarbonString *name;
-	} * methods;
-	bool hasInit;
-	bool declared;
-	uint8_t init;
-	uint8_t id;
-	uint8_t fieldCount;
-	uint8_t fieldCap; // Capacity
-	uint8_t methodCount;
-	uint8_t methodCap; // Capacity
-} Class;
+typedef struct carbon_classInfo Class;
 
 static Class *newClass(uint8_t id) {
 	Class *class = carbon_reallocate(0, sizeof(Class), NULL);
 	class->id = id;
 	class->methods = NULL;
 	class->fields = NULL;
+	class->parent = NULL;
 	class->fieldCount = 0;
 	class->fieldCap = 0;
 	class->methodCount = 0;
@@ -141,8 +124,10 @@ static int16_t findMember(Class *c, CarbonString *name) {
 			return (int16_t) i + 1;
 	}
 	for (uint8_t i = 0; i < c->methodCount; i++) {
-		if (c->methods[i].name == name)
-			return (int16_t) -i - 1;
+		if (c->methods[i].name == name) {
+			int16_t r = -i - 1;
+			return r;
+		}
 	}
 	return 0;
 }
@@ -207,7 +192,28 @@ static bool canUnary(CarbonTokenType op, CarbonValueType operand) {
 	}
 }
 
-static bool canCast(CarbonValueType from, CarbonValueType to) {
+bool carbon_isSuperclass(CarbonValueType sub, CarbonValueType super,
+						 CarbonCompiler *c) {
+	Class *a;
+	Class *b;
+	if (!carbon_tableGet(&c->classes, (CarbonObj *) sub.compound.instanceName,
+						 (CarbonValue *) &a))
+		return true;
+	if (!carbon_tableGet(&c->classes, (CarbonObj *) super.compound.instanceName,
+						 (CarbonValue *) &b))
+		return true;
+
+	while (a->parent != NULL) {
+		if (a->parent == b)
+			return true;
+		a = a->parent;
+	}
+
+	return false;
+}
+
+static bool canCast(CarbonValueType from, CarbonValueType to,
+					CarbonCompiler *c) {
 	switch (from.tag) {
 		case ValueUInt:
 			return to.tag == ValueInt || to.tag == ValueDouble ||
@@ -221,6 +227,8 @@ static bool canCast(CarbonValueType from, CarbonValueType to) {
 			return to.tag == ValueInt || to.tag == ValueUInt;
 		case ValueObject:
 			return isObject(from);
+		case ValueInstance:
+			return to.tag == ValueInstance && carbon_isSuperclass(to, from, c);
 		default:
 			return false;
 	}
@@ -291,6 +299,42 @@ static bool alwaysReturns(CarbonStmt *stmt) {
 }
 
 // ERRORS
+
+static void noInit(CarbonToken t, CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Enclosing class has no initializer method\n",
+			t.line);
+	c->hadError = true;
+}
+
+static void noSuperclass(CarbonToken t, CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Enclosing class has no superclass\n", t.line);
+	c->hadError = true;
+}
+static void superOutsideMethod(CarbonToken t, CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] 'super' cannot be used outside class methods\n",
+			t.line);
+	c->hadError = true;
+}
+static void noFunctionInSuperclass(CarbonToken t, CarbonCompiler *c) {
+	fprintf(stderr,
+			"[Line %u] Method %.*s has not been defined on superclass\n",
+			t.line, t.length, t.lexeme);
+	c->hadError = true;
+}
+
+static void undefinedSuperclass(CarbonToken name, CarbonCompiler *c) {
+	fprintf(stderr, "[Line %u] Superclass %.*s has not been defined\n",
+			name.line, name.length, name.lexeme);
+	c->hadError = true;
+}
+
+static void wrongSignature(CarbonToken name, CarbonCompiler *c) {
+	fprintf(stderr,
+			"[Line %u] Method %.*s's signature doesn't match the superclass "
+			"definition\n",
+			name.line, name.length, name.lexeme);
+	c->hadError = true;
+}
 
 static void selfAssignment(CarbonToken self, CarbonCompiler *c) {
 	fprintf(stderr, "[Line %u] 'self' cannot be assigned to\n", self.line);
@@ -698,9 +742,44 @@ static void markFunc(CarbonStmtFunc *func, CarbonCompiler *c, CarbonVM *vm) {
 static void markClass(CarbonStmtClass *sClass, CarbonCompiler *c,
 					  CarbonVM *vm) {
 	Class *class;
+	Class *super = NULL;
 	CarbonString *name = carbon_strFromToken(sClass->name, vm);
 	carbon_tableGet(&c->classes, (CarbonObj *) name, (CarbonValue *) &class);
 	class->declared = true;
+
+	if (sClass->hasSuperclass) {
+		if (carbon_tableGet(
+				&c->classes,
+				(CarbonObj *) carbon_strFromToken(sClass->superclass, vm),
+				(CarbonValue *) &super)) {
+			for (uint8_t i = 0; i < super->fieldCount; i++) {
+				pushField(super->fields[i].name,
+						  carbon_cloneType(super->fields[i].type), class);
+			}
+			for (uint8_t i = 0; i < super->methodCount; i++) {
+				CarbonFunctionSignature src = super->methods[i].sig;
+				CarbonFunctionSignature sig;
+				sig.arity = src.arity;
+				sig.returnType =
+					carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+				*sig.returnType = carbon_cloneType(*src.returnType);
+
+				sig.arguments = carbon_reallocate(
+					0, sig.arity * sizeof(CarbonValueType), NULL);
+				for (uint8_t i = 0; i < sig.arity; i++) {
+					sig.arguments[i] = carbon_cloneType(src.arguments[i]);
+				}
+				pushMethod(super->methods[i].name, sig, class);
+			}
+			class->parent = super;
+		}
+	}
+
+	uint8_t ovrdSize = class->parent != NULL && class->parent->methodCount > 0
+						   ? class->parent->methodCount
+						   : 1;
+	bool overridden[ovrdSize];
+	memset(overridden, 0, ovrdSize);
 
 	for (uint32_t i = 0; i < sClass->statements.count; i++) {
 		CarbonStmt *st = sClass->statements.arr[i];
@@ -709,17 +788,28 @@ static void markClass(CarbonStmtClass *sClass, CarbonCompiler *c,
 		if (st->type == StmtVarDec) {
 			CarbonStmtVarDec *vardec = (CarbonStmtVarDec *) st;
 			CarbonString *name = carbon_strFromToken(vardec->identifier, vm);
+			CarbonValueType type = resolveType(vardec->type, c, vm);
 			if (findMember(class, name)) {
 				memberRedeclaration(sClass->name, vardec->identifier, c);
+				carbon_freeType(type);
+				continue;
 			}
-			CarbonValueType type = resolveType(vardec->type, c, vm);
 			pushField(name, type, class);
 		} else {
 			CarbonStmtFunc *func = (CarbonStmtFunc *) st;
 			CarbonString *name = carbon_strFromToken(func->identifier, vm);
-			if (findMember(class, name)) {
-				memberRedeclaration(sClass->name, func->identifier, c);
+			int16_t override = 0;
+			if (super != NULL) {
+				override = findMember(super, name);
 			}
+			if (findMember(class, name)) {
+				if (override >= 0 || overridden[-override - 1]) {
+					memberRedeclaration(sClass->name, func->identifier, c);
+					continue;
+				} else
+					overridden[-override - 1] = true;
+			}
+
 			CarbonFunctionSignature sig;
 			sig.arity = func->arity;
 
@@ -735,6 +825,18 @@ static void markClass(CarbonStmtClass *sClass, CarbonCompiler *c,
 				struct carbon_arg argument = func->arguments[i];
 				sig.arguments[i] = resolveType(argument.type, c, vm);
 			}
+
+			if (override < 0) {
+				CarbonValueType t1 = newType(ValueFunction);
+				t1.compound.signature = &sig;
+				CarbonValueType t2 = newType(ValueFunction);
+				t2.compound.signature = &class->methods[-override - 1].sig;
+				if (!carbon_typesEqual(t1, t2))
+					wrongSignature(func->identifier, c);
+				carbon_freeSignature(sig);
+				continue;
+			}
+
 			if (name->length == sClass->name.length - 1 &&
 				!memcmp(name->chars, sClass->name.lexeme + 1, name->length)) {
 				if (sig.returnType->tag != ValueVoid)
@@ -742,6 +844,7 @@ static void markClass(CarbonStmtClass *sClass, CarbonCompiler *c,
 				class->init = class->methodCount;
 				class->hasInit = true;
 			}
+
 			pushMethod(name, sig, class);
 		}
 	}
@@ -757,6 +860,11 @@ void carbon_scoutClass(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
 	if (carbon_tableGet(&c->classes, (CarbonObj *) name, &dummy)) {
 		globalRedeclaration(sClass->name, c);
 		return;
+	}
+	if (sClass->hasSuperclass) {
+		CarbonString *supername = carbon_strFromToken(sClass->superclass, vm);
+		if (!carbon_tableGet(&c->classes, (CarbonObj *) supername, &dummy))
+			undefinedSuperclass(sClass->superclass, c);
 	}
 	Class *class = newClass(c->classCount++);
 	carbon_tableSet(&c->classes, (CarbonObj *) name,
@@ -947,7 +1055,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 
 			CarbonValueType type = resolveType(cast->to, c, vm);
 
-			if (!canCast(cast->expression->evalsTo, type)) {
+			if (!canCast(cast->expression->evalsTo, type, c)) {
 				castNotSupported(cast->expression->evalsTo, type, cast->to.base,
 								 c);
 				expr->evalsTo = newType(ValueUnresolved);
@@ -1008,14 +1116,15 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			}
 			if (found) {
 
-				if (c->inMethod) {
+				if (c->class != NULL) {
 					if (assignment->left.length == 4 &&
 						!memcmp(assignment->left.lexeme, "self", 4)) {
 						selfAssignment(assignment->left, c);
 					}
 				}
 
-				if (!carbon_canAssign(leftType, assignment->right->evalsTo)) {
+				if (!carbon_canAssign(leftType, assignment->right->evalsTo,
+									  c)) {
 					if (assignment->equals.type == TokenEquals)
 						cantAssign(leftType, assignment->right->evalsTo,
 								   assignment->left.line, c);
@@ -1055,7 +1164,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 				return;
 			}
 
-			if (!carbon_canAssign(leftType, rightType)) {
+			if (!carbon_canAssign(leftType, rightType, c)) {
 				if (ie->equals.type == TokenEquals)
 					cantAssign(leftType, rightType, ie->equals.line, c);
 				else
@@ -1073,6 +1182,33 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			castNode(CarbonExprCall, call);
 			if (call->callee == NULL)
 				return;
+
+			if (call->callee->type == ExprLiteral) {
+				CarbonExprLiteral *lit = (CarbonExprLiteral *) call->callee;
+				if (lit->token.type == TokenSuper) {
+					if (c->class == NULL) {
+						superOutsideMethod(lit->token, c);
+						expr->evalsTo = newType(ValueUnresolved);
+						break;
+					}
+					Class *class = c->class;
+					if (class->parent == NULL) {
+						noSuperclass(lit->token, c);
+						expr->evalsTo = newType(ValueUnresolved);
+						break;
+					}
+					if (!class->parent->hasInit) {
+						noInit(lit->token, c);
+						expr->evalsTo = newType(ValueUnresolved);
+						break;
+					}
+					CarbonFunctionSignature *sig =
+						&class->parent->methods[class->parent->init].sig;
+					expr->evalsTo = carbon_cloneType(*sig->returnType);
+					break;
+				}
+			}
+
 			typecheck(call->callee, c, vm);
 			if (call->callee->evalsTo.tag != ValueFunction &&
 				call->callee->evalsTo.tag != ValueUnresolved) {
@@ -1108,7 +1244,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 					continue;
 				typecheck(call->arguments[i], c, vm);
 				if (!carbon_canAssign(sig->arguments[i],
-									  call->arguments[i]->evalsTo)) {
+									  call->arguments[i]->evalsTo, c)) {
 					wrongArgumentType(call->arguments[i]->first, i,
 									  sig->arguments[i],
 									  call->arguments[i]->evalsTo, name, c);
@@ -1157,7 +1293,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 					continue;
 				typecheck(init->arguments[i], c, vm);
 				if (!carbon_canAssign(sig->arguments[i],
-									  init->arguments[i]->evalsTo)) {
+									  init->arguments[i]->evalsTo, c)) {
 					wrongArgumentType(init->arguments[i]->first, i,
 									  sig->arguments[i],
 									  init->arguments[i]->evalsTo, name, c);
@@ -1194,7 +1330,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 					needUintLength(arr->members[0]->first, c);
 
 				if (!carbon_canAssign(*expr->evalsTo.compound.memberType,
-									  arr->members[1]->evalsTo))
+									  arr->members[1]->evalsTo, c))
 					cantAssign(expr->evalsTo, arr->members[1]->evalsTo,
 							   arr->members[1]->first.line, c);
 
@@ -1232,7 +1368,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			}
 			firstType = arr->members[0]->evalsTo;
 			for (uint64_t i = 0; i < arr->count; i++) {
-				if (!carbon_canAssign(firstType, arr->members[i]->evalsTo) &&
+				if (!carbon_canAssign(firstType, arr->members[i]->evalsTo, c) &&
 					arr->imethod != ImethodGenerator) {
 					wrongMemberType(arr->members[i]->first, i, firstType,
 									arr->members[i]->evalsTo, c);
@@ -1271,7 +1407,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 					return;
 			}
 			if (index->index != NULL)
-				if (!carbon_canAssign(requiredType, index->index->evalsTo)) {
+				if (!carbon_canAssign(requiredType, index->index->evalsTo, c)) {
 					wrongIndexType(index->bracket, index->index->evalsTo,
 								   requiredType, c);
 					break;
@@ -1283,6 +1419,34 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			if (dot->left == NULL) {
 				expr->evalsTo = newType(ValueUnresolved);
 				break;
+			}
+			if (dot->left->type == ExprLiteral) {
+				CarbonExprLiteral *lit = (CarbonExprLiteral *) dot->left;
+				if (lit->token.type == TokenSuper) {
+					if (c->class == NULL) {
+						superOutsideMethod(lit->token, c);
+						expr->evalsTo = newType(ValueUnresolved);
+						break;
+					}
+					Class *class = c->class;
+					if (class->parent == NULL) {
+						noSuperclass(lit->token, c);
+						expr->evalsTo = newType(ValueUnresolved);
+						break;
+					}
+					CarbonString *name = carbon_strFromToken(dot->right, vm);
+					int16_t i = findMember(class->parent, name);
+					if (i >= 0) {
+						noFunctionInSuperclass(dot->right, c);
+						expr->evalsTo = newType(ValueUnresolved);
+						break;
+					}
+					CarbonValueType type = newType(ValueFunction);
+					type.compound.signature =
+						&class->parent->methods[-i - 1].sig;
+					expr->evalsTo = carbon_cloneType(type);
+					break;
+				}
 			}
 			typecheck(dot->left, c, vm);
 			switch (dot->left->evalsTo.tag) {
@@ -1384,7 +1548,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 				return;
 			}
 
-			if (!carbon_canAssign(leftType, rightType)) {
+			if (!carbon_canAssign(leftType, rightType, c)) {
 				if (da->equals.type == TokenEquals)
 					cantAssign(leftType, rightType, da->equals.line, c);
 				else
@@ -1656,6 +1820,16 @@ static void compileCastExpression(CarbonExprCast *cast, CarbonChunk *chunk,
 			else if (from.tag == ValueUInt)
 				carbon_writeToChunk(chunk, OpUIntToDouble, cast->to.base.line);
 			break;
+		case ValueInstance: {
+			Class *class = NULL;
+			CarbonObj *name =
+				(CarbonObj *) cast->expr.evalsTo.compound.instanceName;
+			if (!carbon_tableGet(&c->classes, name, (CarbonValue *) &class))
+				break;
+			carbon_writeToChunk(chunk, OpInstanceCastcheck, cast->to.base.line);
+			carbon_writeToChunk(chunk, class->id, cast->to.base.line);
+			break;
+		}
 		default: {
 			uint16_t n =
 				carbon_pushType(chunk, carbon_cloneType(cast->expr.evalsTo));
@@ -1721,6 +1895,25 @@ static void compileAssignmentExpression(CarbonExprAssignment *assignment,
 
 static void compileCallExpression(CarbonExprCall *call, CarbonChunk *chunk,
 								  CarbonCompiler *c, CarbonVM *vm) {
+
+	if (call->callee->type == ExprLiteral) {
+		CarbonExprLiteral *lit = (CarbonExprLiteral *) call->callee;
+		if (lit->token.type == TokenSuper) {
+			carbon_writeToChunk(chunk, OpInitInstance, lit->token.line);
+			carbon_writeToChunk(chunk, c->class->parent->id, lit->token.line);
+			for (uint8_t i = 0; i < call->arity; i++) {
+				carbon_compileExpression(call->arguments[i], chunk, c, vm);
+			}
+			carbon_writeToChunk(chunk, OpGetLocal, lit->token.line);
+			carbon_writeToChunk(
+				chunk, resolveLocal(carbon_copyString("self", 4, vm), c),
+				lit->token.line);
+			carbon_writeToChunk(chunk, OpCall, call->line);
+			carbon_writeToChunk(chunk, call->arity + 1, call->line);
+			return;
+		}
+	}
+
 	carbon_compileExpression(call->callee, chunk, c, vm);
 	for (uint8_t i = 0; i < call->arity; i++) {
 		carbon_compileExpression(call->arguments[i], chunk, c, vm);
@@ -1853,29 +2046,41 @@ static void compileBuiltinDot(CarbonExprDot *dot, CarbonChunk *chunk,
 
 static void compileDotExpression(CarbonExprDot *dot, CarbonChunk *chunk,
 								 CarbonCompiler *c, CarbonVM *vm) {
+
+	if (dot->left->type == ExprLiteral) {
+		CarbonExprLiteral *lit = (CarbonExprLiteral *) dot->left;
+		if (lit->token.type == TokenSuper) {
+			CarbonString *propName = carbon_strFromToken(dot->right, vm);
+			uint8_t id = c->class->parent->id;
+			uint8_t self = resolveLocal(carbon_copyString("self", 4, vm), c);
+			int16_t i = findMember(c->class->parent, propName);
+			carbon_writeToChunk(chunk, OpSuper, lit->token.line);
+			carbon_writeToChunk(chunk, id, lit->token.line);
+			carbon_writeToChunk(chunk, -i - 1, lit->token.line);
+			carbon_writeToChunk(chunk, self, lit->token.line);
+			return;
+		}
+	}
+
 	carbon_compileExpression(dot->left, chunk, c, vm);
+
 	if (dot->left->evalsTo.tag != ValueInstance) {
 		compileBuiltinDot(dot, chunk, c, vm);
 		return;
 	}
 
 	CarbonString *name = dot->left->evalsTo.compound.instanceName;
+	CarbonString *propName = carbon_strFromToken(dot->right, vm);
 	Class *class;
 	carbon_tableGet(&c->classes, (CarbonObj *) name, (CarbonValue *) &class);
 
-	for (uint8_t i = 0; i < class->fieldCount; i++) {
-		if (class->fields[i].name == carbon_strFromToken(dot->right, vm)) {
-			carbon_writeToChunk(chunk, OpDot, dot->right.line);
-			carbon_writeToChunk(chunk, i, dot->right.line);
-			break;
-		}
-	}
-	for (uint8_t i = 0; i < class->methodCount; i++) {
-		if (class->methods[i].name == carbon_strFromToken(dot->right, vm)) {
-			carbon_writeToChunk(chunk, OpMethod, dot->right.line);
-			carbon_writeToChunk(chunk, i, dot->right.line);
-			return;
-		}
+	int16_t i = findMember(class, propName);
+	if (i > 0) {
+		carbon_writeToChunk(chunk, OpDot, dot->right.line);
+		carbon_writeToChunk(chunk, i - 1, dot->right.line);
+	} else if (i < 0) {
+		carbon_writeToChunk(chunk, OpMethod, dot->right.line);
+		carbon_writeToChunk(chunk, -i - 1, dot->right.line);
 	}
 }
 
@@ -1883,10 +2088,19 @@ static void compileIsExpression(CarbonExprIs *is, CarbonChunk *chunk,
 								CarbonCompiler *c, CarbonVM *vm) {
 	carbon_compileExpression(is->left, chunk, c, vm);
 	CarbonValueType t = resolveType(is->right, c, vm);
-	uint16_t n = carbon_pushType(chunk, t);
-	carbon_writeToChunk(chunk, OpIs, is->right.base.line);
-	carbon_writeToChunk(chunk, n >> 8, is->right.base.line);
-	carbon_writeToChunk(chunk, n, is->right.base.line);
+	if (t.tag == ValueInstance) {
+		Class *class = NULL;
+		CarbonObj *name = (CarbonObj *) t.compound.instanceName;
+		if (!carbon_tableGet(&c->classes, name, (CarbonValue *) &class))
+			return;
+		carbon_writeToChunk(chunk, OpIsInstance, is->tok.line);
+		carbon_writeToChunk(chunk, class->id, is->right.base.line);
+	} else {
+		uint16_t n = carbon_pushType(chunk, t);
+		carbon_writeToChunk(chunk, OpIs, is->right.base.line);
+		carbon_writeToChunk(chunk, n >> 8, is->right.base.line);
+		carbon_writeToChunk(chunk, n, is->right.base.line);
+	}
 }
 
 static void compileDotAssignmentExpression(CarbonExprDotAssignment *da,
@@ -2086,7 +2300,7 @@ static void compileVarDecStmt(CarbonStmtVarDec *vardec, CarbonChunk *chunk,
 
 	if (vardec->initializer != NULL) {
 		typecheck(vardec->initializer, c, vm);
-		if (!carbon_canAssign(vartype, vardec->initializer->evalsTo)) {
+		if (!carbon_canAssign(vartype, vardec->initializer->evalsTo, c)) {
 			cantAssign(vartype, vardec->initializer->evalsTo,
 					   vardec->identifier.line, c);
 			if (!isLocal)
@@ -2118,7 +2332,7 @@ static void compileVarDecStmt(CarbonStmtVarDec *vardec, CarbonChunk *chunk,
 			carbon_tableSet(&vm->primitives, (CarbonObj *) name, CarbonUInt(0));
 	} else {
 		int16_t depth = resolveLocal(name, c);
-		if (depth != c->depth) {
+		if (depth == -1 || c->locals[depth].depth != c->depth) {
 			CarbonLocal l = {c->depth, name, vartype};
 			if (c->localCount != 255)
 				c->locals[c->localCount++] = l;
@@ -2161,7 +2375,6 @@ static void compileFuncStatement(CarbonStmtFunc *sfunc, CarbonChunk *chunk,
 		CarbonToken name = sfunc->arguments[i].name;
 		c->locals[i].depth = 0;
 		c->locals[i].name = carbon_strFromToken(name, vm);
-
 		c->locals[i].type = carbon_cloneType(sig->arguments[i]);
 	}
 	bool hadReturn = false;
@@ -2199,7 +2412,7 @@ static void compileReturnStatement(CarbonStmtReturn *ret, CarbonChunk *chunk,
 			return;
 		CarbonValueType wanted = *c->compilingTo->sig->returnType;
 		CarbonValueType given = ret->expression->evalsTo;
-		if (!carbon_canAssign(wanted, given)) {
+		if (!carbon_canAssign(wanted, given, c)) {
 			wrongReturnType(ret->token, wanted, given, c);
 		}
 
@@ -2475,77 +2688,91 @@ static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 	class.fieldCount = csig->fieldCount;
 	class.methodCount = csig->methodCount;
 	class.init = csig->init;
-	uint8_t mthd = 0;
 
-	if (class.methodCount > 0) {
-		class.methods = carbon_reallocate(
-			0, csig->methodCount * sizeof(CarbonFunction *), NULL);
-		for (uint8_t i = 0; i < sClass->statements.count; i++) {
+	class.methods = carbon_reallocate(
+		0, csig->methodCount * sizeof(CarbonFunction *), NULL);
 
-			CarbonStmt *stmt = sClass->statements.arr[i];
-			if (stmt->type != StmtFunc)
-				continue;
-			CarbonStmtFunc *sfunc = (CarbonStmtFunc *) stmt;
-
-			CarbonFunctionSignature sig = csig->methods[mthd].sig;
-			CarbonString *name = csig->methods[mthd].name;
-
-			CarbonValueType tmp = newType(ValueFunction);
-			tmp.compound.signature = &sig;
-			tmp = carbon_cloneType(tmp);
-			carbon_pushType(chunk, tmp);
-
-			CarbonValueType returnType = *sig.returnType;
-
-			CarbonFunction *ofunc =
-				carbon_newFunction(name, sig.arity, tmp.compound.signature, vm);
-
-			c->compilingTo = ofunc;
-			c->localCount = sig.arity + 1;
-			CarbonValueType this = newType(ValueInstance);
-			this.compound.instanceName = classname;
-
-			for (uint8_t i = 0; i < sig.arity; i++) {
-				CarbonToken name = sfunc->arguments[i].name;
-				c->locals[i].depth = 0;
-				c->locals[i].name = carbon_strFromToken(name, vm);
-				c->locals[i].type = carbon_cloneType(sig.arguments[i]);
-			}
-
-			c->locals[c->localCount - 1] =
-				(CarbonLocal){0, carbon_copyString("self", 4, vm), this};
-			bool hadReturn = false;
-
-			c->inMethod = true;
-
-			for (uint32_t i = 0; i < sfunc->statements.count; i++) {
-				hadReturn =
-					hadReturn || alwaysReturns(sfunc->statements.arr[i]);
-				carbon_compileStatement(sfunc->statements.arr[i], &ofunc->chunk,
-										c, vm);
-			}
-
-			c->inMethod = false;
-
-			if (!hadReturn &&
-				c->compilingTo->sig->returnType->tag != ValueVoid) {
-				expectedReturnStatement(sfunc->identifier, c);
-			}
-
-			c->compilingTo = NULL;
-			for (; c->localCount > 0; c->localCount--) {
-				carbon_freeType(c->locals[c->localCount - 1].type);
-			}
-
-			if (name->length == sClass->name.length - 1 &&
-				!memcmp(name->chars, sClass->name.lexeme + 1, name->length)) {
-				carbon_writeToChunk(&ofunc->chunk, OpReturn, sfunc->end);
-			} else if (returnType.tag == ValueVoid) {
-				carbon_writeToChunk(&ofunc->chunk, OpReturnVoid, sfunc->end);
-			}
-			class.methods[mthd] = ofunc;
-			mthd++;
+	if (csig->parent != NULL) {
+		class.superclass = csig->parent->id;
+		for (uint8_t i = 0; i < vm->classes[class.superclass].methodCount;
+			 i++) {
+			class.methods[i] = vm->classes[class.superclass].methods[i];
 		}
+	} else {
+		class.superclass = -1;
+	}
+
+	for (uint8_t i = 0; i < sClass->statements.count; i++) {
+
+		CarbonStmt *stmt = sClass->statements.arr[i];
+		if (stmt->type != StmtFunc)
+			continue;
+		CarbonStmtFunc *sfunc = (CarbonStmtFunc *) stmt;
+		CarbonString *name = carbon_strFromToken(sfunc->identifier, vm);
+
+		int16_t n = findMember(csig, name);
+		uint8_t mthd;
+		if (n < 0)
+			mthd = -n - 1;
+		else
+			continue;
+
+		CarbonFunctionSignature sig = csig->methods[mthd].sig;
+
+		CarbonValueType tmp = newType(ValueFunction);
+		tmp.compound.signature = &sig;
+		tmp = carbon_cloneType(tmp);
+		carbon_pushType(chunk, tmp);
+
+		CarbonValueType returnType = *sig.returnType;
+
+		CarbonFunction *ofunc =
+			carbon_newFunction(name, sig.arity, tmp.compound.signature, vm);
+
+		c->localCount = sig.arity + 1;
+		CarbonValueType this = newType(ValueInstance);
+		this.compound.instanceName = classname;
+
+		uint8_t lower = sfunc->arity < sig.arity ? sfunc->arity : sig.arity;
+
+		for (uint8_t i = 0; i < lower; i++) {
+			CarbonToken name = sfunc->arguments[i].name;
+			c->locals[i].depth = 0;
+			c->locals[i].name = carbon_strFromToken(name, vm);
+			c->locals[i].type = carbon_cloneType(sig.arguments[i]);
+		}
+
+		c->locals[c->localCount - 1] =
+			(CarbonLocal){0, carbon_copyString("self", 4, vm), this};
+		bool hadReturn = false;
+
+		c->compilingTo = ofunc;
+		c->class = csig;
+
+		for (uint32_t i = 0; i < sfunc->statements.count; i++) {
+			hadReturn = hadReturn || alwaysReturns(sfunc->statements.arr[i]);
+			carbon_compileStatement(sfunc->statements.arr[i], &ofunc->chunk, c,
+									vm);
+		}
+
+		if (!hadReturn && c->compilingTo->sig->returnType->tag != ValueVoid) {
+			expectedReturnStatement(sfunc->identifier, c);
+		}
+
+		c->compilingTo = NULL;
+		c->class = NULL;
+
+		for (; c->localCount > 0; c->localCount--) {
+			carbon_freeType(c->locals[c->localCount - 1].type);
+		}
+
+		if (name->length == sClass->name.length - 1 &&
+			!memcmp(name->chars, sClass->name.lexeme + 1, name->length)) {
+			carbon_writeToChunk(&ofunc->chunk, OpReturn, sfunc->end);
+		} else if (returnType.tag == ValueVoid) {
+			carbon_writeToChunk(&ofunc->chunk, OpReturnVoid, sfunc->end);
+		}
+		class.methods[mthd] = ofunc;
 	}
 	vm->classes[csig->id] = class;
 }
@@ -2606,9 +2833,9 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 
 void carbon_initCompiler(CarbonCompiler *compiler, CarbonParser *parser) {
 	compiler->hadError = false;
-	compiler->inMethod = false;
 	compiler->parserHadError = parser->hadError;
 	compiler->compilingTo = NULL;
+	compiler->class = NULL;
 	compiler->localCount = 0;
 	compiler->depth = 0;
 	compiler->breaksCount = 0;

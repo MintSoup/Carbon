@@ -11,16 +11,36 @@ typedef struct {
 	CarbonValueType type;
 } CarbonLocal;
 
-typedef struct {
+typedef struct carbon_compiler {
 	bool parserHadError;
 	bool hadError;
-	bool inMethod;
 	CarbonTable globals;
 	CarbonFunction *compilingTo;
 	CarbonLocal locals[256];
 	CarbonTable classes;
 	uint8_t localCount;
 	uint8_t depth;
+
+	struct carbon_classInfo {
+		struct carbon_classInfo *parent;
+		struct field {
+			CarbonValueType type;
+			CarbonString *name;
+		} * fields;
+		struct method {
+			CarbonFunctionSignature sig;
+			CarbonString *name;
+		} * methods;
+		bool hasInit;
+		bool declared;
+		uint8_t init;
+		uint8_t id;
+		uint8_t fieldCount;
+		uint8_t fieldCap; // Capacity
+		uint8_t methodCount;
+		uint8_t methodCap; // Capacity
+	} * class;
+
 	struct {
 		uint32_t position;
 		uint8_t depth;
@@ -40,3 +60,5 @@ void carbon_initCompiler(CarbonCompiler *compiler, CarbonParser *parser);
 void carbon_freeCompiler(CarbonCompiler *compiler);
 void carbon_markGlobal(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm);
 void carbon_scoutClass(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm);
+bool carbon_isSuperclass(CarbonValueType from, CarbonValueType to,
+						 CarbonCompiler *c);

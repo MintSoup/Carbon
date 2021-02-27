@@ -1,38 +1,35 @@
 void main():
-	@Dog john = @Dog('John', 'Black', 'Puddle', 5)
-	@Dog gerome = @Dog('Gerome', 'Yellow', 'Golden Retriever', 3)
-	array<@Dog> dogs = [<@Dog, 0, null>]
-	dogs.append(john)
-	dogs.append(gerome)
-	for dog in dogs:
-		dog.bark()
-	end
-
+	@GameObject g = @Player(1, 5, 6)
+	g.out()
 end
 
-
-class @Dog:
-	string name
-	string color
-	string breed
-	uint age
-
-	void Dog(string name, string color, string breed, uint age):
-		self.name = name	
-		self.color = color	
-		self.breed = breed	
-		self.age = age	
-	end
-
-	void bark():
-		print('Woof! here are my details--------')
-		print('Name: ' + self.name)
-		print('Color: ' + self.color)
-		print('Breed: ' + self.breed)
-		print(self.age)
-		print('--------------------------------')
-		print('')
-	end
-
+class @Object:
+	string game
 end
 
+class @GameObject < @Object:
+	uint x
+	uint y
+	void GameObject(uint x, uint y):
+		self.x = x
+		self.y = y
+		self.game = 'a1'
+	end
+	void out():
+		print(self.game)
+		print(self.x)
+		print(self.y)
+	end
+end
+
+class @Player < @GameObject:
+	uint speed
+	void Player(uint x, uint y, uint speed):
+		super(x, y)
+		self.speed = speed
+	end
+	void out():
+		super.out()	
+		print(self.speed)
+	end
+end

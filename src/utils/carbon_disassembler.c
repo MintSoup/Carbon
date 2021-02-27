@@ -29,6 +29,8 @@ static char *names[] = {
 	[OpBuiltin] = "builtin",
 	[OpIs] = "is",
 	[OpCastcheck] = "cstchk",
+	[OpIsInstance] = "isinst",
+	[OpInstanceCastcheck] = "instchk",
 
 	// Binary Operations
 	[OpAddInt] = "iadd",
@@ -91,6 +93,7 @@ static char *names[] = {
 	[OpMethod] = "mthd",
 	[OpMakeInstance] = "make",
 	[OpInitInstance] = "iinit",
+	[OpSuper] = "super",
 
 };
 
@@ -165,6 +168,8 @@ void carbon_disassemble(CarbonChunk *chunk) {
 			case OpMethod:
 			case OpInitInstance:
 			case OpMakeInstance:
+			case OpIsInstance:
+			case OpInstanceCastcheck:
 				ip++;
 				printf("\t%u", *ip);
 				ip++;
@@ -180,7 +185,7 @@ void carbon_disassemble(CarbonChunk *chunk) {
 				uint8_t higher = *ip;
 				ip++;
 				uint8_t lower = *ip;
-				printf("\t%d", (higher << 8) | lower);
+				printf("\t%u", (higher << 8) | lower);
 				ip++;
 				break;
 			}
@@ -210,7 +215,7 @@ void carbon_disassemble(CarbonChunk *chunk) {
 			}
 			case OpBuiltin: {
 				ip++;
-				printf("\t%s\t", builtinFunctionNames[*ip]);
+				printf("\t%s", builtinFunctionNames[*ip]);
 				ip += 3;
 				break;
 			}
@@ -223,6 +228,16 @@ void carbon_disassemble(CarbonChunk *chunk) {
 				uint8_t lower = *ip;
 				carbon_printType(stdout,
 								 chunk->typeData[(higher << 8) | lower]);
+				ip++;
+				break;
+			}
+			case OpSuper: {
+				ip++;
+				printf("\t%u", *ip);
+				ip++;
+				printf("\t%u", *ip);
+				ip++;
+				printf("\t%u", *ip);
 				ip++;
 				break;
 			}

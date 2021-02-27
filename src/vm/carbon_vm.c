@@ -33,13 +33,26 @@ void carbon_freeVM(CarbonVM *vm) {
 	carbon_tableFree(&vm->globals);
 	carbon_tableFree(&vm->primitives);
 	for (uint8_t i = 0; i < vm->classCount; i++) {
-		if (vm->classes[i].methodCount == 0)
-			continue;
 		uint32_t size = sizeof(CarbonFunction *) * vm->classes[i].methodCount;
 		carbon_reallocate(size, 0, vm->classes[i].methods);
 	}
 	carbon_reallocate(vm->classCount * sizeof(struct carbon_class), 0,
 					  vm->classes);
+}
+
+static bool checkType(CarbonObj *o, uint8_t n, CarbonVM *vm) {
+	if (o->type != CrbnObjInstance)
+		return false;
+	CarbonInstance *i = (CarbonInstance *) o;
+	if (i->type == n)
+		return true;
+	struct carbon_class *class = &vm->classes[n];
+	while (class->superclass >= 0) {
+		if (class->superclass == n)
+			return true;
+		class = &vm->classes[class->superclass];
+	}
+	return false;
 }
 
 static inline CarbonValue pop(CarbonVM *vm) {
@@ -89,18 +102,18 @@ static inline bool isInstance(CarbonObj *obj, CarbonValueType *type) {
 				   carbon_typesEqual(*type->compound.memberType, *arr->member);
 		}
 		case CrbnObjString:
-			return carbon_canAssign(*type, newType(ValueString));
+			return carbon_canAssign(*type, newType(ValueString), NULL);
 		case CrbnObjFunc: {
 			CarbonFunction *func = (CarbonFunction *) obj;
 			CarbonValueType t = newType(ValueFunction);
 			t.compound.signature = func->sig;
-			return carbon_canAssign(*type, t);
+			return carbon_canAssign(*type, t, NULL);
 		}
 		case CrbnObjBuiltin: {
 			CarbonBuiltin *func = (CarbonBuiltin *) obj;
 			CarbonValueType t = newType(ValueFunction);
 			t.compound.signature = func->sig;
-			return carbon_canAssign(*type, t);
+			return carbon_canAssign(*type, t, NULL);
 		}
 		default:
 			return false; // Should never reach here
@@ -895,6 +908,27 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				frame->ip += 2;
 				break;
 			}
+			case OpIsInstance: {
+				frame->ip++;
+				CarbonObj *object = pop().obj;
+				if (nullcheck(object, "Cannot check type of a null object", vm))
+					return Carbon_Runtime_Error;
+				uint8_t n = ReadByte();
+				push(CarbonBool(checkType(object, n, vm)));
+				frame->ip++;
+				break;
+			}
+			case OpInstanceCastcheck: {
+				frame->ip++;
+				CarbonObj *object = peek().obj;
+				if (nullcheck(object, "Cannot cast a null object", vm))
+					return Carbon_Runtime_Error;
+				uint8_t n = ReadByte();
+				if (!checkType(object, n, vm))
+					return runtimeError("Cast failed", vm);
+				frame->ip++;
+				break;
+			}
 			case OpDot: {
 				frame->ip++;
 				uint8_t index = ReadByte();
@@ -947,6 +981,21 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				CarbonFunction *init = class->methods[class->init];
 				push(CarbonObject((CarbonObj *) init));
 				frame->ip++;
+				break;
+			}
+			case OpSuper: {
+				frame->ip++;
+				uint8_t class = ReadByte();
+				frame->ip++;
+				uint8_t id = ReadByte();
+				frame->ip++;
+				uint8_t slot = ReadByte();
+				frame->ip++;
+				CarbonFunction *func = vm->classes[class].methods[id];
+				CarbonInstance *self =
+					(CarbonInstance *) frame->slots[slot].obj;
+				CarbonMethod *m = carbon_newMethod(self, func, vm);
+				push(CarbonObject((CarbonObj *) m));
 				break;
 			}
 		}
