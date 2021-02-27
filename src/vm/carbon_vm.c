@@ -46,7 +46,7 @@ static bool checkType(CarbonObj *o, uint8_t n, CarbonVM *vm) {
 	CarbonInstance *i = (CarbonInstance *) o;
 	if (i->type == n)
 		return true;
-	struct carbon_class *class = &vm->classes[n];
+	struct carbon_class *class = &vm->classes[i->type];
 	while (class->superclass >= 0) {
 		if (class->superclass == n)
 			return true;
