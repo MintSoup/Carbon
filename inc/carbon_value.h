@@ -59,7 +59,7 @@ void carbon_freeCarbonValueArray(CarbonValueArray *arr);
 bool carbon_typesEqual(CarbonValueType a, CarbonValueType b);
 bool carbon_canAssign(CarbonValueType to, CarbonValueType from,
 					  CarbonCompiler *c);
-static bool inline isObject(CarbonValueType type) {
+static inline bool isObject(CarbonValueType type) {
 	return type.tag >= ValueString && type.tag <= ValueError;
 }
 
