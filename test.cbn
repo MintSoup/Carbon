@@ -1,9 +1,16 @@
 void main():
-	g()
+	@A a = @A()
+	print(a.a)
+	print(a.b)
+	print(a.c)
+	print(a.f)
+	print(a.g) # Will crash
 end
 
-void g():
+class @A:
 	int a
 	int b
-	return
+	int c
+	string g
+	double f
 end

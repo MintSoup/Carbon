@@ -156,8 +156,9 @@ CarbonInstance *carbon_newInstance(uint8_t type, CarbonVM *vm) {
 	CarbonInstance *inst =
 		(CarbonInstance *) ALLOC(CarbonInstance, CrbnObjInstance);
 	inst->type = type;
-	inst->fields = carbon_reallocateObj(
-		0, sizeof(CarbonValue) * vm->classes[type].fieldCount, NULL, vm);
+	uint32_t size = vm->classes[type].fieldCount * sizeof(CarbonValue);
+	inst->fields = carbon_reallocateObj(0, size, NULL, vm);
+	memset(inst->fields, 0, size);
 	return inst;
 }
 CarbonMethod *carbon_newMethod(CarbonInstance *parent, CarbonFunction *func,
