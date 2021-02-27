@@ -713,7 +713,7 @@ static CarbonExprCall *call(CarbonExpr *expr, CarbonParser *p) {
 	if (!match(TokenRightParen, p)) {
 		do {
 			if (!tooMany && call->arity == 255) {
-				errorAtCurrent("Functions can have a maximum of 255 arguments.",
+				errorAtCurrent("Function calls can have a maximum of 255 arguments.",
 							   p);
 				tooMany = true;
 			}
