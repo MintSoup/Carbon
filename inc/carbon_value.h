@@ -5,6 +5,7 @@
 typedef struct carbon_object CarbonObj;
 typedef struct carbon_valueType CarbonValueType;
 typedef struct carbon_string CarbonString;
+typedef struct carbon_compiler CarbonCompiler;
 
 typedef struct {
 	CarbonValueType *returnType;
@@ -56,7 +57,8 @@ uint16_t carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val);
 void carbon_initValueArray(CarbonValueArray *arr);
 void carbon_freeCarbonValueArray(CarbonValueArray *arr);
 bool carbon_typesEqual(CarbonValueType a, CarbonValueType b);
-bool carbon_canAssign(CarbonValueType to, CarbonValueType from);
+bool carbon_canAssign(CarbonValueType to, CarbonValueType from,
+					  CarbonCompiler *c);
 static bool inline isObject(CarbonValueType type) {
 	return type.tag >= ValueString && type.tag <= ValueError;
 }

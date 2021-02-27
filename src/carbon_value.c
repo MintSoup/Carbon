@@ -1,4 +1,5 @@
 #include "carbon_value.h"
+#include "carbon_compiler.h"
 #include "utils/carbon_memory.h"
 
 static inline void growArray(CarbonValueArray *arr) {
@@ -74,7 +75,8 @@ bool carbon_typesEqual(CarbonValueType a, CarbonValueType b) {
 	}
 }
 
-bool carbon_canAssign(CarbonValueType to, CarbonValueType from) {
+bool carbon_canAssign(CarbonValueType to, CarbonValueType from,
+					  CarbonCompiler *c) {
 
 	if (to.tag == from.tag) {
 		switch (to.tag) {
@@ -99,6 +101,10 @@ bool carbon_canAssign(CarbonValueType to, CarbonValueType from) {
 
 				return true;
 			}
+			case ValueInstance:
+				return from.compound.instanceName == to.compound.instanceName ||
+					   carbon_isSuperclass(from, to, c);
+
 			default:
 				return true;
 		}

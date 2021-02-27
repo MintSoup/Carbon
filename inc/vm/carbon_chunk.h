@@ -11,6 +11,9 @@ typedef enum {
 	OpBuiltin,
 	OpIs,
 	OpCastcheck,
+	OpIsInstance,
+	OpInstanceCastcheck,
+	OpSuper,
 
 	// Constants
 	OpLoadConstant,

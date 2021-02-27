@@ -39,6 +39,7 @@ struct Identifier identifierList[] = {
 	{.name = "elif", .type = TokenElif},
 
 	{.name = "class", .type = TokenClass},
+	{.name = "super", .type = TokenSuper},
 
 	{.name = "false", .type = TokenFalse},
 	{.name = "true", .type = TokenTrue},
@@ -118,6 +119,7 @@ static bool canEndStatement(CarbonTokenType type) {
 		case TokenBool:
 		case TokenDouble:
 		case TokenObject:
+		case TokenClassname:
 			return true;
 		default:
 			return false;
