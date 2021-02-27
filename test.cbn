@@ -1,13 +1,9 @@
 void main():
-	@Object g = @Player()
-	@GameObject p = g as @Player	
-
+	g()
 end
 
-class @Object: end
-
-class @GameObject < @Object: void a(): end end
-
-class @Player < @GameObject: void a(): print('ok'); end end
-
-class @G < @Player: end
+void g():
+	int a
+	int b
+	return
+end

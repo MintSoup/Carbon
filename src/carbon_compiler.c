@@ -2269,8 +2269,21 @@ static void compileExprStmt(CarbonStmtExpr *expr, CarbonChunk *chunk,
 	if (expr->expression == NULL)
 		return;
 	carbon_compileExpression(expr->expression, chunk, c, vm);
-	if (expr->expression->evalsTo.tag != ValueVoid)
-		emit(OpPop, expr->last.line);
+
+	if (expr->expression->evalsTo.tag == ValueVoid) {
+		if (expr->expression->type == ExprCall) {
+			CarbonExprCall *call = (CarbonExprCall *) expr->expression;
+			if (call->callee->type == ExprLiteral) {
+				// the only way to call a literal
+				// is if it is super, so no need
+				// to check the actual token
+				emit(OpPop, expr->last.line);
+				return;
+			}
+		}
+		return;
+	}
+	emit(OpPop, expr->last.line);
 }
 
 static void compileVarDecStmt(CarbonStmtVarDec *vardec, CarbonChunk *chunk,
@@ -2426,6 +2439,11 @@ static void compileReturnStatement(CarbonStmtReturn *ret, CarbonChunk *chunk,
 		wrongReturnType(ret->token, *c->compilingTo->sig->returnType,
 						newType(ValueVoid), c);
 		return;
+	}
+	if (c->class != NULL && c->selfSlot != -1) {
+		carbon_writeToChunk(chunk, OpGetLocal, ret->token.line);
+		carbon_writeToChunk(chunk, c->selfSlot, ret->token.line);
+		carbon_writeToChunk(chunk, OpReturn, ret->token.line);
 	}
 	carbon_writeToChunk(chunk, OpReturnVoid, ret->token.line);
 }
@@ -2742,9 +2760,17 @@ static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 			c->locals[i].type = carbon_cloneType(sig.arguments[i]);
 		}
 
-		c->locals[c->localCount - 1] =
+		uint8_t self = c->localCount - 1;
+		c->locals[self] =
 			(CarbonLocal){0, carbon_copyString("self", 4, vm), this};
 		bool hadReturn = false;
+
+		if (name->length == sClass->name.length - 1 &&
+			!memcmp(name->chars, sClass->name.lexeme + 1, name->length))
+
+			c->selfSlot = self;
+		else
+			c->selfSlot = -1;
 
 		c->compilingTo = ofunc;
 		c->class = csig;
@@ -2762,17 +2788,20 @@ static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 		c->compilingTo = NULL;
 		c->class = NULL;
 
-		for (; c->localCount > 0; c->localCount--) {
-			carbon_freeType(c->locals[c->localCount - 1].type);
-		}
-
-		if (name->length == sClass->name.length - 1 &&
-			!memcmp(name->chars, sClass->name.lexeme + 1, name->length)) {
+		if (c->selfSlot != -1) {
+			carbon_writeToChunk(&ofunc->chunk, OpGetLocal, sfunc->end);
+			carbon_writeToChunk(&ofunc->chunk, self, sfunc->end);
 			carbon_writeToChunk(&ofunc->chunk, OpReturn, sfunc->end);
 		} else if (returnType.tag == ValueVoid) {
 			carbon_writeToChunk(&ofunc->chunk, OpReturnVoid, sfunc->end);
 		}
+
+		for (; c->localCount > 0; c->localCount--) {
+			carbon_freeType(c->locals[c->localCount - 1].type);
+		}
+
 		class.methods[mthd] = ofunc;
+		c->selfSlot = -1;
 	}
 	vm->classes[csig->id] = class;
 }
@@ -2833,6 +2862,7 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 
 void carbon_initCompiler(CarbonCompiler *compiler, CarbonParser *parser) {
 	compiler->hadError = false;
+	compiler->selfSlot = -1;
 	compiler->parserHadError = parser->hadError;
 	compiler->compilingTo = NULL;
 	compiler->class = NULL;

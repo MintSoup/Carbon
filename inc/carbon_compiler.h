@@ -20,6 +20,7 @@ typedef struct carbon_compiler {
 	CarbonTable classes;
 	uint8_t localCount;
 	uint8_t depth;
+	int16_t selfSlot;
 
 	struct carbon_classInfo {
 		struct carbon_classInfo *parent;
