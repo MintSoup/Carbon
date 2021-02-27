@@ -6,21 +6,18 @@
 #include "vm/carbon_vm.h"
 
 typedef struct {
-	uint8_t depth;
-	CarbonString *name;
 	CarbonValueType type;
+	CarbonString *name;
+	uint8_t depth;
 } CarbonLocal;
 
 typedef struct carbon_compiler {
-	bool parserHadError;
-	bool hadError;
-	CarbonTable globals;
-	CarbonFunction *compilingTo;
-	CarbonLocal locals[256];
-	CarbonTable classes;
-	uint8_t localCount;
-	uint8_t depth;
-	int16_t selfSlot;
+	struct {
+		CarbonToken token;
+		uint32_t position;
+		uint8_t depth;
+		bool isBreak;
+	} breaks[256];
 
 	struct carbon_classInfo {
 		struct carbon_classInfo *parent;
@@ -41,16 +38,18 @@ typedef struct carbon_compiler {
 		uint8_t methodCount;
 		uint8_t methodCap; // Capacity
 	} * class;
-
-	struct {
-		uint32_t position;
-		uint8_t depth;
-		CarbonToken token;
-		bool isBreak;
-	} breaks[256];
+	CarbonTable globals;
+	CarbonFunction *compilingTo;
+	CarbonLocal locals[256];
+	CarbonTable classes;
+	int16_t selfSlot;
+	uint8_t localCount;
+	uint8_t depth;
 	uint8_t breaksCount;
 	uint8_t loopDepth;
 	uint8_t classCount;
+	bool parserHadError;
+	bool hadError;
 } CarbonCompiler;
 
 void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,

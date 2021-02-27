@@ -2346,7 +2346,7 @@ static void compileVarDecStmt(CarbonStmtVarDec *vardec, CarbonChunk *chunk,
 	} else {
 		int16_t depth = resolveLocal(name, c);
 		if (depth == -1 || c->locals[depth].depth != c->depth) {
-			CarbonLocal l = {c->depth, name, vartype};
+			CarbonLocal l = {vartype, name, c->depth};
 			if (c->localCount != 255)
 				c->locals[c->localCount++] = l;
 			else {
@@ -2612,7 +2612,7 @@ static void compileForStatement(CarbonStmtFor *fr, CarbonChunk *chunk,
 	c->depth++;
 	c->loopDepth++;
 
-	CarbonLocal l = {c->depth, carbon_strFromToken(fr->var, vm), varType};
+	CarbonLocal l = {varType, carbon_strFromToken(fr->var, vm), c->depth};
 	if (c->localCount != 255)
 		c->locals[c->localCount++] = l;
 	else {
@@ -2762,7 +2762,7 @@ static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 
 		uint8_t self = c->localCount - 1;
 		c->locals[self] =
-			(CarbonLocal){0, carbon_copyString("self", 4, vm), this};
+			(CarbonLocal){this, carbon_copyString("self", 4, vm), 0};
 		bool hadReturn = false;
 
 		if (name->length == sClass->name.length - 1 &&

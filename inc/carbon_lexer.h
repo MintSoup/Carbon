@@ -2,12 +2,12 @@
 #include "utils/carbon_commons.h"
 #include "carbon_token.h"
 typedef struct{
+	CarbonTokenType lastToken;
 	char* source;
-	uint32_t length; 
 	char* current;
 	char* start;
 	uint32_t line;
-	CarbonTokenType lastToken;
+	uint32_t length;
 } CarbonLexer;
 
 CarbonToken carbon_scanToken(CarbonLexer *lexer);

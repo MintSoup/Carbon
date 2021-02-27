@@ -7,11 +7,11 @@
 
 typedef struct {
 	CarbonToken *tokens;
+	CarbonStmtBlock* innermostLoop;
 	uint32_t totalTokens;
 	uint32_t currentToken;
 	bool panic;
 	bool hadError;
-	CarbonStmtBlock* innermostLoop;
 } CarbonParser;
 
 void carbon_initParser(CarbonParser *parser, CarbonLexer *lexer);
