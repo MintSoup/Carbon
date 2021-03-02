@@ -2726,6 +2726,7 @@ static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 		if (stmt->type != StmtFunc)
 			continue;
 		CarbonStmtFunc *sfunc = (CarbonStmtFunc *) stmt;
+
 		CarbonString *name = carbon_strFromToken(sfunc->identifier, vm);
 
 		int16_t n = findMember(csig, name);
@@ -2744,8 +2745,17 @@ static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 
 		CarbonValueType returnType = *sig.returnType;
 
+		uint32_t length = sfunc->identifier.length + sClass->name.length + 1;
+		char *namechars = carbon_reallocateObj(0, length + 1, NULL, vm);
+		strncpy(namechars, sClass->name.lexeme, sClass->name.length);
+		namechars[sClass->name.length] = '.';
+		namechars[length] = 0;
+		strncpy(namechars + sClass->name.length + 1, sfunc->identifier.lexeme,
+				sfunc->identifier.length);
+
 		CarbonFunction *ofunc =
-			carbon_newFunction(name, sig.arity, tmp.compound.signature, vm);
+			carbon_newFunction(carbon_takeString(namechars, length, vm),
+							   sig.arity, tmp.compound.signature, vm);
 
 		c->localCount = sig.arity + 1;
 		CarbonValueType this = newType(ValueInstance);

@@ -69,36 +69,20 @@ CarbonRunResult carbon_execute(CarbonState *instance, char *source,
 		return Carbon_Compiler_Error;
 
 	if (flags.disassemble) { // disassembly
-		printf("TOP-LEVEL CODE\n");
-		carbon_disassemble(&topLevel->chunk);
-
-		for (uint32_t i = 0; i < instance->vm.globals.capacity; i++) {
-			CarbonEntry *entry = &instance->vm.globals.entries[i];
-			if (entry->key != NULL) {
-				CarbonValue function;
-				if (!carbon_tableGet(&instance->vm.primitives, entry->key,
-									 &function)) {
-					carbon_tableGet(&instance->vm.globals, entry->key,
-									&function);
-					if (function.obj->type == CrbnObjFunc) {
-						CarbonFunction *objf = (CarbonFunction *) function.obj;
-						printf("--function %s--\n", objf->name->chars);
-						carbon_disassemble(&objf->chunk);
-					}
-				}
+		CarbonObj *o = instance->vm.objects;
+		while (o != NULL) {
+			if (o->type == CrbnObjFunc) {
+				CarbonFunction *f = (CarbonFunction *) o;
+				if (f->name == NULL)
+					printf("-<global>-\n");
+				else
+					printf("-<function %s>-\n", f->name->chars);
+				carbon_disassemble(&f->chunk);
+				puts("");
 			}
-		}
-		for (uint8_t i = 0; i < instance->vm.classCount; i++) {
-			struct carbon_class class = instance->vm.classes[i];
-			for (uint8_t j = 0; j < class.methodCount; j++) {
-				CarbonFunction *objf = class.methods[j];
-				printf("--function %s--\n", objf->name->chars);
-				carbon_disassemble(&objf->chunk);
-			}
+			o = o->next;
 		}
 	}
-
-	printf("before running: %u\n", heapSize);
 
 	if (!flags.norun)
 		return carbon_run(&instance->vm, topLevel);
