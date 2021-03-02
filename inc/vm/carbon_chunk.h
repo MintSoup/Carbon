@@ -108,7 +108,12 @@ typedef enum {
 
 typedef struct {
 	uint8_t *code;
-	uint32_t *lines;
+	struct carbon_lineInfo{
+		uint32_t count;
+		uint32_t line;
+	} *lines;
+	uint32_t lineCount;
+	uint32_t lineCapacity;
 	uint32_t capacity;
 	uint32_t count;
 	CarbonValueArray constants;
@@ -122,3 +127,4 @@ void carbon_writeToChunk(CarbonChunk *chunk, uint8_t data, uint32_t line);
 void carbon_freeChunk(CarbonChunk *chunk);
 uint16_t carbon_pushType(CarbonChunk *chunk, CarbonValueType type);
 uint16_t carbon_addConstant(CarbonChunk *chunk, CarbonValue constant);
+uint32_t carbon_getLine(CarbonChunk *c, uint32_t n);

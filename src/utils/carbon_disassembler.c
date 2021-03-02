@@ -100,12 +100,26 @@ static char *names[] = {
 char *builtinFunctionNames[] = {[BuiltinAppend] = "append"};
 
 void carbon_disassemble(CarbonChunk *chunk) {
-	uint32_t instructionNumber = 0;
 	uint8_t *ip = chunk->code;
+	uint32_t lineStruct = -1;
+	uint32_t line;
+	uint32_t cumulative = 0;
 
 	while (ip < chunk->code + chunk->count) {
-		printf("%04d %04d|%04ld  %s", chunk->lines[ip - chunk->code],
-			   instructionNumber, ip - chunk->code, names[*ip]);
+
+		uint32_t offset = ip - chunk->code;
+		if (lineStruct != -1 &&
+			chunk->lines[lineStruct].count >= offset - cumulative) {
+			printf("   | ");
+		} else {
+			if (lineStruct != -1)
+				cumulative += chunk->lines[lineStruct].count + 1;
+			lineStruct++;
+			line = chunk->lines[lineStruct].line;
+			printf("%4d ", line);
+		}
+
+		printf("%04ld\t %s", ip - chunk->code, names[*ip]);
 
 		switch (*ip) {
 			case OpReturn:
@@ -243,7 +257,6 @@ void carbon_disassemble(CarbonChunk *chunk) {
 			}
 		}
 		puts("");
-		instructionNumber++;
 	}
 }
 

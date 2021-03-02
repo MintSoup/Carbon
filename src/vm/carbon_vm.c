@@ -320,7 +320,7 @@ static void append(CarbonArray *arr, CarbonValue val, CarbonVM *vm) {
 static CarbonRunResult runtimeError(char *msg, CarbonVM *vm) {
 	CarbonCallframe *frame = &vm->callStack[vm->callDepth - 1];
 	CarbonChunk *chunk = &frame->func->chunk;
-	uint32_t line = chunk->lines[frame->ip - chunk->code];
+	uint32_t line = carbon_getLine(chunk, frame->ip - chunk->code);
 	fprintf(stderr, "[Line %d] %s.\n", line, msg);
 	return Carbon_Runtime_Error;
 }

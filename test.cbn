@@ -1,16 +1,35 @@
 void main():
-	@A a = @A()
-	print(a.a)
-	print(a.b)
-	print(a.c)
-	print(a.f)
-	print(a.g) # Will crash
+	@GameObject g = @Player(1, 5, 6)
+	g.out()
 end
 
-class @A:
-	int a
-	int b
-	int c
-	string g
-	double f
+class @Object:
+	string game
+end
+
+class @GameObject < @Object:
+	uint x
+	uint y
+	void GameObject(uint x, uint y):
+		self.x = x
+		self.y = y
+		self.game = 'a1'
+	end
+	void out():
+		print(self.game)
+		print(self.x)
+		print(self.y)
+	end
+end
+
+class @Player < @GameObject:
+	uint speed
+	void Player(uint x, uint y, uint speed):
+		super(x, y)
+		self.speed = speed
+	end
+	void out():
+		super.out()	
+		print(self.speed)
+	end
 end

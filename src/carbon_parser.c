@@ -570,10 +570,11 @@ static CarbonStmtPrint *printStatement(CarbonParser *p) {
 }
 static CarbonStmtExpr *expressionStatement(CarbonParser *p) {
 	CarbonExpr *expr = expression(p);
+	CarbonToken t = previous(p);
 	consume(TokenEOS, "Expected EOS after expression statement", p);
 	if (p->currentToken == 0)
 		return NULL;
-	return carbon_newExprStmt(expr, previous(p));
+	return carbon_newExprStmt(expr, t);
 }
 
 static CarbonStmtVarDec *varDeclaration(CarbonTypename type, CarbonParser *p) {

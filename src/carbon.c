@@ -14,6 +14,8 @@
 #include <stdio.h>
 #include <string.h>
 
+extern uint32_t heapSize;
+
 void carbon_init(CarbonState *instance) {
 	carbon_initVM(&instance->vm);
 	carbon_stmtList_init(&instance->statements);
@@ -95,6 +97,9 @@ CarbonRunResult carbon_execute(CarbonState *instance, char *source,
 			}
 		}
 	}
+
+	printf("before running: %u\n", heapSize);
+
 	if (!flags.norun)
 		return carbon_run(&instance->vm, topLevel);
 	else
