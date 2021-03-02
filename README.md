@@ -9,6 +9,6 @@ The unix `find` utility is required to be on your path. If you're on windows you
 ```
 git clone https://github.com/MintSoup/Carbon.git
 cd Carbon
-make # or make -j(nproc) for a faster build
+make # or make -j$(nproc) for a faster build
 ```
 Refer to the makefile for further instructions.
