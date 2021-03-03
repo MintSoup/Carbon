@@ -35,8 +35,8 @@ typedef struct {
 		uint8_t fieldCount;
 	} * classes;
 	uint8_t classCount;
-
 	uint8_t callDepth;
+	bool gc;
 
 } CarbonVM;
 

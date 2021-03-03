@@ -20,6 +20,7 @@ void carbon_initVM(CarbonVM *vm) {
 	vm->objects = NULL;
 	vm->objectHeapSize = 0;
 	vm->callDepth = 0;
+	vm->gc = false;
 	carbon_tableInit(&vm->strings);
 	carbon_tableInit(&vm->globals);
 	carbon_tableInit(&vm->primitives);
@@ -40,7 +41,7 @@ void carbon_freeVM(CarbonVM *vm) {
 					  vm->classes);
 }
 
-static bool checkType(CarbonObj *o, uint8_t n, CarbonVM *vm) {
+static bool isInstane(CarbonObj *o, uint8_t n, CarbonVM *vm) {
 	if (o->type != CrbnObjInstance)
 		return false;
 	CarbonInstance *i = (CarbonInstance *) o;
@@ -89,7 +90,7 @@ static inline CarbonValueType newType(enum CarbonValueTag tag) {
 	return typ;
 }
 
-static inline bool isInstance(CarbonObj *obj, CarbonValueType *type) {
+static inline bool is(CarbonObj *obj, CarbonValueType *type) {
 	switch (obj->type) {
 		case CrbnObjGenerator: {
 			CarbonGenerator *gen = (CarbonGenerator *) obj;
@@ -380,6 +381,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 #define push(x) push(x, vm)
 #define pop() pop(vm)
 #define peek() vm->stack[vm->stackTop - 1]
+#define peekn(x) vm->stack[vm->stackTop - 1 - x]
 
 #define binary(type, operator, cast, fieldName)                                \
 	do {                                                                       \
@@ -418,12 +420,15 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 
 	CarbonCallframe *frame = &vm->callStack[0];
 
+	vm->gc = true;
+
 	while (true) {
 		switch (*frame->ip) {
 			case OpReturnVoid:
 				vm->callDepth--;
 				if (vm->callDepth == 0) {
 					vm->stackTop = 0;
+					vm->gc = false;
 					return Carbon_OK;
 				}
 				vm->stackTop = frame->slots - vm->stack - 1;
@@ -435,6 +440,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				if (vm->callDepth == 0) {
 					vm->stackTop = 1;
 					vm->stack[0] = v;
+					vm->gc = false;
 					return Carbon_OK;
 				}
 				vm->stackTop = frame->slots - vm->stack - 1;
@@ -604,8 +610,8 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				break;
 
 			case OpConcat: {
-				CarbonString *b = (CarbonString *) pop().obj;
-				CarbonString *a = (CarbonString *) pop().obj;
+				CarbonString *b = (CarbonString *) peek().obj;
+				CarbonString *a = (CarbonString *) peekn(1).obj;
 				uint32_t length = a->length + b->length;
 				char *concat =
 					(char *) carbon_reallocateObj(0, length + 1, NULL, vm);
@@ -613,6 +619,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				memcpy(concat, a->chars, a->length);
 				memcpy(concat + a->length, b->chars, b->length);
 				CarbonString *out = carbon_takeString(concat, length, vm);
+				vm->stackTop -= 2;
 				push(CarbonObject((CarbonObj *) out));
 				frame->ip++;
 				break;
@@ -807,24 +814,26 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 			}
 			case OpMakeGenerator: {
 				frame->ip++;
-				CarbonValue first = pop();
-				CarbonValue last = pop();
-				CarbonValue delta = pop();
+				CarbonValue first = peek();
+				CarbonValue last = peekn(1);
+				CarbonValue delta = peekn(2);
 				CarbonGenerator *g;
 				if ((g = carbon_newGenerator(first, last, delta, ReadType(),
 											 vm)) == NULL)
 					return runtimeError("Invalid numbers for generator", vm);
+				vm->stackTop -= 3;
 				push(CarbonObject((CarbonObj *) g));
 				frame->ip += 2;
 				break;
 			}
 			case OpAppend: {
-				CarbonValue top = pop();
-				CarbonArray *arr = (CarbonArray *) peek().obj;
+				CarbonValue top = peek();
+				CarbonArray *arr = (CarbonArray *) peekn(1).obj;
 				if (nullcheck((CarbonObj *) arr,
 							  "Cannot append to a null object", vm))
 					return Carbon_Runtime_Error;
 				append(arr, top, vm);
+				pop();
 				frame->ip++;
 				break;
 			}
@@ -878,12 +887,15 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 			}
 			case OpBuiltin: {
 				frame->ip++;
-				CarbonObj *obj = pop().obj;
+				CarbonObj *obj = peek().obj;
+
 				char *(*func)(CarbonObj *, CarbonValue *, CarbonVM *) =
 					builtinPtrs[*frame->ip++];
+
 				CarbonBuiltin *bltin = carbon_newBuiltin(
 					obj, func, ReadType()->compound.signature, vm);
 				push(CarbonObject((CarbonObj *) bltin));
+				pop();
 				frame->ip += 2;
 				break;
 			}
@@ -893,7 +905,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				if (nullcheck(object, "Cannot check type of a null object", vm))
 					return Carbon_Runtime_Error;
 				CarbonValueType *wanted = ReadType();
-				push(CarbonBool(isInstance(object, wanted)));
+				push(CarbonBool(is(object, wanted)));
 				frame->ip += 2;
 				break;
 			}
@@ -903,7 +915,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				if (nullcheck(object, "Cannot cast a null object", vm))
 					return Carbon_Runtime_Error;
 				CarbonValueType *wanted = ReadType();
-				if (!isInstance(object, wanted))
+				if (!is(object, wanted))
 					return runtimeError("Cast failed", vm);
 				frame->ip += 2;
 				break;
@@ -914,7 +926,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				if (nullcheck(object, "Cannot check type of a null object", vm))
 					return Carbon_Runtime_Error;
 				uint8_t n = ReadByte();
-				push(CarbonBool(checkType(object, n, vm)));
+				push(CarbonBool(isInstane(object, n, vm)));
 				frame->ip++;
 				break;
 			}
@@ -924,7 +936,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				if (nullcheck(object, "Cannot cast a null object", vm))
 					return Carbon_Runtime_Error;
 				uint8_t n = ReadByte();
-				if (!checkType(object, n, vm))
+				if (!isInstane(object, n, vm))
 					return runtimeError("Cast failed", vm);
 				frame->ip++;
 				break;
@@ -956,12 +968,13 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 			case OpMethod: {
 				frame->ip++;
 				uint8_t index = ReadByte();
-				CarbonInstance *i = (CarbonInstance *) pop().obj;
+				CarbonInstance *i = (CarbonInstance *) peek().obj;
 				if (nullcheck((CarbonObj *) i, "Cannot access a null object",
 							  vm))
 					return Carbon_Runtime_Error;
 				CarbonFunction *f = vm->classes[i->type].methods[index];
 				CarbonMethod *m = carbon_newMethod(i, f, vm);
+				pop();
 				push(CarbonObject((CarbonObj *) m));
 				frame->ip++;
 				break;
