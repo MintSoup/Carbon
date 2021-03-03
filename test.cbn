@@ -1,6 +1,6 @@
 void main():
 	@GameObject g = @Player(1, 5, 6)
-	g.out()
+	print((g as bool) as uint)
 end
 
 class @Object:

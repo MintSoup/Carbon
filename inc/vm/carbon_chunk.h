@@ -62,6 +62,7 @@ typedef enum {
 	OpDoubleToInt,
 	OpUIntToDouble,
 	OpDoubleToUInt,
+	OpToBool,
 
 	// Comparison and equality
 	OpCompareInt,

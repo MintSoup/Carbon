@@ -51,11 +51,12 @@ static char *names[] = {
 	[OpNegateUInt] = "uneg",
 	[OpNegateBool] = "bneg",
 
-	// Castings
+	// Casts
 	[OpIntToDouble] = "i2d",
 	[OpDoubleToInt] = "d2i",
 	[OpUIntToDouble] = "u2d",
 	[OpDoubleToUInt] = "d2u",
+	[OpToBool] = "2b",
 
 	// Comparison and equality
 	[OpCompareInt] = "icmp",
@@ -139,6 +140,7 @@ void carbon_disassemble(CarbonChunk *chunk) {
 			case OpNegateUInt:
 			case OpNegateBool:
 			case OpIntToDouble:
+			case OpToBool:
 			case OpDoubleToInt:
 			case OpUIntToDouble:
 			case OpDoubleToUInt:

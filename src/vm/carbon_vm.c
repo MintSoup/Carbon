@@ -542,6 +542,10 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				cast(uint, CarbonDouble, double);
 				frame->ip++;
 				break;
+			case OpToBool:
+				cast(obj, CarbonBool, bool);
+				frame->ip++;
+				break;
 
 			// Comparison and equality
 			case OpCompareInt:

@@ -214,13 +214,14 @@ bool carbon_isSuperclass(CarbonValueType sub, CarbonValueType super,
 
 static bool canCast(CarbonValueType from, CarbonValueType to,
 					CarbonCompiler *c) {
+	if (to.tag == ValueBool)
+		return true;
+
 	switch (from.tag) {
 		case ValueUInt:
-			return to.tag == ValueInt || to.tag == ValueDouble ||
-				   to.tag == ValueBool;
+			return to.tag == ValueInt || to.tag == ValueDouble;
 		case ValueInt:
-			return to.tag == ValueUInt || to.tag == ValueDouble ||
-				   to.tag == ValueBool;
+			return to.tag == ValueUInt || to.tag == ValueDouble;
 		case ValueDouble:
 			return to.tag == ValueUInt || to.tag == ValueInt;
 		case ValueBool:
@@ -1830,6 +1831,9 @@ static void compileCastExpression(CarbonExprCast *cast, CarbonChunk *chunk,
 			carbon_writeToChunk(chunk, class->id, cast->to.base.line);
 			break;
 		}
+		case ValueBool:
+			carbon_writeToChunk(chunk, OpToBool, cast->to.base.line);
+			break;
 		default: {
 			uint16_t n =
 				carbon_pushType(chunk, carbon_cloneType(cast->expr.evalsTo));
