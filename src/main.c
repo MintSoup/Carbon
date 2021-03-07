@@ -11,7 +11,6 @@
 #include "utils/carbon_commons.h"
 #include "utils/carbon_disassembler.h"
 #include "vm/carbon_chunk.h"
-#include "vm/carbon_vm.h"
 #include <string.h>
 
 extern uint32_t heapSize;
@@ -109,7 +108,6 @@ int main(int argc, char *argv[]) {
 			printf("***MEMORY LEAK: LEAKING %" PRIu32 " BYTES***\n ", heapSize);
 		}
 	}
-
 	free(t);
 
 	return 0;

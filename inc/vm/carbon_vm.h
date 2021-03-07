@@ -5,7 +5,6 @@
 #include "utils/carbon_commons.h"
 #include "utils/carbon_table.h"
 
-typedef struct carbon_object CarbonObj;
 typedef struct carbon_function CarbonFunction;
 typedef enum carbon_runresult CarbonRunResult;
 

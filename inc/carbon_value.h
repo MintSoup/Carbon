@@ -13,7 +13,7 @@ typedef struct {
 	uint8_t arity;
 } CarbonFunctionSignature;
 
-typedef struct carbon_valueType {
+struct carbon_valueType {
 	union carbon_typeData {
 		struct carbon_valueType *memberType;
 		CarbonFunctionSignature *signature;
@@ -37,7 +37,7 @@ typedef struct carbon_valueType {
 		ValueUntypechecked,
 		ValueNull
 	} tag;
-} CarbonValueType;
+};
 
 typedef union {
 	double dbl;
@@ -54,7 +54,8 @@ typedef struct {
 	uint32_t capacity;
 } CarbonValueArray;
 
-uint16_t carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val, bool primitive);
+uint16_t carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val,
+								  bool primitive);
 void carbon_initValueArray(CarbonValueArray *arr);
 void carbon_freeCarbonValueArray(CarbonValueArray *arr);
 bool carbon_typesEqual(CarbonValueType a, CarbonValueType b);

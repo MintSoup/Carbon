@@ -11,7 +11,7 @@ typedef struct {
 	uint8_t depth;
 } CarbonLocal;
 
-typedef struct carbon_compiler {
+struct carbon_compiler {
 	struct {
 		CarbonToken token;
 		uint32_t position;
@@ -50,7 +50,7 @@ typedef struct carbon_compiler {
 	uint8_t classCount;
 	bool parserHadError;
 	bool hadError;
-} CarbonCompiler;
+};
 
 void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 							  CarbonCompiler *c, CarbonVM *vm);

@@ -19,25 +19,25 @@ typedef enum {
 	CrbnObjMethod,
 } CarbonObjectType;
 
-typedef struct carbon_object {
+struct carbon_object {
 	struct carbon_object *next;
 	CarbonObjectType type;
 	uint32_t hashCode;
 	bool marked;
-} CarbonObj;
-typedef struct carbon_string {
+};
+struct carbon_string {
 	CarbonObj obj;
 	char *chars;
 	uint32_t length;
-} CarbonString;
+} ;
 
-typedef struct carbon_function {
+struct carbon_function {
 	CarbonObj obj;
 	CarbonChunk chunk;
 	CarbonString *name;
 	CarbonFunctionSignature *sig;
 	uint16_t arity;
-} CarbonFunction;
+};
 
 typedef struct {
 	CarbonObj obj;

@@ -3,16 +3,10 @@
 #include "carbon_value.h"
 #include "utils/carbon_commons.h"
 
-typedef struct carbon_object CarbonObj;
-typedef struct carbon_string CarbonString;
-
 typedef struct {
 	CarbonObj *key;
 	CarbonValue value;
 } CarbonEntry;
-
-
-
 
 typedef struct {
 	CarbonEntry *entries;

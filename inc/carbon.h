@@ -14,12 +14,12 @@ typedef struct {
 	CarbonStmtList statements;
 } CarbonState;
 
-typedef enum carbon_runresult {
+enum carbon_runresult {
 	Carbon_OK,
 	Carbon_Parser_Error,
 	Carbon_Compiler_Error,
 	Carbon_Runtime_Error
-} CarbonRunResult;
+};
 
 struct CarbonFlags {
 	bool disassemble;
@@ -30,5 +30,5 @@ CarbonRunResult carbon_execute(CarbonState *instance, char *source,
 							   uint32_t length, struct CarbonFlags flags);
 void carbon_init(CarbonState *instance);
 void carbon_free(CarbonState *instance);
-bool carbon_isPrimitive(CarbonState *instance, char *name) ;
-bool carbon_getValue(CarbonState *instance, char *name, CarbonValue *out) ;
+bool carbon_isPrimitive(CarbonState *instance, char *name);
+bool carbon_getValue(CarbonState *instance, char *name, CarbonValue *out);
