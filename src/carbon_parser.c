@@ -610,9 +610,9 @@ static CarbonExpr *assignment(CarbonParser *p) {
 		CarbonExpr *value = assignment(p);
 		switch (target->type) {
 			case ExprVar: {
-				CarbonExprVar *var = (CarbonExprVar *) target;
+				CarbonToken eq = ((CarbonExprVar *) target)->token;
 				carbon_freeExpr(target);
-				return (CarbonExpr *) carbon_newAssignmentExpr(var->token,
+				return (CarbonExpr *) carbon_newAssignmentExpr(eq,
 															   value, equals);
 			}
 			case ExprIndex:

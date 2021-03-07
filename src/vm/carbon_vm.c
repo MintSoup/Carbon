@@ -1,7 +1,6 @@
 #include "vm/carbon_vm.h"
 #include "carbon.h"
 #include "carbon_object.h"
-#include "carbon_value.h"
 #include "utils/carbon_memory.h"
 #include "utils/carbon_table.h"
 #include "vm/carbon_chunk.h"
@@ -9,7 +8,6 @@
 #include <stdio.h>
 #include <string.h>
 
-extern char *CarbonValueTypeLexeme[];
 extern char *builtinFunctionNames[];
 
 static char *(*builtinPtrs[])(CarbonObj *, CarbonValue *, CarbonVM *) = {
@@ -17,10 +15,16 @@ static char *(*builtinPtrs[])(CarbonObj *, CarbonValue *, CarbonVM *) = {
 
 void carbon_initVM(CarbonVM *vm) {
 	vm->stackTop = 0;
-	vm->objects = NULL;
 	vm->objectHeapSize = 0;
 	vm->callDepth = 0;
+	vm->gcarrSize = 0;
+	vm->objectCount = 0;
+	vm->greySize = 0;
+	vm->greyTop = 0;
 	vm->gc = false;
+	vm->objects = NULL;
+	vm->greyStack = NULL;
+	vm->gcarr = NULL;
 	carbon_tableInit(&vm->strings);
 	carbon_tableInit(&vm->globals);
 	carbon_tableInit(&vm->primitives);
@@ -39,6 +43,8 @@ void carbon_freeVM(CarbonVM *vm) {
 	}
 	carbon_reallocate(vm->classCount * sizeof(struct carbon_class), 0,
 					  vm->classes);
+	carbon_reallocate(vm->gcarrSize * sizeof(CarbonValue), 0, vm->gcarr);
+	carbon_reallocate(vm->greySize * sizeof(CarbonObj *), 0, vm->greyStack);
 }
 
 static bool isInstane(CarbonObj *o, uint8_t n, CarbonVM *vm) {
@@ -119,111 +125,6 @@ static inline bool is(CarbonObj *obj, CarbonValueType *type) {
 		default:
 			return false; // Should never reach here
 	}
-}
-
-static void printObject(CarbonObj *obj) {
-
-#define castObj(type, name) type *name = (type *) obj;
-
-	switch (obj->type) {
-		case CrbnObjString: {
-			castObj(CarbonString, str);
-			printf("%s", str->chars);
-			break;
-		}
-		case CrbnObjFunc: {
-			castObj(CarbonFunction, func);
-			printf("function <%s>", func->name->chars);
-			break;
-		}
-		case CrbnObjArray: {
-			castObj(CarbonArray, arr);
-			printf("[");
-			if (arr->count == 0) {
-				printf("<%s>]", CarbonValueTypeLexeme[arr->member->tag]);
-				return;
-			}
-			switch (arr->member->tag) {
-				case ValueUInt:
-					for (uint32_t i = 0; i < arr->count - 1; i++) {
-						printf("%" PRIu64 ", ", arr->members[i].uint);
-					}
-					printf("%" PRIu64, arr->members[arr->count - 1].uint);
-					break;
-				case ValueInt:
-					for (uint32_t i = 0; i < arr->count - 1; i++) {
-						printf("%" PRId64 ", ", arr->members[i].sint);
-					}
-					printf("%" PRId64, arr->members[arr->count - 1].sint);
-					break;
-				case ValueDouble:
-					for (uint32_t i = 0; i < arr->count - 1; i++) {
-						printf("%lf, ", arr->members[i].dbl);
-					}
-					printf("%lf", arr->members[arr->count - 1].dbl);
-					break;
-				case ValueBool:
-					for (uint32_t i = 0; i < arr->count - 1; i++) {
-						printf(arr->members[i].boolean ? "true, " : "false, ");
-					}
-					printf(arr->members[arr->count - 1].boolean ? "true, "
-																: "false, ");
-					break;
-				default:
-					for (uint32_t i = 0; i < arr->count - 1; i++) {
-						if (arr->member->tag == ValueString)
-							printf("'");
-						printObject(arr->members[i].obj);
-						if (arr->member->tag == ValueString)
-							printf("'");
-						printf(", ");
-					}
-					if (arr->member->tag == ValueString)
-						printf("'");
-					printObject(arr->members[arr->count - 1].obj);
-					if (arr->member->tag == ValueString)
-						printf("'");
-					break;
-			}
-			printf("]");
-			break;
-		}
-		case CrbnObjGenerator: {
-			castObj(CarbonGenerator, gen);
-			switch (gen->type->tag) {
-				case ValueUInt:
-					printf("[%" PRIu64 "..%" PRIu64 ":%" PRIu64 "]",
-						   gen->first.uint, gen->last.uint, gen->delta.uint);
-					break;
-				case ValueInt:
-					printf("[%" PRId64 "..%" PRId64 ":%" PRId64 "]",
-						   gen->first.sint, gen->last.sint, gen->delta.sint);
-					break;
-				case ValueDouble:
-					printf("[%lf..%lf:%lf]", gen->first.dbl, gen->last.dbl,
-						   gen->delta.dbl);
-					break;
-				default:
-					break; // Should never reach here
-			}
-			break;
-		}
-		case CrbnObjBuiltin: {
-			printf("<builtin function>");
-			break;
-		}
-		case CrbnObjInstance: {
-			castObj(CarbonInstance, inst);
-			printf("<instance id %u>", inst->type);
-			break;
-		}
-		case CrbnObjMethod: {
-			castObj(CarbonMethod, mthd);
-			printf("<method of %u>", mthd->parent->type);
-			break;
-		}
-	}
-#undef castObj
 }
 
 static uint64_t length(CarbonObj *obj) {
@@ -650,7 +551,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				if (nullcheck(o, "Cannot print a null object", vm))
 					return Carbon_Runtime_Error;
 
-				printObject(o);
+				carbon_printObject(o);
 				puts("");
 				frame->ip++;
 				break;
@@ -898,8 +799,8 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 
 				CarbonBuiltin *bltin = carbon_newBuiltin(
 					obj, func, ReadType()->compound.signature, vm);
-				push(CarbonObject((CarbonObj *) bltin));
 				pop();
+				push(CarbonObject((CarbonObj *) bltin));
 				frame->ip += 2;
 				break;
 			}

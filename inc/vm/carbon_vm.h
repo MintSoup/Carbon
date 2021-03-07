@@ -15,11 +15,13 @@ typedef struct {
 	CarbonValue *slots;
 } CarbonCallframe;
 
-typedef struct {
+typedef struct carbon_vm {
 	CarbonValue stack[CARBON_StackSize];
-	uint16_t stackTop;
+
 	CarbonObj *objects;
-	uint32_t objectHeapSize;
+
+	CarbonObj **greyStack;
+	CarbonObj **gcarr;
 
 	CarbonTable strings;
 	CarbonTable globals;
@@ -34,10 +36,19 @@ typedef struct {
 		uint8_t methodCount;
 		uint8_t fieldCount;
 	} * classes;
+
+	uint32_t objectHeapSize;
+	uint32_t objectCount;
+
+	uint32_t gcarrSize;
+	uint32_t greySize;
+	uint32_t greyTop;
+
+	uint16_t stackTop;
 	uint8_t classCount;
 	uint8_t callDepth;
-	bool gc;
 
+	bool gc;
 } CarbonVM;
 
 void carbon_initVM(CarbonVM *vm);

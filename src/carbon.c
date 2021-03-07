@@ -84,9 +84,10 @@ CarbonRunResult carbon_execute(CarbonState *instance, char *source,
 		}
 	}
 
-	if (!flags.norun)
-		return carbon_run(&instance->vm, topLevel);
-	else
+	if (!flags.norun) {
+		CarbonRunResult r = carbon_run(&instance->vm, topLevel);
+		return r;
+	} else
 		return Carbon_OK;
 }
 

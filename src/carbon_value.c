@@ -9,22 +9,28 @@ static inline void growArray(CarbonValueArray *arr) {
 		newSize = oldSize * 2;
 	arr->arr = carbon_reallocate(oldSize * sizeof(CarbonValue),
 								 newSize * sizeof(CarbonValue), arr->arr);
+	arr->primitive = carbon_reallocate(oldSize * sizeof(bool),
+									   newSize * sizeof(bool), arr->primitive);
 	arr->capacity = newSize;
 }
-uint16_t carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val) {
+uint16_t carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val,
+								  bool primitive) {
 	if (arr->capacity <= arr->count) {
 		growArray(arr);
 	}
 	arr->arr[arr->count] = val;
+	arr->primitive[arr->count] = primitive;
 	return arr->count++;
 }
 void carbon_initValueArray(CarbonValueArray *arr) {
 	arr->arr = NULL;
+	arr->primitive = NULL;
 	arr->capacity = 0;
 	arr->count = 0;
 }
 void carbon_freeCarbonValueArray(CarbonValueArray *arr) {
 	carbon_reallocate(arr->capacity * sizeof(CarbonValue), 0, arr->arr);
+	carbon_reallocate(arr->capacity * sizeof(bool), 0, arr->primitive);
 	carbon_initValueArray(arr);
 }
 

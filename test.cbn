@@ -1,35 +1,6 @@
 void main():
-	@GameObject g = @Player(1, 5, 6)
-	print((g as bool) as uint)
-end
-
-class @Object:
-	string game
-end
-
-class @GameObject < @Object:
-	uint x
-	uint y
-	void GameObject(uint x, uint y):
-		self.x = x
-		self.y = y
-		self.game = 'a1'
-	end
-	void out():
-		print(self.game)
-		print(self.x)
-		print(self.y)
-	end
-end
-
-class @Player < @GameObject:
-	uint speed
-	void Player(uint x, uint y, uint speed):
-		super(x, y)
-		self.speed = speed
-	end
-	void out():
-		super.out()	
-		print(self.speed)
+	string a
+	while true:
+		a += 'asd'
 	end
 end

@@ -49,11 +49,12 @@ typedef union {
 
 typedef struct {
 	CarbonValue *arr;
+	bool *primitive;
 	uint32_t count;
 	uint32_t capacity;
 } CarbonValueArray;
 
-uint16_t carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val);
+uint16_t carbon_writeToValueArray(CarbonValueArray *arr, CarbonValue val, bool primitive);
 void carbon_initValueArray(CarbonValueArray *arr);
 void carbon_freeCarbonValueArray(CarbonValueArray *arr);
 bool carbon_typesEqual(CarbonValueType a, CarbonValueType b);

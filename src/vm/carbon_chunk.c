@@ -97,10 +97,10 @@ uint16_t carbon_pushType(CarbonChunk *chunk, CarbonValueType type) {
 	return chunk->typeCount++;
 }
 
-uint16_t carbon_addConstant(CarbonChunk *chunk, CarbonValue constant) {
+uint16_t carbon_addConstant(CarbonChunk *chunk, CarbonValue constant, bool primitive){
 	for (uint32_t i = 0; i < chunk->constants.count; i++) {
 		if (chunk->constants.arr[i].uint == constant.uint)
 			return i;
 	}
-	return carbon_writeToValueArray(&chunk->constants, constant);
+	return carbon_writeToValueArray(&chunk->constants, constant, primitive);
 }

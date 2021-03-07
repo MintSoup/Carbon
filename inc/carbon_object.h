@@ -23,6 +23,7 @@ typedef struct carbon_object {
 	struct carbon_object *next;
 	CarbonObjectType type;
 	uint32_t hashCode;
+	bool marked;
 } CarbonObj;
 typedef struct carbon_string {
 	CarbonObj obj;
@@ -93,6 +94,7 @@ CarbonMethod *carbon_newMethod(CarbonInstance *parent, CarbonFunction *func,
 							   CarbonVM *vm);
 
 char *carbon_appendArray(CarbonObj *arr, CarbonValue *args, CarbonVM *vm);
+void carbon_printObject(CarbonObj *obj);
 
 void carbon_freeObject(CarbonObj *obj, CarbonVM *vm);
 void *carbon_reallocateObj(uint32_t oldSize, uint32_t newSize, void *oldptr,

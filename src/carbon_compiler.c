@@ -1578,9 +1578,9 @@ static void push(uint16_t index, CarbonChunk *chunk, CarbonToken token) {
 	}
 }
 
-static void pushValue(CarbonValue value, CarbonChunk *chunk,
-					  CarbonToken token) {
-	uint16_t index = carbon_addConstant(chunk, value);
+static void pushValue(CarbonValue value, CarbonChunk *chunk, CarbonToken token,
+					  bool primitive) {
+	uint16_t index = carbon_addConstant(chunk, value, primitive);
 	push(index, chunk, token);
 }
 
@@ -1625,7 +1625,7 @@ static void pushLiteral(CarbonExprLiteral *lit, CarbonChunk *chunk,
 		default:
 			return;
 	}
-	pushValue(toPush, chunk, lit->token);
+	pushValue(toPush, chunk, lit->token, !isObject(lit->expr.evalsTo));
 }
 
 void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
@@ -1856,7 +1856,7 @@ static void compileVarExpression(CarbonExprVar *var, CarbonChunk *chunk,
 	}
 
 	uint16_t index =
-		carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
+		carbon_addConstant(chunk, CarbonObject((CarbonObj *) name), false);
 	if (index > UINT8_MAX) {
 		push(index, chunk, var->token);
 		carbon_writeToChunk(chunk, OpGetGlobal, var->token.line);
@@ -1887,7 +1887,7 @@ static void compileAssignmentExpression(CarbonExprAssignment *assignment,
 	}
 
 	uint16_t index =
-		carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
+		carbon_addConstant(chunk, CarbonObject((CarbonObj *) name), false);
 	if (index > UINT8_MAX) {
 		push(index, chunk, assignment->left);
 		carbon_writeToChunk(chunk, OpSetGlobal, assignment->left.line);
@@ -1956,7 +1956,7 @@ static void compileArrayExpression(CarbonExprArray *arr, CarbonChunk *chunk,
 		carbon_writeToChunk(chunk, OpMakeArray, arr->bracket.line);
 		carbon_writeToChunk(chunk, arr->count, arr->bracket.line);
 	} else {
-		pushValue(CarbonUInt(arr->count), chunk, arr->bracket);
+		pushValue(CarbonUInt(arr->count), chunk, arr->bracket, true);
 		carbon_writeToChunk(chunk, OpMakeArray64, arr->bracket.line);
 	}
 
@@ -1987,9 +1987,9 @@ static void compileGeneratorExpression(CarbonExprArray *arr, CarbonChunk *chunk,
 	if (arr->capacity == 3)
 		carbon_compileExpression(arr->members[2], chunk, c, vm);
 	else if (arr->expr.evalsTo.compound.memberType->tag == ValueDouble)
-		pushValue(CarbonDouble(1), chunk, arr->expr.first);
+		pushValue(CarbonDouble(1), chunk, arr->expr.first, true);
 	else
-		pushValue(CarbonInt(1), chunk, arr->expr.first);
+		pushValue(CarbonInt(1), chunk, arr->expr.first, true);
 	carbon_compileExpression(arr->members[1], chunk, c, vm);
 	carbon_compileExpression(arr->members[0], chunk, c, vm);
 	carbon_writeToChunk(chunk, OpMakeGenerator, arr->bracket.line);
@@ -2328,7 +2328,8 @@ static void compileVarDecStmt(CarbonStmtVarDec *vardec, CarbonChunk *chunk,
 		}
 	} else {
 		if (isObject(vartype))
-			pushValue(defaultState(vartype, vm), chunk, vardec->identifier);
+			pushValue(defaultState(vartype, vm), chunk, vardec->identifier,
+					  !isObject(vartype));
 		else
 			emit(OpPush0, vardec->identifier.line);
 	}
@@ -2336,7 +2337,7 @@ static void compileVarDecStmt(CarbonStmtVarDec *vardec, CarbonChunk *chunk,
 	if (!isLocal) {
 		g->declared = true;
 		uint16_t index =
-			carbon_addConstant(chunk, CarbonObject((CarbonObj *) name));
+			carbon_addConstant(chunk, CarbonObject((CarbonObj *) name), false);
 		if (index > UINT8_MAX) {
 			push(index, chunk, vardec->identifier);
 			emit(OpSetGlobal, vardec->identifier.line);
@@ -2466,9 +2467,8 @@ static void compileBlockStatement(CarbonStmtBlock *block, CarbonChunk *chunk,
 		carbon_writeToChunk(chunk, block->locals, block->locals);
 	}
 	c->depth--;
-	if (c->localCount > 0)
-		while (c->locals[c->localCount - 1].depth > c->depth)
-			carbon_freeType(c->locals[c->localCount--].type);
+	while (c->localCount > 0 && c->locals[c->localCount - 1].depth > c->depth)
+		carbon_freeType(c->locals[--c->localCount].type);
 }
 
 static void compileIfStatement(CarbonStmtIf *sif, CarbonChunk *chunk,
@@ -2524,9 +2524,8 @@ static void compileWhileStatement(CarbonStmtWhile *whl, CarbonChunk *chunk,
 	}
 
 	c->depth--;
-	if (c->localCount > 0)
-		while (c->locals[c->localCount - 1].depth > c->depth)
-			carbon_freeType(c->locals[c->localCount--].type);
+	while (c->localCount > 0 && c->locals[c->localCount - 1].depth > c->depth)
+		carbon_freeType(c->locals[--c->localCount].type);
 
 	if (whl->body->hasBreak && whl->body->locals > 0) {
 		uint32_t eject = emitJump(chunk, whl->token.line);
@@ -2606,7 +2605,6 @@ static void compileForStatement(CarbonStmtFor *fr, CarbonChunk *chunk,
 
 	carbon_compileExpression(fr->arr, chunk, c, vm);
 	carbon_writeToChunk(chunk, OpPush0, fr->arr->first.line);
-	c->localCount += 2;
 
 	uint32_t forpos = emitLogicalJump(chunk, fr->token.line, OpFor);
 
@@ -2615,6 +2613,9 @@ static void compileForStatement(CarbonStmtFor *fr, CarbonChunk *chunk,
 
 	c->depth++;
 	c->loopDepth++;
+
+	c->locals[c->localCount++] = (CarbonLocal){newType(ValueVoid), NULL, 0};
+	c->locals[c->localCount++] = (CarbonLocal){newType(ValueVoid), NULL, 0};
 
 	CarbonLocal l = {varType, carbon_strFromToken(fr->var, vm), c->depth};
 	if (c->localCount != 255)
@@ -2646,7 +2647,7 @@ static void compileForStatement(CarbonStmtFor *fr, CarbonChunk *chunk,
 	}
 
 	while (c->locals[c->localCount - 1].depth > c->depth)
-		carbon_freeType(c->locals[c->localCount--].type);
+		carbon_freeType(c->locals[--c->localCount].type);
 
 	// BREAK SECTION
 	uint32_t jumpAfterBreak = 0; // to avoid "may be uninitialized" warnins
