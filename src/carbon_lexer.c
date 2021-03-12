@@ -1,55 +1,60 @@
 #include "utils/carbon_commons.h"
 #include "carbon_token.h"
 #include "carbon_lexer.h"
-#include <endian.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
 struct Identifier {
 	char *name;
 	CarbonTokenType type;
 };
 
+// clang-format off
 struct Identifier identifierList[] = {
-	{.name = "and", .type = TokenAnd},
-	{.name = "or", .type = TokenOr},
-	{.name = "is", .type = TokenIs},
-	{.name = "as", .type = TokenAs},
+	{"and", TokenAnd},
+	{"or", TokenOr},
+	{"is", TokenIs},
+	{"as", TokenAs},
 
-	{.name = "bool", .type = TokenBool},
-	{.name = "uint", .type = TokenUInt},
-	{.name = "int", .type = TokenInt},
-	{.name = "double", .type = TokenDouble},
-	{.name = "string", .type = TokenString},
-	{.name = "array", .type = TokenArray},
-	{.name = "generator", .type = TokenGenerator},
-	{.name = "error", .type = TokenError},
-	{.name = "table", .type = TokenTable},
-	{.name = "function", .type = TokenFunction},
-	{.name = "object", .type = TokenObject},
+	{"bool", TokenBool},
+	{"uint", TokenUInt},
+	{"int", TokenInt},
+	{"double", TokenDouble},
+	{"string", TokenString},
+	{"array", TokenArray},
+	{"generator", TokenGenerator},
+	{"error", TokenError},
+	{"table", TokenTable},
+	{"function", TokenFunction},
+	{"object", TokenObject},
 
-	{.name = "while", .type = TokenWhile},
-	{.name = "break", .type = TokenBreak},
-	{.name = "continue", .type = TokenContinue},
+	{"while", TokenWhile},
+	{"break", TokenBreak},
+	{"continue", TokenContinue},
 
-	{.name = "for", .type = TokenFor},
-	{.name = "in", .type = TokenIn},
-	{.name = "if", .type = TokenIf},
-	{.name = "else", .type = TokenElse},
-	{.name = "elif", .type = TokenElif},
+	{"for", TokenFor},
+	{"in", TokenIn},
+	{"if", TokenIf},
+	{"else", TokenElse},
+	{"elif", TokenElif},
 
-	{.name = "class", .type = TokenClass},
-	{.name = "super", .type = TokenSuper},
+	{"class", TokenClass},
+	{"super", TokenSuper},
 
-	{.name = "false", .type = TokenFalse},
-	{.name = "true", .type = TokenTrue},
+	{"false", TokenFalse},
+	{"true", TokenTrue},
 
-	{.name = "void", .type = TokenVoid},
-	{.name = "return", .type = TokenReturn},
-	{.name = "end", .type = TokenEnd},
+	{"void", TokenVoid},
+	{"return", TokenReturn},
+	{"end", TokenEnd},
 
-	{.name = "null", .type = TokenNull},
-	{.name = "print", .type = TokenPrint}};
+	{"null", TokenNull},
+	{"import", TokenImport},
+	{"print", TokenPrint}
+};
+
+// clang-format on
 
 static bool isAtEnd(CarbonLexer *lexer) {
 	return *lexer->current == 0;
@@ -60,13 +65,14 @@ static CarbonToken errorToken(char unexpected, CarbonLexer *lexer) {
 	t.line = lexer->line;
 	t.length = unexpected;
 	t.type = ErrorToken;
+	t.file = lexer->file;
 	return t;
 }
 
 const uint8_t identifierCount =
 	sizeof(identifierList) / sizeof(identifierList[0]);
 
-CarbonLexer carbon_initLexer(char *source, uint32_t length) {
+CarbonLexer carbon_initLexer(char *source, uint32_t length, char *file) {
 	CarbonLexer lexer;
 	lexer.source = source;
 	lexer.length = length;
@@ -74,6 +80,7 @@ CarbonLexer carbon_initLexer(char *source, uint32_t length) {
 	lexer.line = 1;
 	lexer.start = source;
 	lexer.lastToken = TokenNone;
+	lexer.file = file;
 	return lexer;
 }
 
@@ -157,6 +164,7 @@ static CarbonToken makeToken(CarbonTokenType type, CarbonLexer *lexer) {
 	t.line = lexer->line;
 	t.type = type;
 	t.lexeme = lexer->start;
+	t.file = lexer->file;
 	lexer->lastToken = type;
 	return t;
 }

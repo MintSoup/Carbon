@@ -119,11 +119,11 @@ void carbon_gc(CarbonVM *vm) {
 	// init
 	if (vm->objectCount > vm->gcarrSize) {
 		vm->gcarr =
-			carbon_reallocate(vm->gcarrSize * sizeof(CarbonValue),
-							  sizeof(CarbonValue) * vm->objectCount, vm->gcarr);
+			carbon_reallocate(vm->gcarrSize * sizeof(CarbonObj *),
+							  sizeof(CarbonObj *) * vm->objectCount, vm->gcarr);
 		vm->gcarrSize = vm->objectCount;
 	}
-	memset(vm->gcarr, 0, vm->gcarrSize);
+	memset(vm->gcarr, 1, vm->gcarrSize * sizeof(CarbonObj *));
 	CarbonObj *o = vm->objects;
 	uint32_t i = 0;
 	while (o != NULL) {
@@ -131,7 +131,7 @@ void carbon_gc(CarbonVM *vm) {
 		o = o->next;
 		i++;
 	}
-	qsort(vm->gcarr, vm->gcarrSize, sizeof(CarbonValue), compare);
+	qsort(vm->gcarr, vm->gcarrSize, sizeof(CarbonObj *), compare);
 
 	// Marking roots
 

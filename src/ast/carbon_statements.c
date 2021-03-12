@@ -111,8 +111,16 @@ CarbonStmtClass *carbon_newClassStmt(CarbonToken name) {
 	return class;
 }
 
+CarbonStmtImport *carbon_newImportStmt(CarbonToken token) {
+	CarbonStmtImport *import =
+		(CarbonStmtImport *) allocateNode(CarbonStmtImport, StmtImport);
+	import->token = token;
+	return import;
+}
+
 void carbon_freeStmt(CarbonStmt *stmt) {
-	if(stmt == NULL) return;
+	if (stmt == NULL)
+		return;
 
 #define castNode(type, name) type *name = (type *) stmt;
 
@@ -193,6 +201,10 @@ void carbon_freeStmt(CarbonStmt *stmt) {
 			castNode(CarbonStmtClass, class);
 			carbon_stmtList_free(&class->statements);
 			carbon_reallocate(sizeof(CarbonStmtClass), 0, stmt);
+			break;
+		} 
+		case StmtImport: {
+			carbon_reallocate(sizeof(CarbonStmtImport), 0, stmt);
 			break;
 		}
 	}

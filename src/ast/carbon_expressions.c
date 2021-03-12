@@ -76,14 +76,14 @@ CarbonExprAssignment *carbon_newAssignmentExpr(CarbonToken left,
 	return assignment;
 }
 
-CarbonExprCall *carbon_newCallExpr(CarbonExpr *callee, uint32_t line) {
+CarbonExprCall *carbon_newCallExpr(CarbonExpr *callee, CarbonToken paren) {
 	CarbonExprCall *call =
 		(CarbonExprCall *) allocateNode(CarbonExprCall, ExprCall);
 	call->callee = callee;
 	call->arity = 0;
 	call->arguments = NULL;
 	call->argumentCapacity = 0;
-	call->line = line;
+	call->paren = paren;
 	return call;
 }
 

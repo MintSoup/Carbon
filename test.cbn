@@ -1,6 +1,5 @@
+import 'test2.cbn'
 void main():
-	string a
-	while true:
-		a += 'asd'
-	end
+	@Primitive p = @Double(5)	
+	print((p as @Double).d)
 end

@@ -302,43 +302,44 @@ static bool alwaysReturns(CarbonStmt *stmt) {
 // ERRORS
 
 static void noInit(CarbonToken t, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Enclosing class has no initializer method\n",
-			t.line);
+	fprintf(stderr, "[%s:%u] Enclosing class has no initializer method\n",
+			t.file, t.line);
 	c->hadError = true;
 }
 
 static void noSuperclass(CarbonToken t, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Enclosing class has no superclass\n", t.line);
-	c->hadError = true;
-}
-static void superOutsideMethod(CarbonToken t, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] 'super' cannot be used outside class methods\n",
+	fprintf(stderr, "[%s:%u] Enclosing class has no superclass\n", t.file,
 			t.line);
 	c->hadError = true;
 }
+static void superOutsideMethod(CarbonToken t, CarbonCompiler *c) {
+	fprintf(stderr, "[%s:%u] 'super' cannot be used outside class methods\n",
+			t.file, t.line);
+	c->hadError = true;
+}
 static void noFunctionInSuperclass(CarbonToken t, CarbonCompiler *c) {
-	fprintf(stderr,
-			"[Line %u] Method %.*s has not been defined on superclass\n",
-			t.line, t.length, t.lexeme);
+	fprintf(stderr, "[%s:%u] Method %.*s has not been defined on superclass\n",
+			t.file, t.line, t.length, t.lexeme);
 	c->hadError = true;
 }
 
 static void undefinedSuperclass(CarbonToken name, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Superclass %.*s has not been defined\n",
+	fprintf(stderr, "[%s:%u] Superclass %.*s has not been defined\n", name.file,
 			name.line, name.length, name.lexeme);
 	c->hadError = true;
 }
 
 static void wrongSignature(CarbonToken name, CarbonCompiler *c) {
 	fprintf(stderr,
-			"[Line %u] Method %.*s's signature doesn't match the superclass "
+			"[%s:%u] Method %.*s's signature doesn't match the superclass "
 			"definition\n",
-			name.line, name.length, name.lexeme);
+			name.file, name.line, name.length, name.lexeme);
 	c->hadError = true;
 }
 
 static void selfAssignment(CarbonToken self, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] 'self' cannot be assigned to\n", self.line);
+	fprintf(stderr, "[%s:%u] 'self' cannot be assigned to\n", self.file,
+			self.line);
 	c->hadError = true;
 }
 
@@ -346,35 +347,35 @@ static void cantDotAssign(CarbonValueType type, CarbonToken equals,
 						  CarbonCompiler *c) {
 	if (type.tag == ValueUnresolved)
 		return;
-	fprintf(stderr, "[Line %u] Type ", equals.line);
+	fprintf(stderr, "[%s:%u] Type ", equals.file, equals.line);
 	carbon_printType(stderr, type);
 	fprintf(stderr, " does not support member assignment\n");
 	c->hadError = true;
 }
 
 static void classNotFound(CarbonToken name, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Class %.*s is not defined\n", name.line,
+	fprintf(stderr, "[%s:%u] Class %.*s is not defined\n", name.file, name.line,
 			name.length, name.lexeme);
 	c->hadError = true;
 }
 
 static void invalidInitializer(CarbonToken funcName, CarbonCompiler *c) {
 	fprintf(stderr,
-			"[Line %u] Initializer functions must have a return type of void\n",
-			funcName.line);
+			"[%s:%u] Initializer functions must have a return type of void\n",
+			funcName.file, funcName.line);
 	c->hadError = true;
 }
 
 static void memberRedeclaration(CarbonToken class, CarbonToken member,
 								CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Redefinition of member '%.*s' in %.*s\n",
-			member.line, member.length, member.lexeme, class.length,
-			class.lexeme);
+	fprintf(stderr, "[%s:%u] Redefinition of member '%.*s' in %.*s\n",
+			member.file, member.line, member.length, member.lexeme,
+			class.length, class.lexeme);
 	c->hadError = true;
 }
 
 static void notObjectType(CarbonTypename type, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Type %.*s is not an object type\n",
+	fprintf(stderr, "[%s:%u] Type %.*s is not an object type\n", type.base.file,
 			type.base.line, type.base.length, type.base.lexeme);
 	c->hadError = true;
 }
@@ -383,7 +384,7 @@ static void memberNotFound(CarbonValueType type, CarbonToken property,
 						   CarbonCompiler *c) {
 	if (type.tag == ValueUnresolved)
 		return;
-	fprintf(stderr, "[Line %u] Type ", property.line);
+	fprintf(stderr, "[%s:%u] Type ", property.file, property.line);
 	carbon_printType(stderr, type);
 	fprintf(stderr, " has no member '%.*s'\n", property.length,
 			property.lexeme);
@@ -391,7 +392,7 @@ static void memberNotFound(CarbonValueType type, CarbonToken property,
 }
 
 static void needUintLength(CarbonToken t, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Array length must be a uint\n", t.line);
+	fprintf(stderr, "[%s:%u] Array length must be a uint\n", t.file, t.line);
 	c->hadError = true;
 }
 
@@ -399,7 +400,7 @@ static void cantIndexAssign(CarbonValueType type, CarbonToken token,
 							CarbonCompiler *c) {
 	if (type.tag == ValueUnresolved)
 		return;
-	fprintf(stderr, "[Line %u] Type ", token.line);
+	fprintf(stderr, "[%s:%u] Type ", token.file, token.line);
 	carbon_printType(stderr, type);
 	fprintf(stderr, " does not support index assignment\n");
 	c->hadError = true;
@@ -409,7 +410,7 @@ static void unindexableType(CarbonToken token, CarbonValueType type,
 							CarbonCompiler *c) {
 	if (type.tag == ValueUnresolved)
 		return;
-	fprintf(stderr, "[Line %u] Type ", token.line);
+	fprintf(stderr, "[%s:%u] Type ", token.file, token.line);
 	carbon_printType(stderr, type);
 	fprintf(stderr, " is not indexable\n");
 	c->hadError = true;
@@ -419,7 +420,8 @@ static void wrongIndexType(CarbonToken bracket, CarbonValueType given,
 						   CarbonValueType wanted, CarbonCompiler *c) {
 	if (given.tag == ValueUnresolved || wanted.tag == ValueUnresolved)
 		return;
-	fprintf(stderr, "[Line %u] Index has wrong type: wanted ", bracket.line);
+	fprintf(stderr, "[%s:%u] Index has wrong type: wanted ", bracket.file,
+			bracket.line);
 	carbon_printType(stderr, wanted);
 	fprintf(stderr, ", given ");
 	carbon_printType(stderr, given);
@@ -428,8 +430,8 @@ static void wrongIndexType(CarbonToken bracket, CarbonValueType given,
 }
 
 static void wrongGeneratorType(CarbonToken t, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Generators support only numeric types\n",
-			t.length);
+	fprintf(stderr, "[%s:%u] Generators support only numeric types\n", t.file,
+			t.line);
 	c->hadError = true;
 }
 
@@ -437,8 +439,8 @@ static void wrongMemberType(CarbonToken tok, uint64_t i, CarbonValueType wanted,
 							CarbonValueType given, CarbonCompiler *c) {
 	if (given.tag == ValueUnresolved || wanted.tag == ValueUnresolved)
 		return;
-	fprintf(stderr, "[Line %u] Type of array member %" PRIu64 " (", tok.line,
-			i);
+	fprintf(stderr, "[%s:%u] Type of array member %" PRIu64 " (", tok.file,
+			tok.line, i);
 	carbon_printType(stderr, given);
 	fprintf(stderr, ") does not match the type of the first member (");
 	carbon_printType(stderr, wanted);
@@ -448,34 +450,35 @@ static void wrongMemberType(CarbonToken tok, uint64_t i, CarbonValueType wanted,
 
 static void wrongTemplatecount(CarbonToken tok, uint8_t wanted, uint8_t given,
 							   bool atLeast, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Type %.*s requires %s%u templates. Given %u\n",
-			tok.line, tok.length, tok.lexeme, atLeast ? "at least " : "",
-			wanted, given);
+	fprintf(stderr, "[%s:%u] Type %.*s requires %s%u templates. Given %u\n",
+			tok.file, tok.line, tok.length, tok.lexeme,
+			atLeast ? "at least " : "", wanted, given);
 	c->hadError = true;
 }
 
 static void jumpTooLong(CarbonToken tok, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Too many lines to jump over.\n", tok.line);
+	fprintf(stderr, "[%s:%u] Too many lines to jump over.\n", tok.file,
+			tok.line);
 	c->hadError = true;
 }
 
 static void cantPrint(CarbonToken tok, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Cannot print void values.\n", tok.line);
+	fprintf(stderr, "[%s:%u] Cannot print void values.\n", tok.file, tok.line);
 	c->hadError = true;
 }
 
 static void expectedReturnStatement(CarbonToken func, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Function '%.*s' misses a return statement.\n",
-			func.line, func.length, func.lexeme);
+	fprintf(stderr, "[%s:%u] Function '%.*s' misses a return statement.\n",
+			func.file, func.line, func.length, func.lexeme);
 	c->hadError = true;
 }
 
 static void noReturnWanted(CarbonToken tok, CarbonString *functionName,
 						   CarbonCompiler *c) {
 	fprintf(stderr,
-			"[Line %u] The function %s has a return type of void, it should "
+			"[%s:%u] The function %s has a return type of void, it should "
 			"have no return statements.\n",
-			tok.line, functionName->chars);
+			tok.file, tok.line, functionName->chars);
 	c->hadError = true;
 }
 
@@ -484,8 +487,8 @@ static void wrongReturnType(CarbonToken tok, CarbonValueType wanted,
 	if (wanted.tag == ValueUnresolved || given.tag == ValueUnresolved)
 		return;
 
-	fprintf(stderr, "[Line %u] Wrong return type: function needs to return ",
-			tok.line);
+	fprintf(stderr, "[%s:%u] Wrong return type: function needs to return ",
+			tok.file, tok.line);
 	carbon_printType(stderr, wanted);
 	fprintf(stderr, ", not ");
 	carbon_printType(stderr, given);
@@ -493,8 +496,9 @@ static void wrongReturnType(CarbonToken tok, CarbonValueType wanted,
 	c->hadError = true;
 }
 
-static void invalidCallee(uint32_t line, CarbonExpr *expr, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Type ", line);
+static void invalidCallee(CarbonToken paren, CarbonExpr *expr,
+						  CarbonCompiler *c) {
+	fprintf(stderr, "[%s:%u] Type ", paren.file, paren.line);
 	carbon_printType(stderr, expr->evalsTo);
 	fprintf(stderr, " is not callable\n");
 	c->hadError = true;
@@ -503,9 +507,9 @@ static void invalidCallee(uint32_t line, CarbonExpr *expr, CarbonCompiler *c) {
 static void wrongArity(CarbonToken func, uint32_t wanted, uint32_t given,
 					   CarbonCompiler *c) {
 	fprintf(stderr,
-			"[Line %u] Wrong number of arguments while calling function %.*s: "
+			"[%s:%u] Wrong number of arguments while calling function %.*s: "
 			"Expected %u, got %u.\n",
-			func.line, func.length, func.lexeme, wanted, given);
+			func.file, func.line, func.length, func.lexeme, wanted, given);
 	c->hadError = true;
 }
 static void wrongArgumentType(CarbonToken argument, uint8_t n,
@@ -515,9 +519,9 @@ static void wrongArgumentType(CarbonToken argument, uint8_t n,
 		return;
 
 	fprintf(stderr,
-			"[Line %u] Argument %u of function call %.*s is of the wrong "
+			"[%s:%u] Argument %u of function call %.*s is of the wrong "
 			"type: Expected ",
-			argument.line, n, name.length, name.lexeme);
+			argument.file, argument.line, n, name.length, name.lexeme);
 	carbon_printType(stderr, wanted);
 	fprintf(stderr, ", got ");
 	carbon_printType(stderr, given);
@@ -527,29 +531,29 @@ static void wrongArgumentType(CarbonToken argument, uint8_t n,
 
 static void tooManyLocals(CarbonToken name, CarbonCompiler *c) {
 	fprintf(stderr,
-			"[Line %u] Too many locals: Not enough stack space for '%.*s'.\n",
-			name.line, name.length, name.lexeme);
+			"[%s:%u] Too many locals: Not enough stack space for '%.*s'.\n",
+			name.file, name.line, name.length, name.lexeme);
 	c->hadError = true;
 }
 
 static void localRedeclaration(CarbonToken name, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Redeclaration of local variale '%.*s'.\n",
-			name.line, name.length, name.lexeme);
+	fprintf(stderr, "[%s:%u] Redeclaration of local variale '%.*s'.\n",
+			name.file, name.line, name.length, name.lexeme);
 	c->hadError = true;
 }
 
 static void globalRedeclaration(CarbonToken name, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Global %.*s has already been declared.\n",
-			name.line, name.length, name.lexeme);
+	fprintf(stderr, "[%s:%u] Global %.*s has already been declared.\n",
+			name.file, name.line, name.length, name.lexeme);
 	c->hadError = true;
 }
 
-static void cantAssign(CarbonValueType to, CarbonValueType from, uint32_t line,
-					   CarbonCompiler *c) {
+static void cantAssign(CarbonValueType to, CarbonValueType from,
+					   CarbonToken tok, CarbonCompiler *c) {
 
 	if (from.tag == ValueUnresolved || to.tag == ValueUnresolved)
 		return;
-	fprintf(stderr, "[Line %u] Cannot assign type ", line);
+	fprintf(stderr, "[%s:%u] Cannot assign type ", tok.file, tok.line);
 	carbon_printType(stderr, from);
 	fprintf(stderr, " to ");
 	carbon_printType(stderr, to);
@@ -561,8 +565,8 @@ static void unaryOpNotSupported(CarbonToken op, CarbonValueType type,
 								CarbonCompiler *c) {
 	if (type.tag == ValueUnresolved)
 		return;
-	fprintf(stderr, "[Line %u] Operator '%.*s' not supported for operand type ",
-			op.line, op.length, op.lexeme);
+	fprintf(stderr, "[%s:%u] Operator '%.*s' not supported for operand type ",
+			op.file, op.line, op.length, op.lexeme);
 	carbon_printType(stderr, type);
 	fprintf(stderr, "\n");
 	c->hadError = true;
@@ -572,9 +576,8 @@ static void binaryOpNotSupported(CarbonToken op, CarbonValueType left,
 								 CarbonValueType right, CarbonCompiler *c) {
 	if (left.tag == ValueUnresolved || right.tag == ValueUnresolved)
 		return;
-	fprintf(stderr,
-			"[Line %u] Operator '%.*s' not supported for operand types ",
-			op.line, op.length, op.lexeme);
+	fprintf(stderr, "[%s:%u] Operator '%.*s' not supported for operand types ",
+			op.file, op.line, op.length, op.lexeme);
 	carbon_printType(stderr, left);
 	fprintf(stderr, " and ");
 	carbon_printType(stderr, right);
@@ -585,7 +588,7 @@ static void castNotSupported(CarbonValueType from, CarbonValueType to,
 							 CarbonToken tok, CarbonCompiler *c) {
 	if (to.tag == ValueUnresolved || from.tag == ValueUnresolved)
 		return;
-	fprintf(stderr, "[Line %u] Cannot cast from type ", tok.line);
+	fprintf(stderr, "[%s:%u] Cannot cast from type ", tok.file, tok.line);
 	carbon_printType(stderr, from);
 	fprintf(stderr, " to ");
 	carbon_printType(stderr, to);
@@ -594,8 +597,8 @@ static void castNotSupported(CarbonValueType from, CarbonValueType to,
 }
 
 static void globalNotFound(CarbonToken token, CarbonCompiler *c) {
-	fprintf(stderr, "[Line %u] Could not resolve global %.*s\n", token.line,
-			token.length, token.lexeme);
+	fprintf(stderr, "[%s:%u] Could not resolve global %.*s\n", token.file,
+			token.line, token.length, token.lexeme);
 	c->hadError = true;
 }
 
@@ -1128,7 +1131,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 									  c)) {
 					if (assignment->equals.type == TokenEquals)
 						cantAssign(leftType, assignment->right->evalsTo,
-								   assignment->left.line, c);
+								   assignment->left, c);
 					else
 						binaryOpNotSupported(assignment->equals, leftType,
 											 assignment->right->evalsTo, c);
@@ -1167,7 +1170,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 
 			if (!carbon_canAssign(leftType, rightType, c)) {
 				if (ie->equals.type == TokenEquals)
-					cantAssign(leftType, rightType, ie->equals.line, c);
+					cantAssign(leftType, rightType, ie->equals, c);
 				else
 					binaryOpNotSupported(ie->equals, leftType,
 										 ie->right->evalsTo, c);
@@ -1213,7 +1216,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			typecheck(call->callee, c, vm);
 			if (call->callee->evalsTo.tag != ValueFunction &&
 				call->callee->evalsTo.tag != ValueUnresolved) {
-				invalidCallee(call->line, call->callee, c);
+				invalidCallee(call->paren, call->callee, c);
 				break;
 			}
 
@@ -1333,7 +1336,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 				if (!carbon_canAssign(*expr->evalsTo.compound.memberType,
 									  arr->members[1]->evalsTo, c))
 					cantAssign(expr->evalsTo, arr->members[1]->evalsTo,
-							   arr->members[1]->first.line, c);
+							   arr->members[1]->first, c);
 
 				arr->members[1] = promoteNumerics(
 					*expr->evalsTo.compound.memberType, arr->members[1]);
@@ -1551,7 +1554,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 
 			if (!carbon_canAssign(leftType, rightType, c)) {
 				if (da->equals.type == TokenEquals)
-					cantAssign(leftType, rightType, da->equals.line, c);
+					cantAssign(leftType, rightType, da->equals, c);
 				else
 					binaryOpNotSupported(da->equals, leftType,
 										 da->right->evalsTo, c);
@@ -1912,8 +1915,8 @@ static void compileCallExpression(CarbonExprCall *call, CarbonChunk *chunk,
 			carbon_writeToChunk(
 				chunk, resolveLocal(carbon_copyString("self", 4, vm), c),
 				lit->token.line);
-			carbon_writeToChunk(chunk, OpCall, call->line);
-			carbon_writeToChunk(chunk, call->arity + 1, call->line);
+			carbon_writeToChunk(chunk, OpCall, call->paren.line);
+			carbon_writeToChunk(chunk, call->arity + 1, call->paren.line);
 			return;
 		}
 	}
@@ -1922,8 +1925,8 @@ static void compileCallExpression(CarbonExprCall *call, CarbonChunk *chunk,
 	for (uint8_t i = 0; i < call->arity; i++) {
 		carbon_compileExpression(call->arguments[i], chunk, c, vm);
 	}
-	carbon_writeToChunk(chunk, OpCall, call->line);
-	carbon_writeToChunk(chunk, call->arity, call->line);
+	carbon_writeToChunk(chunk, OpCall, call->paren.line);
+	carbon_writeToChunk(chunk, call->arity, call->paren.line);
 }
 
 static void compileInitExpression(CarbonExprCall *call, CarbonChunk *chunk,
@@ -1942,8 +1945,8 @@ static void compileInitExpression(CarbonExprCall *call, CarbonChunk *chunk,
 		carbon_writeToChunk(chunk, OpMakeInstance, name.line);
 		carbon_writeToChunk(chunk, class->id, name.line);
 
-		carbon_writeToChunk(chunk, OpCall, call->line);
-		carbon_writeToChunk(chunk, call->arity + 1, call->line);
+		carbon_writeToChunk(chunk, OpCall, call->paren.line);
+		carbon_writeToChunk(chunk, call->arity + 1, call->paren.line);
 	} else {
 		carbon_writeToChunk(chunk, OpMakeInstance, name.line);
 		carbon_writeToChunk(chunk, class->id, name.line);
@@ -2319,7 +2322,7 @@ static void compileVarDecStmt(CarbonStmtVarDec *vardec, CarbonChunk *chunk,
 		typecheck(vardec->initializer, c, vm);
 		if (!carbon_canAssign(vartype, vardec->initializer->evalsTo, c)) {
 			cantAssign(vartype, vardec->initializer->evalsTo,
-					   vardec->identifier.line, c);
+					   vardec->identifier, c);
 			if (!isLocal)
 				g->declared = true;
 		} else {
@@ -2871,6 +2874,8 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 			compileClassStatement((CarbonStmtClass *) stmt, chunk, c, vm);
 			break;
 		}
+		case StmtImport:
+			break; // Should never run
 	}
 #undef emit
 }

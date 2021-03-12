@@ -1,6 +1,7 @@
 #include "carbon.h"
 #include "ast/carbon_statements.h"
 #include "carbon_compiler.h"
+#include "carbon_lexer.h"
 #include "carbon_object.h"
 #include "carbon_parser.h"
 #include "carbon_token.h"
@@ -13,55 +14,83 @@
 #include "vm/carbon_vm.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 extern uint32_t heapSize;
 
-void carbon_init(CarbonState *instance) {
+void carbon_init(CarbonState *instance,
+				 char *(*readFile)(char *, char *, uint32_t *) ) {
 	carbon_initVM(&instance->vm);
 	carbon_stmtList_init(&instance->statements);
+	instance->readFile = readFile;
 }
 
-CarbonRunResult carbon_execute(CarbonState *instance, char *source,
-							   uint32_t length, struct CarbonFlags flags) {
-	instance->lexer = carbon_initLexer(source, length);
-	carbon_initParser(&instance->parser, &instance->lexer);
-	carbon_initCompiler(&instance->compiler, &instance->parser);
-	while (instance->parser.tokens[instance->parser.currentToken].type !=
-		   TokenEOF) {
-		CarbonStmt *stmt = carbon_parseStatement(&instance->parser);
-		if (stmt != NULL)
-			carbon_stmtList_add(&instance->statements, stmt);
+static bool add(CarbonState *state, char *source, uint32_t length, char *from) {
+	CarbonLexer lexer = carbon_initLexer(source, length, from);
+	CarbonParser parser;
+	carbon_initParser(&parser, &lexer);
+	carbon_initCompiler(&state->compiler, &parser);
+
+	bool hadError = false;
+
+	while (parser.tokens[parser.currentToken].type != TokenEOF) {
+		CarbonStmt *stmt = carbon_parseStatement(&parser);
+		if (stmt == NULL)
+			continue;
+
+		if (stmt->type == StmtImport) {
+			CarbonStmtImport *imp = (CarbonStmtImport *) stmt;
+			if (imp->token.type == TokenStringLiteral) {
+				char *name = malloc(imp->token.length - 1);
+				memcpy(name, imp->token.lexeme + 1, imp->token.length - 2);
+				name[imp->token.length - 2] = 0;
+				uint32_t length;
+				char *file = state->readFile(name, from, &length);
+				if (file != NULL)
+					hadError = hadError || add(state, file, length, name);
+			}
+			carbon_freeStmt(stmt);
+		} else
+			carbon_stmtList_add(&state->statements, stmt);
+	}
+	hadError = hadError || parser.hadError;
+	carbon_freeParser(&parser);
+	return hadError;
+}
+
+CarbonRunResult carbon_execute(CarbonState *state, char *source,
+							   uint32_t length, char *name,
+							   struct CarbonFlags flags) {
+
+	bool parserHadError = add(state, source, length, name);
+
+	CarbonFunction *topLevel = carbon_newFunction(NULL, 0, NULL, &state->vm);
+
+	for (uint32_t i = 0; i < state->statements.count; i++) {
+		CarbonStmt *stmt = state->statements.arr[i];
+		carbon_scoutClass(stmt, &state->compiler, &state->vm);
 	}
 
-	CarbonFunction *topLevel = carbon_newFunction(NULL, 0, NULL, &instance->vm);
-
-	for (uint32_t i = 0; i < instance->statements.count; i++) {
-		CarbonStmt *stmt = instance->statements.arr[i];
-		carbon_scoutClass(stmt, &instance->compiler, &instance->vm);
+	for (uint32_t i = 0; i < state->statements.count; i++) {
+		CarbonStmt *stmt = state->statements.arr[i];
+		carbon_markGlobal(stmt, &state->compiler, &state->vm);
 	}
+	state->vm.classCount = state->compiler.classCount;
+	state->vm.classes = carbon_reallocate(
+		0, state->vm.classCount * sizeof(struct carbon_class), NULL);
 
-	for (uint32_t i = 0; i < instance->statements.count; i++) {
-		CarbonStmt *stmt = instance->statements.arr[i];
-		carbon_markGlobal(stmt, &instance->compiler, &instance->vm);
-	}
-	instance->vm.classCount = instance->compiler.classCount;
-	instance->vm.classes = carbon_reallocate(
-		0, instance->vm.classCount * sizeof(struct carbon_class), NULL);
-
-	for (uint32_t i = 0; i < instance->statements.count; i++) {
-		CarbonStmt *stmt = instance->statements.arr[i];
-		carbon_compileStatement(stmt, &topLevel->chunk, &instance->compiler,
-								&instance->vm);
+	for (uint32_t i = 0; i < state->statements.count; i++) {
+		CarbonStmt *stmt = state->statements.arr[i];
+		carbon_compileStatement(stmt, &topLevel->chunk, &state->compiler,
+								&state->vm);
 	}
 
 	carbon_writeToChunk(&topLevel->chunk, OpReturnVoid, -1);
 
-	bool compilerHadError = instance->compiler.hadError;
-	bool parserHadError = instance->parser.hadError;
+	bool compilerHadError = state->compiler.hadError;
 
-	carbon_freeParser(&instance->parser);
-	carbon_freeCompiler(&instance->compiler);
-	carbon_stmtList_free(&instance->statements);
+	carbon_freeCompiler(&state->compiler);
+	carbon_stmtList_free(&state->statements);
 
 	if (parserHadError)
 		return Carbon_Parser_Error;
@@ -69,7 +98,7 @@ CarbonRunResult carbon_execute(CarbonState *instance, char *source,
 		return Carbon_Compiler_Error;
 
 	if (flags.disassemble) { // disassembly
-		CarbonObj *o = instance->vm.objects;
+		CarbonObj *o = state->vm.objects;
 		while (o != NULL) {
 			if (o->type == CrbnObjFunc) {
 				CarbonFunction *f = (CarbonFunction *) o;
@@ -85,7 +114,7 @@ CarbonRunResult carbon_execute(CarbonState *instance, char *source,
 	}
 
 	if (!flags.norun) {
-		CarbonRunResult r = carbon_run(&instance->vm, topLevel);
+		CarbonRunResult r = carbon_run(&state->vm, topLevel);
 		return r;
 	} else
 		return Carbon_OK;

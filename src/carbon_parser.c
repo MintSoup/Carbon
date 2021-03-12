@@ -17,7 +17,7 @@ static void error(CarbonToken at, char *msg, CarbonParser *p) {
 		return;
 	p->panic = true;
 	p->hadError = true;
-	fprintf(stderr, "[Line %d] ", at.line);
+	fprintf(stderr, "[%s:%u] ", at.file, at.line);
 	switch (at.type) {
 		case TokenEOF: {
 			fprintf(stderr, "EOF: %s", msg);
@@ -228,6 +228,7 @@ static CarbonStmtPrint *printStatement(CarbonParser *p);
 static CarbonStmtExpr *expressionStatement(CarbonParser *p);
 static CarbonStmtVarDec *varDeclaration(CarbonTypename type, CarbonParser *p);
 static CarbonStmtClass *classDeclaration(CarbonParser *p);
+static CarbonStmtImport *import(CarbonParser *p);
 
 static CarbonExpr *logicalOr(CarbonParser *p);
 static CarbonExpr *logicalAnd(CarbonParser *p);
@@ -323,6 +324,8 @@ CarbonStmt *carbon_parseStatement(CarbonParser *p) {
 		return (CarbonStmt *) varDeclaration(type, p);
 	} else if (n.type == TokenClass) {
 		return (CarbonStmt *) classDeclaration(p);
+	} else if (n.type == TokenImport) {
+		return (CarbonStmt *) import(p);
 	} else {
 		next(p);
 		error(previous(p), "Only declarations are allowed in top-level code.",
@@ -333,6 +336,19 @@ CarbonStmt *carbon_parseStatement(CarbonParser *p) {
 
 CarbonExpr *carbon_parseExpression(CarbonParser *p) {
 	return expression(p);
+}
+
+static CarbonStmtImport *import(CarbonParser *p) {
+	next(p);
+	if (match(TokenStringLiteral, p) || match(TokenIdentifier, p)) {
+		CarbonToken t = previous(p);
+		consume(TokenEOS, "Expected EOS after import statement", p);
+		return carbon_newImportStmt(t);
+	} else {
+		errorAtCurrent("Expected a string literal or identifier after 'import'",
+					   p);
+		return NULL;
+	}
 }
 
 static CarbonStmtClass *classDeclaration(CarbonParser *p) {
@@ -612,8 +628,8 @@ static CarbonExpr *assignment(CarbonParser *p) {
 			case ExprVar: {
 				CarbonToken eq = ((CarbonExprVar *) target)->token;
 				carbon_freeExpr(target);
-				return (CarbonExpr *) carbon_newAssignmentExpr(eq,
-															   value, equals);
+				return (CarbonExpr *) carbon_newAssignmentExpr(eq, value,
+															   equals);
 			}
 			case ExprIndex:
 				return (CarbonExpr *) carbon_newIndexAssignmentExpr(
@@ -709,13 +725,13 @@ static CarbonExpr *unary(CarbonParser *p) {
 }
 
 static CarbonExprCall *call(CarbonExpr *expr, CarbonParser *p) {
-	CarbonExprCall *call = carbon_newCallExpr(expr, previous(p).line);
+	CarbonExprCall *call = carbon_newCallExpr(expr, previous(p));
 	bool tooMany = false;
 	if (!match(TokenRightParen, p)) {
 		do {
 			if (!tooMany && call->arity == 255) {
-				errorAtCurrent("Function calls can have a maximum of 255 arguments.",
-							   p);
+				errorAtCurrent(
+					"Function calls can have a maximum of 255 arguments.", p);
 				tooMany = true;
 			}
 			CarbonExpr *e = expression(p);

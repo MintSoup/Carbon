@@ -15,6 +15,7 @@ typedef enum {
 	StmtBreak,
 	StmtFor,
 	StmtClass,
+	StmtImport,
 } CarbonStmtType;
 
 typedef struct {
@@ -110,6 +111,12 @@ typedef struct {
 	bool hasSuperclass;
 } CarbonStmtClass;
 
+
+typedef struct {
+	CarbonStmt stmt;
+	CarbonToken token;
+} CarbonStmtImport;
+
 void carbon_stmtList_init(CarbonStmtList *sl);
 void carbon_stmtList_add(CarbonStmtList *sl, CarbonStmt *stmt);
 void carbon_stmtList_free(CarbonStmtList *sl);
@@ -122,6 +129,7 @@ CarbonStmtVarDec *carbon_newVarDecStmt(CarbonToken identifier,
 									   CarbonTypename type,
 									   CarbonExpr *initializer);
 CarbonStmtReturn *carbon_newReturnStmt(CarbonToken token);
+CarbonStmtImport *carbon_newImportStmt(CarbonToken what);
 CarbonStmtIf *carbon_newIfStmt(CarbonExpr *expr, CarbonToken token);
 CarbonStmtWhile *carbon_newWhileStmt(CarbonExpr *expr, CarbonToken tok);
 CarbonStmtBreak *carbon_newBreakStmt(CarbonToken token);

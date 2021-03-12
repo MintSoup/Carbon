@@ -73,11 +73,13 @@ typedef enum {
 	TokenVoid,
 	TokenNull,
 	TokenClassname,
+	TokenImport,
 	TokenNone
 } CarbonTokenType;
 
 typedef struct {
 	char *lexeme;
+	char* file;
 	CarbonTokenType type;
 	uint32_t length;
 	uint32_t line;

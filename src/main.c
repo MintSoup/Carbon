@@ -1,17 +1,9 @@
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "ast/carbon_expressions.h"
+
 #include "carbon.h"
-#include "carbon_compiler.h"
-#include "carbon_lexer.h"
 #include "carbon_object.h"
-#include "carbon_parser.h"
-#include "carbon_token.h"
-#include "carbon_value.h"
-#include "utils/carbon_commons.h"
-#include "utils/carbon_disassembler.h"
-#include "vm/carbon_chunk.h"
-#include <string.h>
 
 extern uint32_t heapSize;
 
@@ -39,6 +31,79 @@ static bool parseArguments(int argc, char *argv[]) {
 	return r;
 }
 
+typedef struct file {
+	char *name;
+	char *contents;
+	uint32_t length;
+} file;
+
+file *files;
+uint16_t filesCount = 0;
+uint16_t filesZile = 0;
+
+void freeFiles() {
+	for (uint16_t i = 0; i < filesCount; i++) {
+		free(files[i].name);
+		free(files[i].contents);
+	}
+	free(files);
+}
+
+// This is not a good example of a readFile function.
+// This is here just to demonstrate how one may read a file.
+// If we can retrieve a valid string, return it, otherwise NULL
+// In this case, we check if the file has already been included,
+// and if so, we return NULL so we don't process the file more than
+// once. If we want to signal an error, we must set *length to 1
+// to let Carbon know that the code should not be executed.
+char *readFile(char *name, char *from, uint32_t *length) {
+	for (uint16_t i = 0; i < filesCount; i++) {
+		if (!strcmp(files[i].name, name))
+			return NULL;
+	}
+	if (filesCount >= filesZile) {
+		uint32_t new;
+		if (filesZile != 0)
+			new = filesZile * 2;
+		else
+			new = 8;
+		files = realloc(files, new * sizeof(file));
+		filesZile = new;
+	}
+	FILE *f = fopen(name, "rb");
+	if (!f) {
+		if (from)
+			fprintf(stderr, "%s: Cannot open file %s\n", from, name);
+		else
+			fprintf(stderr, "Cannot open file %s\n", name);
+		if (length != NULL)
+			*length = 1;
+		return NULL;
+	}
+	fseek(f, 0, SEEK_END);
+	uint32_t size = ftell(f);
+	fseek(f, 0, SEEK_SET);
+	char *t = malloc(size + 1);
+	if (!t) {
+		if (length != NULL)
+			*length = 1;
+		return NULL;
+	}
+	t[size] = 0;
+
+	fread(t, size, 1, f);
+	fclose(f);
+	files[filesCount].name = name;
+	files[filesCount].contents = t;
+	files[filesCount].length = size;
+	filesCount++;
+
+	if (length != NULL)
+		*length = size;
+
+	return t;
+}
+
 int main(int argc, char *argv[]) {
 	if (argc == 1) {
 		puts("Usage: carbon <filename>");
@@ -46,29 +111,20 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (parseArguments(argc, argv)) {
-		return 3;
+		return 4;
 	}
-	FILE *f = fopen(argv[argc - 1], "rb");
-
-	if (!f) {
-		fprintf(stderr, "Cannot open file %s\n", argv[argc - 1]);
-		return 2;
-	}
-
-	fseek(f, 0, SEEK_END);
-	uint32_t size = ftell(f);
-	fseek(f, 0, SEEK_SET);
-	char *t = malloc(size + 1);
-	if (!t)
-		return 3;
-	t[size] = 0;
-	fread(t, size, 1, f);
-	fclose(f);
 
 	CarbonState instance;
-	carbon_init(&instance);
+	carbon_init(&instance, readFile);
 
-	CarbonRunResult isOk = carbon_execute(&instance, t, size, flags);
+	uint32_t length = strlen(argv[argc - 1]) + 1;
+	char *first = malloc(length);
+	strcpy(first, argv[argc - 1]);
+	first[length - 1] = 0;
+	readFile(first, NULL, NULL);
+
+	CarbonRunResult isOk = carbon_execute(
+		&instance, files[0].contents, files[0].length, argv[argc - 1], flags);
 
 	if (isOk == Carbon_OK) {
 		CarbonValue mainFunction;
@@ -108,7 +164,6 @@ int main(int argc, char *argv[]) {
 			printf("***MEMORY LEAK: LEAKING %" PRIu32 " BYTES***\n ", heapSize);
 		}
 	}
-	free(t);
-
+	freeFiles();
 	return 0;
 }

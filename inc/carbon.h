@@ -7,11 +7,10 @@
 #include "utils/carbon_commons.h"
 
 typedef struct {
-	CarbonLexer lexer;
-	CarbonParser parser;
 	CarbonCompiler compiler;
 	CarbonVM vm;
 	CarbonStmtList statements;
+	char *(*readFile)(char *, char *, uint32_t *);
 } CarbonState;
 
 enum carbon_runresult {
@@ -27,8 +26,10 @@ struct CarbonFlags {
 };
 
 CarbonRunResult carbon_execute(CarbonState *instance, char *source,
-							   uint32_t length, struct CarbonFlags flags);
-void carbon_init(CarbonState *instance);
+							   uint32_t length, char *name,
+							   struct CarbonFlags flags);
+void carbon_init(CarbonState *instance,
+				 char *(*readFile)(char *, char *, uint32_t *) );
 void carbon_free(CarbonState *instance);
 bool carbon_isPrimitive(CarbonState *instance, char *name);
 bool carbon_getValue(CarbonState *instance, char *name, CarbonValue *out);

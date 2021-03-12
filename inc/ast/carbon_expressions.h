@@ -81,7 +81,7 @@ typedef struct {
 	CarbonExpr expr;
 	CarbonExpr *callee;
 	CarbonExpr **arguments;
-	uint32_t line;
+	CarbonToken paren;
 	uint16_t argumentCapacity;
 	uint8_t arity;
 } CarbonExprCall;
@@ -149,7 +149,7 @@ CarbonExprIndexAssignment *carbon_newIndexAssignmentExpr(CarbonExprIndex *left,
 
 CarbonExprCast *carbon_newCastExpr(CarbonTypename to, CarbonExpr *expr);
 CarbonExprVar *carbon_newVarExpr(CarbonToken token);
-CarbonExprCall *carbon_newCallExpr(CarbonExpr *callee, uint32_t line);
+CarbonExprCall *carbon_newCallExpr(CarbonExpr *callee, CarbonToken paren);
 CarbonExprAssignment *carbon_newAssignmentExpr(CarbonToken left,
 											   CarbonExpr *right,
 											   CarbonToken equals);
