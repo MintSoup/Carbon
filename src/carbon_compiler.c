@@ -141,12 +141,8 @@ static Global *newGlobal(CarbonValueType valueType) {
 
 #undef global
 
-static inline CarbonValueType newType(enum CarbonValueTag tag) {
-	CarbonValueType typ;
-	typ.tag = tag;
-	typ.compound.instanceName = NULL;
-	return typ;
-}
+#define newType(t)                                                             \
+	(CarbonValueType) { {.instanceName = NULL}, t }
 
 static CarbonValueType resolveLocalType(CarbonString *name, CarbonCompiler *c) {
 	for (int16_t i = c->localCount - 1; i >= 0; i--) {
