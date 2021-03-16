@@ -12,7 +12,7 @@ CarbonModuleHandle const carbon_modules[] = {
 #ifdef CARBON_MODULE_RANDOM
 	{"random", carbon_initModuleRandom},
 #endif
-#ifdef CARBON_MODULE_RANDOM
+#ifdef CARBON_MODULE_TIME
 	{"time", carbon_initModuleTime},
 #endif
 };
