@@ -2,6 +2,7 @@
 #include "ast/carbon_statements.h"
 #include "carbon_compiler.h"
 #include "carbon_lexer.h"
+#include "carbon_modules.h"
 #include "carbon_object.h"
 #include "carbon_parser.h"
 #include "carbon_token.h"
@@ -23,13 +24,43 @@ void carbon_init(CarbonState *instance,
 	carbon_initVM(&instance->vm);
 	carbon_stmtList_init(&instance->statements);
 	instance->readFile = readFile;
+	carbon_tableInit(&instance->modules);
+}
+
+static bool add(CarbonState *state, char *source, uint32_t length, char *from);
+
+static bool loadModule(CarbonToken name, CarbonState *state, char *from) {
+	CarbonString *str = carbon_strFromToken(name, &state->vm);
+	CarbonValue dummy;
+	if (carbon_tableGet(&state->modules, (CarbonObj *) str, &dummy))
+		return false;
+	for (uint32_t i = 0; i < carbon_modules_count; i++) {
+		CarbonModuleHandle const *modh = &carbon_modules[i];
+		if (!strcmp(modh->name, str->chars)) {
+			carbon_tableSet(&state->modules, (CarbonObj *) str,
+							CarbonBool(true));
+			CarbonModule *mod = modh->generator(&state->vm);
+			for (uint32_t j = 0; j < mod->count; j++) {
+				carbon_addBuiltin(&mod->funcs[j], &state->compiler, &state->vm);
+			}
+			if (mod->src != NULL)
+				add(state, mod->src, mod->srclen, modh->name);
+			// free the container
+			carbon_reallocate(mod->count * sizeof(CarbonModuleElement), 0,
+							  mod->funcs);
+			carbon_reallocate(sizeof(CarbonModule), 0, mod);
+			return false;
+		}
+	}
+
+	fprintf(stderr, "%s: Cannot load module '%s'\n", from, str->chars);
+	return true;
 }
 
 static bool add(CarbonState *state, char *source, uint32_t length, char *from) {
 	CarbonLexer lexer = carbon_initLexer(source, length, from);
 	CarbonParser parser;
 	carbon_initParser(&parser, &lexer);
-	carbon_initCompiler(&state->compiler, &parser);
 
 	bool hadError = false;
 
@@ -48,6 +79,8 @@ static bool add(CarbonState *state, char *source, uint32_t length, char *from) {
 				char *file = state->readFile(name, from, &length);
 				if (file != NULL)
 					hadError = hadError || add(state, file, length, name);
+			} else if (imp->token.type == TokenIdentifier) {
+				hadError = hadError || loadModule(imp->token, state, from);
 			}
 			carbon_freeStmt(stmt);
 		} else
@@ -62,7 +95,9 @@ CarbonRunResult carbon_execute(CarbonState *state, char *source,
 							   uint32_t length, char *name,
 							   struct CarbonFlags flags) {
 
+	carbon_initCompiler(&state->compiler);
 	bool parserHadError = add(state, source, length, name);
+	state->compiler.parserHadError = parserHadError;
 
 	CarbonFunction *topLevel = carbon_newFunction(NULL, 0, NULL, &state->vm);
 
@@ -106,7 +141,7 @@ CarbonRunResult carbon_execute(CarbonState *state, char *source,
 					printf("-<global>-\n");
 				else
 					printf("-<function %s>-\n", f->name->chars);
-				carbon_disassemble(&f->chunk);
+				carbon_disassemble(&f->chunk, &state->vm);
 				puts("");
 			}
 			o = o->next;
@@ -133,4 +168,5 @@ bool carbon_getValue(CarbonState *instance, char *name, CarbonValue *out) {
 
 void carbon_free(CarbonState *instance) {
 	carbon_freeVM(&instance->vm);
+	carbon_tableFree(&instance->modules);
 }

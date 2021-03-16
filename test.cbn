@@ -1,5 +1,10 @@
-import 'test2.cbn'
+import math
+import random
+import time
+
 void main():
-	@Primitive p = @Double(5)	
-	print((p as @Double).d)
+	randseed(time())
+	for _ in [0..10]:
+		print(randint(-10, 10))
+	end
 end

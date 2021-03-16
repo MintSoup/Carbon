@@ -19,15 +19,14 @@ debugflags := -g -O0 -Wall -std=c99 -DDebug
 
 ldflags := -lm
 
+build: $(executable)
 
 $(obj)/%.o: $(src)/%.c
 	@mkdir -p $(objdirs)
 	$(CC) $(flags) -I$(inc) -c -o $@ $<
-	
+
 $(executable): $(objf)
 	$(CC) $(ldflags) $(objf) -o $(executable)
-
-build: $(executable)
 
 debug: flags = $(debugflags)
 debug: $(executable)

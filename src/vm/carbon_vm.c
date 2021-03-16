@@ -1,6 +1,7 @@
 #include "vm/carbon_vm.h"
 #include "carbon.h"
 #include "carbon_object.h"
+#include "carbon_value.h"
 #include "utils/carbon_memory.h"
 #include "utils/carbon_table.h"
 #include "vm/carbon_chunk.h"
@@ -21,10 +22,13 @@ void carbon_initVM(CarbonVM *vm) {
 	vm->objectCount = 0;
 	vm->greySize = 0;
 	vm->greyTop = 0;
+	vm->typeCount = 0;
+	vm->typeCapacity = 0;
 	vm->gc = false;
 	vm->objects = NULL;
 	vm->greyStack = NULL;
 	vm->gcarr = NULL;
+	vm->typeData = NULL;
 	carbon_tableInit(&vm->strings);
 	carbon_tableInit(&vm->globals);
 	carbon_tableInit(&vm->primitives);
@@ -45,6 +49,12 @@ void carbon_freeVM(CarbonVM *vm) {
 					  vm->classes);
 	carbon_reallocate(vm->gcarrSize * sizeof(CarbonValue), 0, vm->gcarr);
 	carbon_reallocate(vm->greySize * sizeof(CarbonObj *), 0, vm->greyStack);
+
+	for (uint16_t i = 0; i < vm->typeCount; i++) {
+		carbon_freeType(vm->typeData[i]);
+	}
+	carbon_reallocate(vm->typeCapacity * sizeof(CarbonValueType), 0,
+					  vm->typeData);
 }
 
 static bool isInstane(CarbonObj *o, uint8_t n, CarbonVM *vm) {
@@ -86,7 +96,7 @@ static inline CarbonValueType *t16(CarbonVM *vm, uint8_t *ip) {
 	ip++;
 	uint8_t lower = *ip;
 	uint16_t index = (higher << 8) | lower;
-	return &getChunk(vm).typeData[index];
+	return &vm->typeData[index];
 }
 
 static inline CarbonValueType newType(enum CarbonValueTag tag) {
@@ -253,7 +263,13 @@ static uint8_t call(CarbonObj *obj, CarbonVM *vm, uint8_t arity) {
 				runtimeError(msg, vm);
 				return 1;
 			}
-			vm->stackTop -= arity + 1;
+			if (bltin->sig->returnType->tag != ValueVoid) {
+				CarbonValue ret = vm->stack[vm->stackTop - 1];
+				vm->stackTop -= arity + 1;
+				vm->stack[vm->stackTop - 1] = ret;
+			} else {
+				vm->stackTop -= arity + 1;
+			}
 			break;
 		}
 		case CrbnObjMethod: {
@@ -274,6 +290,21 @@ static bool nullcheck(CarbonObj *obj, char *msg, CarbonVM *vm) {
 		return true;
 	}
 	return false;
+}
+
+uint16_t carbon_pushType(CarbonVM *vm, CarbonValueType type) {
+	if (vm->typeCapacity <= vm->typeCount) {
+		uint32_t oldSize = vm->typeCount;
+		uint32_t newSize = 8;
+		if (oldSize != 0)
+			newSize = oldSize * 2;
+		vm->typeData =
+			carbon_reallocate(oldSize * sizeof(CarbonValueType),
+							  newSize * sizeof(CarbonValueType), vm->typeData);
+		vm->typeCapacity = newSize;
+	}
+	vm->typeData[vm->typeCount] = type;
+	return vm->typeCount++;
 }
 
 CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {

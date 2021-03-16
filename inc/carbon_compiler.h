@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ast/carbon_expressions.h"
+#include "carbon_modules.h"
 #include "carbon_parser.h"
 #include "carbon_value.h"
 #include "vm/carbon_vm.h"
@@ -56,9 +57,11 @@ void carbon_compileExpression(CarbonExpr *expr, CarbonChunk *chunk,
 							  CarbonCompiler *c, CarbonVM *vm);
 void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 							 CarbonCompiler *c, CarbonVM *vm);
-void carbon_initCompiler(CarbonCompiler *compiler, CarbonParser *parser);
+void carbon_initCompiler(CarbonCompiler *compiler);
 void carbon_freeCompiler(CarbonCompiler *compiler);
 void carbon_markGlobal(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm);
 void carbon_scoutClass(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm);
 bool carbon_isSuperclass(CarbonValueType from, CarbonValueType to,
 						 CarbonCompiler *c);
+void carbon_addBuiltin(CarbonModuleElement *modelm, CarbonCompiler *c,
+					   CarbonVM *vm);

@@ -11,6 +11,7 @@ typedef struct {
 	CarbonVM vm;
 	CarbonStmtList statements;
 	char *(*readFile)(char *, char *, uint32_t *);
+	CarbonTable modules;
 } CarbonState;
 
 enum carbon_runresult {

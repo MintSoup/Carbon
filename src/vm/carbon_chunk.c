@@ -27,11 +27,8 @@ static inline void growLines(CarbonChunk *chunk) {
 void carbon_initChunk(CarbonChunk *chunk) {
 	chunk->code = NULL;
 	chunk->lines = NULL;
-	chunk->typeData = NULL;
 	chunk->count = 0;
 	chunk->capacity = 0;
-	chunk->typeCount = 0;
-	chunk->typeCapacity = 0;
 	chunk->lineCount = 0;
 	chunk->lineCapacity = 0;
 	carbon_initValueArray(&chunk->constants);
@@ -62,11 +59,6 @@ void carbon_freeChunk(CarbonChunk *chunk) {
 	carbon_reallocate(chunk->capacity, 0, chunk->code);
 	carbon_reallocate(chunk->lineCapacity * sizeof(struct carbon_lineInfo), 0,
 					  chunk->lines);
-	for (uint16_t i = 0; i < chunk->typeCount; i++) {
-		carbon_freeType(chunk->typeData[i]);
-	}
-	carbon_reallocate(chunk->typeCapacity * sizeof(CarbonValueType), 0,
-					  chunk->typeData);
 	carbon_freeCarbonValueArray(&chunk->constants);
 	carbon_initChunk(chunk);
 }
@@ -80,21 +72,6 @@ uint32_t carbon_getLine(CarbonChunk *c, uint32_t n) {
 			return line.line;
 	}
 	return -1;
-}
-
-uint16_t carbon_pushType(CarbonChunk *chunk, CarbonValueType type) {
-	if (chunk->typeCapacity <= chunk->typeCount) {
-		uint32_t oldSize = chunk->typeCount;
-		uint32_t newSize = 8;
-		if (oldSize != 0)
-			newSize = oldSize * 2;
-		chunk->typeData = carbon_reallocate(oldSize * sizeof(CarbonValueType),
-											newSize * sizeof(CarbonValueType),
-											chunk->typeData);
-		chunk->typeCapacity = newSize;
-	}
-	chunk->typeData[chunk->typeCount] = type;
-	return chunk->typeCount++;
 }
 
 uint16_t carbon_addConstant(CarbonChunk *chunk, CarbonValue constant, bool primitive){

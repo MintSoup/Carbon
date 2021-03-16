@@ -28,6 +28,9 @@ typedef struct carbon_vm {
 
 	CarbonCallframe callStack[256];
 
+
+	CarbonValueType *typeData;
+
 	struct carbon_class {
 		CarbonFunction **methods;
 		int16_t superclass;
@@ -44,6 +47,9 @@ typedef struct carbon_vm {
 	uint32_t greyTop;
 
 	uint16_t stackTop;
+	uint16_t typeCount;
+	uint16_t typeCapacity;
+
 	uint8_t classCount;
 	uint8_t callDepth;
 
@@ -52,4 +58,5 @@ typedef struct carbon_vm {
 
 void carbon_initVM(CarbonVM *vm);
 void carbon_freeVM(CarbonVM *vm);
+uint16_t carbon_pushType(CarbonVM* vm, CarbonValueType type);
 CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func);

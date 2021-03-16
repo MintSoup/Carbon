@@ -1,4 +1,5 @@
 import 'test3.cbn'
+
 class @Double < @Primitive:
 	double d
 	void Double(double d): self.d = d; end

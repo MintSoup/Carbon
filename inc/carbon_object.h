@@ -1,6 +1,5 @@
 #pragma once
 
-#include "carbon.h"
 #include "carbon_value.h"
 #include "utils/carbon_commons.h"
 #include "vm/carbon_chunk.h"

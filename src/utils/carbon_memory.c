@@ -23,23 +23,30 @@ void *carbon_reallocate(uint32_t oldSize, uint32_t newSize, void *oldptr) {
 }
 
 static int compare(const void *a, const void *b) {
-	return *((intptr_t *) a) - *((intptr_t *) b);
+	uintptr_t _a = *(uintptr_t *) a;
+	uintptr_t _b = *(uintptr_t *) b;
+	if (_a > _b)
+		return 1;
+	if (_a < _b)
+		return -1;
+	else
+		return 0;
 }
 
 static bool find(CarbonValue v, CarbonVM *vm) {
-	uint32_t left = 0;
-	uint32_t right = vm->gcarrSize - 1;
+	int64_t left = 0;
+	int64_t right = vm->objectCount - 1;
 	while (left <= right) {
-		uint32_t middle = (left + right) / 2;
+		int64_t middle = (left + right) / 2;
 		uint64_t obj = (uint64_t) vm->gcarr[middle];
 		if (v.uint == obj)
-			return false;
+			return true;
 		else if (v.uint < obj)
 			right = middle - 1;
 		else
 			left = middle + 1;
 	}
-	return true;
+	return false;
 }
 
 static void markObject(CarbonObj *o, CarbonVM *vm) {
@@ -62,11 +69,10 @@ static void markObject(CarbonObj *o, CarbonVM *vm) {
 
 static void mark(CarbonValue v, CarbonVM *vm) {
 	if (v.uint < (uint64_t) vm->gcarr[0] ||
-		v.uint > (uint64_t) vm->gcarr[vm->gcarrSize - 1])
+		v.uint > (uint64_t) vm->gcarr[vm->objectCount - 1])
 		return;
 	if (find(v, vm))
-		return;
-	markObject(v.obj, vm);
+		markObject(v.obj, vm);
 }
 
 static void blacken(CarbonObj *obj, CarbonVM *vm) {
@@ -123,7 +129,6 @@ void carbon_gc(CarbonVM *vm) {
 							  sizeof(CarbonObj *) * vm->objectCount, vm->gcarr);
 		vm->gcarrSize = vm->objectCount;
 	}
-	memset(vm->gcarr, 1, vm->gcarrSize * sizeof(CarbonObj *));
 	CarbonObj *o = vm->objects;
 	uint32_t i = 0;
 	while (o != NULL) {
@@ -131,10 +136,10 @@ void carbon_gc(CarbonVM *vm) {
 		o = o->next;
 		i++;
 	}
-	qsort(vm->gcarr, vm->gcarrSize, sizeof(CarbonObj *), compare);
+	qsort(vm->gcarr, vm->objectCount, sizeof(CarbonObj *), compare);
 
 	// Marking roots
-
+	
 	// stack
 	for (i = 0; i < vm->stackTop; i++)
 		mark(vm->stack[i], vm);

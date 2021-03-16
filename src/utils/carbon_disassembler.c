@@ -100,7 +100,7 @@ static char *names[] = {
 
 char *builtinFunctionNames[] = {[BuiltinAppend] = "append"};
 
-void carbon_disassemble(CarbonChunk *chunk) {
+void carbon_disassemble(CarbonChunk *chunk, CarbonVM* vm) {
 	uint8_t *ip = chunk->code;
 	uint32_t lineStruct = -1;
 	uint32_t line;
@@ -213,7 +213,7 @@ void carbon_disassemble(CarbonChunk *chunk) {
 				uint8_t lower = *ip;
 				printf("\t");
 				carbon_printType(stdout,
-								 chunk->typeData[(higher << 8) | lower]);
+								 vm->typeData[(higher << 8) | lower]);
 				ip++;
 				break;
 			}
@@ -225,7 +225,7 @@ void carbon_disassemble(CarbonChunk *chunk) {
 				ip++;
 				uint8_t lower = *ip;
 				carbon_printType(stdout,
-								 chunk->typeData[(higher << 8) | lower]);
+								 vm->typeData[(higher << 8) | lower]);
 				ip++;
 				break;
 			}
@@ -243,7 +243,7 @@ void carbon_disassemble(CarbonChunk *chunk) {
 				ip++;
 				uint8_t lower = *ip;
 				carbon_printType(stdout,
-								 chunk->typeData[(higher << 8) | lower]);
+								 vm->typeData[(higher << 8) | lower]);
 				ip++;
 				break;
 			}

@@ -1,7 +1,7 @@
 #include "ast/carbon_expressions.h"
 #include "ast/carbon_statements.h"
-#include "carbon.h"
 #include "carbon_compiler.h"
+#include "carbon_modules.h"
 #include "carbon_object.h"
 #include "carbon_token.h"
 #include "carbon_value.h"
@@ -11,6 +11,7 @@
 #include "vm/carbon_chunk.h"
 #include "vm/carbon_vm.h"
 #include "utils/carbon_disassembler.h"
+#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -1835,7 +1836,7 @@ static void compileCastExpression(CarbonExprCast *cast, CarbonChunk *chunk,
 			break;
 		default: {
 			uint16_t n =
-				carbon_pushType(chunk, carbon_cloneType(cast->expr.evalsTo));
+				carbon_pushType(vm, carbon_cloneType(cast->expr.evalsTo));
 			carbon_writeToChunk(chunk, OpCastcheck, cast->to.base.line);
 			carbon_writeToChunk(chunk, n >> 8, cast->to.base.line);
 			carbon_writeToChunk(chunk, n, cast->to.base.line);
@@ -1960,7 +1961,7 @@ static void compileArrayExpression(CarbonExprArray *arr, CarbonChunk *chunk,
 	}
 
 	uint16_t n = carbon_pushType(
-		chunk, carbon_cloneType(*arr->expr.evalsTo.compound.memberType));
+		vm, carbon_cloneType(*arr->expr.evalsTo.compound.memberType));
 	carbon_writeToChunk(chunk, n >> 8, arr->bracket.line);
 	carbon_writeToChunk(chunk, n, arr->bracket.line);
 
@@ -1974,7 +1975,7 @@ static void compileArrayInitExpression(CarbonExprArray *arr, CarbonChunk *chunk,
 	carbon_compileExpression(arr->members[0], chunk, c, vm);
 	carbon_writeToChunk(chunk, OpMakeArray64, arr->bracket.line);
 	uint16_t n = carbon_pushType(
-		chunk, carbon_cloneType(*arr->expr.evalsTo.compound.memberType));
+		vm, carbon_cloneType(*arr->expr.evalsTo.compound.memberType));
 	carbon_writeToChunk(chunk, n >> 8, arr->bracket.line);
 	carbon_writeToChunk(chunk, n, arr->bracket.line);
 	carbon_compileExpression(arr->members[1], chunk, c, vm);
@@ -1986,14 +1987,14 @@ static void compileGeneratorExpression(CarbonExprArray *arr, CarbonChunk *chunk,
 	if (arr->capacity == 3)
 		carbon_compileExpression(arr->members[2], chunk, c, vm);
 	else if (arr->expr.evalsTo.compound.memberType->tag == ValueDouble)
-		pushValue(CarbonDouble(1), chunk, arr->expr.first, true);
+		pushValue(CarbonDouble(1), chunk, arr->members[1]->first, true);
 	else
-		pushValue(CarbonInt(1), chunk, arr->expr.first, true);
+		pushValue(CarbonInt(1), chunk, arr->members[1]->first, true);
 	carbon_compileExpression(arr->members[1], chunk, c, vm);
 	carbon_compileExpression(arr->members[0], chunk, c, vm);
 	carbon_writeToChunk(chunk, OpMakeGenerator, arr->bracket.line);
 	uint16_t n = carbon_pushType(
-		chunk, carbon_cloneType(*arr->expr.evalsTo.compound.memberType));
+		vm, carbon_cloneType(*arr->expr.evalsTo.compound.memberType));
 	carbon_writeToChunk(chunk, n >> 8, arr->bracket.line);
 	carbon_writeToChunk(chunk, n, arr->bracket.line);
 }
@@ -2031,7 +2032,7 @@ static void compileBuiltinDot(CarbonExprDot *dot, CarbonChunk *chunk,
 				carbon_writeToChunk(chunk, OpBuiltin, dot->right.line);
 				carbon_writeToChunk(chunk, BuiltinAppend, dot->right.line);
 				uint16_t n =
-					carbon_pushType(chunk, carbon_cloneType(dot->expr.evalsTo));
+					carbon_pushType(vm, carbon_cloneType(dot->expr.evalsTo));
 				carbon_writeToChunk(chunk, n >> 8, dot->right.line);
 				carbon_writeToChunk(chunk, n, dot->right.line);
 				break;
@@ -2099,7 +2100,7 @@ static void compileIsExpression(CarbonExprIs *is, CarbonChunk *chunk,
 		carbon_writeToChunk(chunk, OpIsInstance, is->tok.line);
 		carbon_writeToChunk(chunk, class->id, is->right.base.line);
 	} else {
-		uint16_t n = carbon_pushType(chunk, t);
+		uint16_t n = carbon_pushType(vm, t);
 		carbon_writeToChunk(chunk, OpIs, is->right.base.line);
 		carbon_writeToChunk(chunk, n >> 8, is->right.base.line);
 		carbon_writeToChunk(chunk, n, is->right.base.line);
@@ -2378,7 +2379,7 @@ static void compileFuncStatement(CarbonStmtFunc *sfunc, CarbonChunk *chunk,
 	CarbonValueType tmp = newType(ValueFunction);
 	tmp.compound.signature = sig;
 	tmp = carbon_cloneType(tmp);
-	carbon_pushType(chunk, tmp);
+	carbon_pushType(vm, tmp);
 
 	CarbonValueType returnType = *sig->returnType;
 
@@ -2630,13 +2631,13 @@ static void compileForStatement(CarbonStmtFor *fr, CarbonChunk *chunk,
 	c->loopDepth--;
 	c->depth--;
 
-	if (c->breaksCount > 0)
-		for (uint8_t i = c->breaksCount - 1;
-			 c->breaks[i].depth == c->loopDepth + 1; i--) {
-			if (!c->breaks[i].isBreak) {
-				patchJump(chunk, c->breaks[i].position, c->breaks[i].token, c);
-			}
+	for (uint8_t i = c->breaksCount;
+		 i > 0 && c->breaks[i - 1].depth == c->loopDepth + 1; i--) {
+		if (!c->breaks[i - 1].isBreak) {
+			patchJump(chunk, c->breaks[i - 1].position, c->breaks[i - 1].token,
+					  c);
 		}
+	}
 
 	if (fr->body->locals == 0) {
 		carbon_writeToChunk(chunk, OpPop, fr->token.line);
@@ -2653,14 +2654,13 @@ static void compileForStatement(CarbonStmtFor *fr, CarbonChunk *chunk,
 	if (fr->body->hasBreak) {
 		uint32_t jumpOverBreak = emitJump(chunk, fr->token.line); // 1963
 
-		if (c->breaksCount > 0)
-			for (uint8_t i = c->breaksCount - 1;
-				 c->breaks[i].depth == c->loopDepth + 1; i--) {
-				if (c->breaks[i].isBreak) {
-					patchJump(chunk, c->breaks[i].position, c->breaks[i].token,
-							  c);
-				}
+		for (uint8_t i = c->breaksCount;
+			 i > 0 && c->breaks[i - 1].depth == c->loopDepth + 1; i--) {
+			if (c->breaks[i - 1].isBreak) {
+				patchJump(chunk, c->breaks[i - 1].position,
+						  c->breaks[i - 1].token, c);
 			}
+		}
 
 		if (fr->body->locals == 0) {
 			carbon_writeToChunk(chunk, OpPop, fr->token.line);
@@ -2691,9 +2691,9 @@ static void compileForStatement(CarbonStmtFor *fr, CarbonChunk *chunk,
 	carbon_writeToChunk(chunk, 2, fr->token.line);
 
 	c->localCount -= 2;
-	if (c->breaksCount > 0)
-		while (c->breaks[c->breaksCount - 1].depth == c->loopDepth + 1)
-			c->breaksCount--;
+	while (c->breaksCount > 0 &&
+		   c->breaks[c->breaksCount - 1].depth == c->loopDepth + 1)
+		c->breaksCount--;
 }
 
 static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
@@ -2745,7 +2745,7 @@ static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 		CarbonValueType tmp = newType(ValueFunction);
 		tmp.compound.signature = &sig;
 		tmp = carbon_cloneType(tmp);
-		carbon_pushType(chunk, tmp);
+		carbon_pushType(vm, tmp);
 
 		CarbonValueType returnType = *sig.returnType;
 
@@ -2876,10 +2876,9 @@ void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,
 #undef emit
 }
 
-void carbon_initCompiler(CarbonCompiler *compiler, CarbonParser *parser) {
+void carbon_initCompiler(CarbonCompiler *compiler) {
 	compiler->hadError = false;
 	compiler->selfSlot = -1;
-	compiler->parserHadError = parser->hadError;
 	compiler->compilingTo = NULL;
 	compiler->class = NULL;
 	compiler->localCount = 0;
@@ -2891,8 +2890,6 @@ void carbon_initCompiler(CarbonCompiler *compiler, CarbonParser *parser) {
 	carbon_tableInit(&compiler->classes);
 }
 void carbon_freeCompiler(CarbonCompiler *compiler) {
-	compiler->hadError = false;
-	compiler->parserHadError = false;
 	for (uint32_t i = 0; i < compiler->globals.capacity; i++) {
 		if (compiler->globals.entries[i].key != NULL) {
 			Global *g = (Global *) compiler->globals.entries[i].value.obj;
@@ -2908,4 +2905,18 @@ void carbon_freeCompiler(CarbonCompiler *compiler) {
 		}
 	}
 	carbon_tableFree(&compiler->classes);
+}
+
+void carbon_addBuiltin(CarbonModuleElement *modelm, CarbonCompiler *c,
+					   CarbonVM *vm) {
+	CarbonBuiltin *bltin = modelm->func;
+	CarbonValueType tmp = newType(ValueFunction);
+	tmp.compound.signature = bltin->sig;
+	tmp = carbon_cloneType(tmp);
+	Global *g = newGlobal(tmp);
+	g->declared = true;
+	carbon_tableSet(&c->globals, (CarbonObj *) modelm->name,
+					CarbonObject((CarbonObj *) g));
+	carbon_tableSet(&vm->globals, (CarbonObj *) modelm->name,
+					CarbonObject((CarbonObj *) modelm->func));
 }

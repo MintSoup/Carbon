@@ -569,6 +569,7 @@ static CarbonStmtReturn *returnStatement(CarbonParser *p) {
 	CarbonToken tok = next(p);
 	CarbonStmtReturn *ret = carbon_newReturnStmt(tok);
 	if (match(TokenEOS, p)) {
+		ret->expression = NULL;
 		return ret;
 	}
 	ret->expression = expression(p);
