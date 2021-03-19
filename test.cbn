@@ -1,5 +1,14 @@
 void main():
-	
+	@B b = @B()
+	'a' + 'b'
 end
 
-void a(function a): end
+class @A: end
+
+class @B:
+	double a
+	double b
+	string c
+	@A d
+	int e
+end

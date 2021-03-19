@@ -108,7 +108,8 @@ static void blacken(CarbonObj *obj, CarbonVM *vm) {
 			castObj(CarbonInstance, inst);
 			struct carbon_class *class = &vm->classes[inst->type];
 			for (uint8_t i = 0; i < class->fieldCount; i++)
-				mark(inst->fields[i], vm);
+				if (class->reference[i])
+					markObject(inst->fields[i].obj, vm);
 			break;
 		}
 		case CrbnObjMethod: {
@@ -139,7 +140,7 @@ void carbon_gc(CarbonVM *vm) {
 	qsort(vm->gcarr, vm->objectCount, sizeof(CarbonObj *), compare);
 
 	// Marking roots
-	
+
 	// stack
 	for (i = 0; i < vm->stackTop; i++)
 		mark(vm->stack[i], vm);

@@ -33,6 +33,7 @@ typedef struct carbon_vm {
 
 	struct carbon_class {
 		CarbonFunction **methods;
+		bool* reference;
 		int16_t superclass;
 		uint8_t init;
 		uint8_t methodCount;

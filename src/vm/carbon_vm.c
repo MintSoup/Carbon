@@ -42,8 +42,11 @@ void carbon_freeVM(CarbonVM *vm) {
 	carbon_tableFree(&vm->globals);
 	carbon_tableFree(&vm->primitives);
 	for (uint8_t i = 0; i < vm->classCount; i++) {
-		uint32_t size = sizeof(CarbonFunction *) * vm->classes[i].methodCount;
-		carbon_reallocate(size, 0, vm->classes[i].methods);
+		uint32_t methodSize =
+			sizeof(CarbonFunction *) * vm->classes[i].methodCount;
+		uint32_t referenceSize = sizeof(bool) * vm->classes[i].fieldCount;
+		carbon_reallocate(methodSize, 0, vm->classes[i].methods);
+		carbon_reallocate(referenceSize, 0, vm->classes[i].reference);
 	}
 	carbon_reallocate(vm->classCount * sizeof(struct carbon_class), 0,
 					  vm->classes);

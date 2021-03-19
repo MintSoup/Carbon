@@ -692,7 +692,7 @@ static CarbonValueType resolveType(CarbonTypename tn, CarbonCompiler *c,
 				carbon_reallocate(0, sizeof(CarbonValueType), NULL);
 
 			*typ.compound.signature->returnType = newType(ValueUnresolved);
-			
+
 			return typ;
 		}
 		typ.compound.signature =
@@ -2759,6 +2759,12 @@ static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 	class.methods = carbon_reallocate(
 		0, csig->methodCount * sizeof(CarbonFunction *), NULL);
 
+	class.reference =
+		carbon_reallocate(0, csig->fieldCount * sizeof(bool), NULL);
+
+	for (uint8_t i = 0; i < csig->fieldCount; i++)
+		class.reference[i] = isObject(csig->fields[i].type);
+
 	if (csig->parent != NULL) {
 		class.superclass = csig->parent->id;
 		for (uint8_t i = 0; i < vm->classes[class.superclass].methodCount;
@@ -2774,6 +2780,7 @@ static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 		CarbonStmt *stmt = sClass->statements.arr[i];
 		if (stmt->type != StmtFunc)
 			continue;
+
 		CarbonStmtFunc *sfunc = (CarbonStmtFunc *) stmt;
 
 		CarbonString *name = carbon_strFromToken(sfunc->identifier, vm);
