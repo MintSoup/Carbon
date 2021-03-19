@@ -1,13 +1,3 @@
-import math
-import random
-import time
-
 void main():
-	randseed(time())
-	for _ in [0..10]:
-		print(randint(-10, 10))
-	end
+	print(0x23)
 end
-
-class A: end
-class A: end

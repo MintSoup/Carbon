@@ -1610,17 +1610,32 @@ static void pushLiteral(CarbonExprLiteral *lit, CarbonChunk *chunk,
 			carbon_writeToChunk(chunk, OpPush0, lit->token.line);
 			return;
 		case ValueUInt: {
+			uint32_t base = 10;
+			char *first = lit->token.lexeme;
+			char *last = lit->token.lexeme + lit->token.length;
+
+			while (first < last && *first == '0')
+				first++;
+
+			if (first < last) {
+				switch (*first) {
+					case 'x':
+						base = 16;
+						first++;
+						break;
+					case 'b':
+						base = 2;
+						first++;
+						break;
+					case 'o':
+						base = 8;
+						first++;
+						break;
+				}
+			}
 			uint64_t returnValue = 0;
-			for (uint32_t i = 0; i < lit->token.length; i++) {
-				returnValue = returnValue * 10 + lit->token.lexeme[i] - '0';
-			}
-			if (returnValue == 0) {
-				carbon_writeToChunk(chunk, OpPush0, lit->token.line);
-				return;
-			} else if (returnValue == 1) {
-				carbon_writeToChunk(chunk, OpPush1, lit->token.line);
-				return;
-			}
+			returnValue = strtol(first, &last, base);
+
 			toPush = CarbonUInt(returnValue);
 			break;
 		}

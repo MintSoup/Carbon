@@ -188,6 +188,15 @@ static inline bool isNumeric(char i) {
 static inline bool isAlpha(char i) {
 	return (i >= 'a' && i <= 'z') || (i >= 'A' && i <= 'Z') || (i == '_');
 }
+static inline bool isHex(char i) {
+	return isNumeric(i) || (i >= 'A' && i <= 'F') || (i >= 'a' && i <= 'f');
+}
+static inline bool isBin(char i) {
+	return i == '1' || i == '0';
+}
+static inline bool isOct(char i) {
+	return i >= '0' && i <= '7';
+}
 
 CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 	if (skipWhitespace(lexer))
@@ -280,17 +289,37 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 		}
 		default: {
 			if (isNumeric(c)) {
-				while (isNumeric(peek(lexer))) {
-					next(lexer);
-				}
+				bool onlyZeroes = true;
+				while (isNumeric(peek(lexer)))
+					if (next(lexer) != '0')
+						onlyZeroes = false;
+
 				if (peek(lexer) == '.') {
 					if (*(lexer->current + 1) == '.')
 						return makeToken(TokenInteger, lexer);
 					next(lexer);
-					while (isNumeric(peek(lexer))) {
+					while (isNumeric(peek(lexer)))
 						next(lexer);
-					}
+
 					return makeToken(TokenDecimal, lexer);
+				} else if (onlyZeroes && peek(lexer) == 'x' &&
+						   isHex(*(lexer->current + 1))) {
+					next(lexer);
+					while (isHex(peek(lexer)))
+						next(lexer);
+					return makeToken(TokenInteger, lexer);
+				} else if (onlyZeroes && peek(lexer) == 'o' &&
+						   isOct(*(lexer->current + 1))) {
+					next(lexer);
+					while (isOct(peek(lexer)))
+						next(lexer);
+					return makeToken(TokenInteger, lexer);
+				} else if (onlyZeroes && peek(lexer) == 'b' &&
+						   isBin(*(lexer->current + 1))) {
+					next(lexer);
+					while (isBin(peek(lexer)))
+						next(lexer);
+					return makeToken(TokenInteger, lexer);
 				} else
 					return makeToken(TokenInteger, lexer);
 			} else if (isAlpha(c)) {
