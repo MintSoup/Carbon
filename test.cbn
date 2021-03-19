@@ -1,3 +1,5 @@
 void main():
-	print(0x23)
+	
 end
+
+void a(function a): end

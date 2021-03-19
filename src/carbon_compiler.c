@@ -652,7 +652,9 @@ static CarbonValueType resolveType(CarbonTypename tn, CarbonCompiler *c,
 	if (typ.tag == ValueArray) {
 		if (tn.templateCount != 1) {
 			wrongTemplatecount(tn.base, 1, tn.templateCount, false, c);
-			typ.compound.signature = NULL;
+			typ.compound.memberType =
+				carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+			*typ.compound.memberType = newType(ValueUnresolved);
 			return typ;
 		}
 		typ.compound.memberType =
@@ -661,12 +663,15 @@ static CarbonValueType resolveType(CarbonTypename tn, CarbonCompiler *c,
 	} else if (typ.tag == ValueGenerator) {
 		if (tn.templateCount != 1) {
 			wrongTemplatecount(tn.base, 1, tn.templateCount, false, c);
-			typ.compound.signature = NULL;
+			typ.compound.memberType =
+				carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+			*typ.compound.memberType = newType(ValueUnresolved);
 			return typ;
 		}
 		typ.compound.memberType =
 			carbon_reallocate(0, sizeof(CarbonValueType), NULL);
 		*typ.compound.memberType = resolveType(tn.templates[0], c, vm);
+
 	} else if (typ.tag == ValueInstance) {
 		CarbonString *name = carbon_strFromToken(tn.base, vm);
 		typ.compound.instanceName = name;
@@ -676,7 +681,18 @@ static CarbonValueType resolveType(CarbonTypename tn, CarbonCompiler *c,
 	} else if (typ.tag == ValueFunction) {
 		if (tn.templateCount < 1) {
 			wrongTemplatecount(tn.base, 1, tn.templateCount, true, c);
-			typ.compound.signature = NULL;
+
+			typ.compound.signature =
+				carbon_reallocate(0, sizeof(CarbonFunctionSignature), NULL);
+
+			typ.compound.signature->arity = 0;
+			typ.compound.signature->arguments = NULL;
+
+			typ.compound.signature->returnType =
+				carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+
+			*typ.compound.signature->returnType = newType(ValueUnresolved);
+			
 			return typ;
 		}
 		typ.compound.signature =
