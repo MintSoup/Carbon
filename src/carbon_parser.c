@@ -353,8 +353,13 @@ static CarbonStmtImport *import(CarbonParser *p) {
 
 static CarbonStmtClass *classDeclaration(CarbonParser *p) {
 	next(p);
-	consume(TokenClassname, "Expected a class name after 'class'", p);
-	CarbonStmtClass *class = carbon_newClassStmt(previous(p));
+	CarbonToken className = next(p);
+
+	if (className.type != TokenClassname)
+		error(className, "Expected a class name after 'class'", p);
+
+	CarbonStmtClass *class = carbon_newClassStmt(className);
+
 	if (match(TokenLessThan, p)) {
 		consume(TokenClassname,
 				"Expected a class name after '<' to denote superclass", p);

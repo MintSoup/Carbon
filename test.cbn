@@ -8,3 +8,6 @@ void main():
 		print(randint(-10, 10))
 	end
 end
+
+class A: end
+class A: end

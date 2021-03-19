@@ -298,6 +298,12 @@ static bool alwaysReturns(CarbonStmt *stmt) {
 
 // ERRORS
 
+static void classRedeclaration(CarbonToken name, CarbonCompiler *c) {
+	fprintf(stderr, "[%s:%u] Class %.*s has already been declared.\n",
+			name.file, name.line, name.length, name.lexeme);
+	c->hadError = true;
+}
+
 static void noInit(CarbonToken t, CarbonCompiler *c) {
 	fprintf(stderr, "[%s:%u] Enclosing class has no initializer method\n",
 			t.file, t.line);
@@ -742,6 +748,8 @@ static void markFunc(CarbonStmtFunc *func, CarbonCompiler *c, CarbonVM *vm) {
 
 static void markClass(CarbonStmtClass *sClass, CarbonCompiler *c,
 					  CarbonVM *vm) {
+	if (sClass->name.type != TokenClassname)
+		return;
 	Class *class;
 	Class *super = NULL;
 	CarbonString *name = carbon_strFromToken(sClass->name, vm);
@@ -856,10 +864,14 @@ void carbon_scoutClass(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
 	if (stmt == NULL || stmt->type != StmtClass)
 		return;
 	CarbonStmtClass *sClass = (CarbonStmtClass *) stmt;
+
+	if (sClass->name.type != TokenClassname)
+		return;
+
 	CarbonValue dummy;
 	CarbonString *name = carbon_strFromToken(sClass->name, vm);
 	if (carbon_tableGet(&c->classes, (CarbonObj *) name, &dummy)) {
-		globalRedeclaration(sClass->name, c);
+		classRedeclaration(sClass->name, c);
 		return;
 	}
 	if (sClass->hasSuperclass) {
@@ -2698,6 +2710,8 @@ static void compileForStatement(CarbonStmtFor *fr, CarbonChunk *chunk,
 
 static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 								  CarbonCompiler *c, CarbonVM *vm) {
+	if (sClass->name.type != TokenClassname)
+		return;
 	struct carbon_class class;
 	Class *csig;
 	CarbonString *classname = carbon_strFromToken(sClass->name, vm);
