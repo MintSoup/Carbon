@@ -31,7 +31,6 @@ struct carbon_valueType {
 		ValueGenerator,
 		ValueFunction,
 		ValueObject,
-		ValueError,
 		ValueVoid,
 		ValueUnresolved,
 		ValueUntypechecked,
@@ -62,7 +61,7 @@ bool carbon_typesEqual(CarbonValueType a, CarbonValueType b);
 bool carbon_canAssign(CarbonValueType to, CarbonValueType from,
 					  CarbonCompiler *c);
 static inline bool isObject(CarbonValueType type) {
-	return type.tag >= ValueString && type.tag <= ValueError;
+	return type.tag >= ValueString && type.tag <= ValueObject;
 }
 
 #define CarbonInt(x)                                                           \

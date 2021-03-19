@@ -31,7 +31,7 @@ struct carbon_compiler {
 			CarbonString *name;
 		} * methods;
 		bool hasInit;
-		bool declared;
+		bool copy;
 		uint8_t init;
 		uint8_t id;
 		uint8_t fieldCount;

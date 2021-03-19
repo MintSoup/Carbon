@@ -45,7 +45,6 @@ char *CarbonValueTypeLexeme[] = {
 	[ValueObject] = "object",
 	[ValueArray] = "array",
 	[ValueFunction] = "function",
-	[ValueError] = "Error",
 	[ValueUnresolved] = "unresolved",
 	[ValueVoid] = "void",
 	[ValueGenerator] = "generator",

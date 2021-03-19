@@ -24,19 +24,13 @@ static CarbonToken v2token[] = {
 	[ValueInt] = {
 		.type = TokenInt, .lexeme = NULL, .line = UINT32_MAX, .length = 0}};
 
-static enum CarbonValueTag t2value[] = {[TokenInt] = ValueInt,
-										[TokenUInt] = ValueUInt,
-										[TokenDouble] = ValueDouble,
-										[TokenClassname] = ValueInstance,
-										[TokenBool] = ValueBool,
-										[TokenString] = ValueString,
-										[TokenVoid] = ValueVoid,
-										[TokenArray] = ValueArray,
-										[TokenError] = ValueError,
-										[TokenFunction] = ValueFunction,
-										[TokenGenerator] = ValueGenerator,
-										[TokenObject] = ValueObject,
-										[TokenTable] = ValueHashtable};
+static enum CarbonValueTag t2value[] = {
+	[TokenInt] = ValueInt,			 [TokenUInt] = ValueUInt,
+	[TokenDouble] = ValueDouble,	 [TokenClassname] = ValueInstance,
+	[TokenBool] = ValueBool,		 [TokenString] = ValueString,
+	[TokenVoid] = ValueVoid,		 [TokenArray] = ValueArray,
+	[TokenFunction] = ValueFunction, [TokenGenerator] = ValueGenerator,
+	[TokenObject] = ValueObject,	 [TokenTable] = ValueHashtable};
 
 typedef struct {
 	bool declared;
@@ -56,7 +50,7 @@ static Class *newClass(uint8_t id) {
 	class->methodCount = 0;
 	class->methodCap = 0;
 	class->hasInit = false;
-	class->declared = false;
+	class->copy = false;
 	return class;
 }
 
@@ -770,7 +764,6 @@ static void markClass(CarbonStmtClass *sClass, CarbonCompiler *c,
 	Class *super = NULL;
 	CarbonString *name = carbon_strFromToken(sClass->name, vm);
 	carbon_tableGet(&c->classes, (CarbonObj *) name, (CarbonValue *) &class);
-	class->declared = true;
 
 	if (sClass->hasSuperclass) {
 		if (carbon_tableGet(
@@ -884,15 +877,19 @@ void carbon_scoutClass(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
 	if (sClass->name.type != TokenClassname)
 		return;
 
-	CarbonValue dummy;
+	Class *dummy;
 	CarbonString *name = carbon_strFromToken(sClass->name, vm);
-	if (carbon_tableGet(&c->classes, (CarbonObj *) name, &dummy)) {
+	if (carbon_tableGet(&c->classes, (CarbonObj *) name,
+						(CarbonValue *) &dummy)) {
+
 		classRedeclaration(sClass->name, c);
+		dummy->copy = true;
 		return;
 	}
 	if (sClass->hasSuperclass) {
 		CarbonString *supername = carbon_strFromToken(sClass->superclass, vm);
-		if (!carbon_tableGet(&c->classes, (CarbonObj *) supername, &dummy))
+		if (!carbon_tableGet(&c->classes, (CarbonObj *) supername,
+							 (CarbonValue *) &dummy))
 			undefinedSuperclass(sClass->superclass, c);
 	}
 	Class *class = newClass(c->classCount++);
@@ -2756,14 +2753,16 @@ static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 	class.methodCount = csig->methodCount;
 	class.init = csig->init;
 
-	class.methods = carbon_reallocate(
-		0, csig->methodCount * sizeof(CarbonFunction *), NULL);
+	if (!csig->copy) {
+		class.methods = carbon_reallocate(
+			0, csig->methodCount * sizeof(CarbonFunction *), NULL);
 
-	class.reference =
-		carbon_reallocate(0, csig->fieldCount * sizeof(bool), NULL);
+		class.reference =
+			carbon_reallocate(0, csig->fieldCount * sizeof(bool), NULL);
 
-	for (uint8_t i = 0; i < csig->fieldCount; i++)
-		class.reference[i] = isObject(csig->fields[i].type);
+		for (uint8_t i = 0; i < csig->fieldCount; i++)
+			class.reference[i] = isObject(csig->fields[i].type);
+	}
 
 	if (csig->parent != NULL) {
 		class.superclass = csig->parent->id;
@@ -2869,7 +2868,14 @@ static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 		class.methods[mthd] = ofunc;
 		c->selfSlot = -1;
 	}
-	vm->classes[csig->id] = class;
+	if (!csig->copy)
+		vm->classes[csig->id] = class;
+	else{
+		vm->classes[csig->id].fieldCount = 0;
+		vm->classes[csig->id].methodCount = 0;
+		vm->classes[csig->id].methods = NULL;
+		vm->classes[csig->id].reference = NULL;
+	}
 }
 
 void carbon_compileStatement(CarbonStmt *stmt, CarbonChunk *chunk,

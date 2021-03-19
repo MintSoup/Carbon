@@ -1,16 +1,10 @@
-import math
+import error
 
 void main():
-	@B b = @B()
-	'a' + 'b'
+	@Error e = @Error()
+	e.code = -4
+	e.msg = 'test'
+	print(e.code)
+	print(e.msg)
 end
 
-class @A: end
-
-class @B:
-	double a
-	double b
-	string c
-	@A d
-	int e
-end

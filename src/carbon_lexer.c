@@ -24,7 +24,6 @@ struct Identifier identifierList[] = {
 	{"string", TokenString},
 	{"array", TokenArray},
 	{"generator", TokenGenerator},
-	{"error", TokenError},
 	{"table", TokenTable},
 	{"function", TokenFunction},
 	{"object", TokenObject},

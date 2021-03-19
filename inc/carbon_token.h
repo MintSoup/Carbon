@@ -39,7 +39,6 @@ typedef enum {
 	TokenGenerator,
 	TokenFunction,
 	TokenTable,
-	TokenError,
 	TokenWhile,
 	TokenAnd,
 	TokenIs,

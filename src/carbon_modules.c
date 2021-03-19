@@ -3,6 +3,7 @@
 #include "modules/carbon_module_math.h"
 #include "modules/carbon_module_random.h"
 #include "modules/carbon_module_time.h"
+#include "modules/carbon_module_error.h"
 
 // clang-format off
 CarbonModuleHandle const carbon_modules[] = {
@@ -14,6 +15,9 @@ CarbonModuleHandle const carbon_modules[] = {
 #endif
 #ifdef CARBON_MODULE_TIME
 	{"time", carbon_initModuleTime},
+#endif
+#ifdef CARBON_MODULE_ERROR
+	{"error", carbon_initModuleError},
 #endif
 };
 // clang-format on
