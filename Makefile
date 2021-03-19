@@ -21,7 +21,7 @@ ldflags := -lm
 
 build: $(executable)
 
-$(obj)/%.o: $(src)/%.c
+$(obj)/%.o: $(src)/%.c $(inc)/%.h
 	@mkdir -p $(objdirs)
 	$(CC) $(flags) -I$(inc) -c -o $@ $<
 
