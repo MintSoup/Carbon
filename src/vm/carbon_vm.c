@@ -402,6 +402,8 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				frame->ip++;
 				break;
 			case OpDivInt:
+				if(peek().uint == 0)
+					return runtimeError("Division by zero", vm);
 				binary(int64_t, /, CarbonInt, sint);
 				frame->ip++;
 				break;
@@ -416,6 +418,8 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 
 			// Unsigned integer binary ops
 			case OpDivUInt:
+				if(peek().uint == 0)
+					return runtimeError("Division by zero", vm);
 				binary(uint64_t, /, CarbonUInt, uint);
 				frame->ip++;
 				break;
