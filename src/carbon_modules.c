@@ -4,6 +4,7 @@
 #include "modules/carbon_module_random.h"
 #include "modules/carbon_module_time.h"
 #include "modules/carbon_module_error.h"
+#include "modules/carbon_module_string.h"
 
 // clang-format off
 CarbonModuleHandle const carbon_modules[] = {
@@ -18,6 +19,9 @@ CarbonModuleHandle const carbon_modules[] = {
 #endif
 #ifdef CARBON_MODULE_ERROR
 	{"error", carbon_initModuleError},
+#endif
+#ifdef CARBON_MODULE_STRING
+	{"str", carbon_initModuleString},
 #endif
 };
 // clang-format on

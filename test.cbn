@@ -1,10 +1,8 @@
-import error
+import str
 
 void main():
 	@Error e = @Error()
-	e.code = -4
-	e.msg = 'test'
+	print(str2d('0.3232422', e))
 	print(e.code)
-	print(e.msg)
 end
 

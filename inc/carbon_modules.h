@@ -28,3 +28,4 @@ extern const uint32_t carbon_modules_count;
 #define CARBON_MODULE_RANDOM
 #define CARBON_MODULE_TIME
 #define CARBON_MODULE_ERROR
+#define CARBON_MODULE_STRING

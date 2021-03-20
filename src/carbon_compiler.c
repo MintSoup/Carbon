@@ -1646,7 +1646,7 @@ static void pushLiteral(CarbonExprLiteral *lit, CarbonChunk *chunk,
 						break;
 				}
 			}
-			uint64_t returnValue = 0;
+			uint64_t returnValue;
 			returnValue = strtol(first, &last, base);
 
 			toPush = CarbonUInt(returnValue);
@@ -2870,7 +2870,7 @@ static void compileClassStatement(CarbonStmtClass *sClass, CarbonChunk *chunk,
 	}
 	if (!csig->copy)
 		vm->classes[csig->id] = class;
-	else{
+	else {
 		vm->classes[csig->id].fieldCount = 0;
 		vm->classes[csig->id].methodCount = 0;
 		vm->classes[csig->id].methods = NULL;

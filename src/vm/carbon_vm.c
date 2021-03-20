@@ -573,7 +573,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				frame->ip++;
 				break;
 			case OpPrintDouble:
-				printf("%lf\n", pop().dbl);
+				printf("%g\n", pop().dbl);
 				frame->ip++;
 				break;
 			case OpPrintBool:
