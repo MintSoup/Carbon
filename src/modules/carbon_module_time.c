@@ -31,7 +31,7 @@ char *mRawClock(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
 }
 char *mClock(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
 	vm->stack[vm->stackTop++] =
-		CarbonUInt(clock() / (CLOCKS_PER_SEC / 1000000));
+		CarbonUInt(clock() * 1000000 / CLOCKS_PER_SEC);
 	return NULL;
 }
 char *mTime(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
