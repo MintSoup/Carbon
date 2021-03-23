@@ -19,6 +19,7 @@ CarbonFunctionSignature *makeSig(CarbonVM *vm) {
 	sig->returnType = carbon_reallocate(0, sizeof(CarbonValueType), NULL);
 	sig->returnType->tag = ValueUInt;
 	sig->returnType->compound.instanceName = NULL;
+	sig->arguments = NULL;
 	CarbonValueType t = {.tag = ValueFunction, .compound = {.signature = sig}};
 	carbon_pushType(vm, t);
 	return sig;

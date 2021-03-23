@@ -1,8 +1,23 @@
+import time
 import str
 
 void main():
-	@Error e = @Error()
-	print(str2d('0.3232422', e))
-	print(e.code)
+	uint last = clock()
+	print('starting up')
+	for j in [0..4]:
+		for i in [0..4]:
+			while clock() - last < 500000: end
+			last = clock()
+			print('.')
+		end
+		print('\b\b\b\b    \b\b\b\b')
+	end
+	print('\n')
+	uint s = 0
+	while s < 100:
+		while clock() - last < 40000: end
+		last = clock()
+		print('\rLoading... \t' + u2str(s += 1) + '%')
+	end
+	print('\nLoading finished\n')
 end
-

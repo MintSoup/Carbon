@@ -590,7 +590,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 					return Carbon_Runtime_Error;
 
 				carbon_printObject(o);
-				puts("");
+				fflush(stdout);
 				frame->ip++;
 				break;
 			}

@@ -265,7 +265,14 @@ CarbonToken carbon_scanToken(CarbonLexer *lexer) {
 							 lexer);
 		case '\'': {
 			uint32_t line = lexer->line;
-			while (next(lexer) != '\'') {
+			char this;
+			while (true) {
+				this = next(lexer);
+				if (this == '\\') {
+					next(lexer);
+				} else if (this == '\'')
+					break;
+
 				if (isAtEnd(lexer)) {
 					// Dirtiest trick ever
 					uint32_t current = lexer->line;

@@ -1657,9 +1657,47 @@ static void pushLiteral(CarbonExprLiteral *lit, CarbonChunk *chunk,
 			break;
 		}
 		case ValueString: {
-			CarbonString *str = carbon_copyString(lit->token.lexeme + 1,
-												  lit->token.length - 2, vm);
-			toPush = CarbonObject((CarbonObj *) str);
+			uint32_t memSize = lit->token.length - 1;
+			char *mem = carbon_reallocateObj(0, memSize, NULL, vm);
+			char *c = lit->token.lexeme + 1;
+			uint32_t n = 0;
+			while (c < lit->token.lexeme + lit->token.length - 1) {
+				if (*c == '\\') {
+					c++;
+					switch (*c) {
+						case 'n':
+							mem[n++] = '\n';
+							break;
+						case 'r':
+							mem[n++] = '\r';
+							break;
+						case 't':
+							mem[n++] = '\t';
+							break;
+						case 'b':
+							mem[n++] = '\b';
+							break;
+						case '\'':
+							mem[n++] = '\'';
+							break;
+						case '\\':
+							mem[n++] = '\\';
+							break;
+						default:
+							mem[n++] = '\\';
+							mem[n++] = *c;
+					}
+					c++;
+					continue;
+				}
+				mem[n] = *c;
+				n++;
+				c++;
+			}
+			if (n != memSize - 1)
+				mem = carbon_reallocateObj(memSize, n + 1, mem, vm);
+			mem[n] = 0;
+			toPush.obj = (CarbonObj *) carbon_takeString(mem, n, vm);
 			break;
 		}
 		default:
