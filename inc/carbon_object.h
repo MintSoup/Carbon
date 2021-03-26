@@ -6,7 +6,7 @@
 #include "vm/carbon_vm.h"
 #include "carbon_token.h"
 
-enum { BuiltinAppend };
+enum { BuiltinAppend, BuiltinSplice };
 
 typedef enum {
 	CrbnObjString,
@@ -28,7 +28,7 @@ struct carbon_string {
 	CarbonObj obj;
 	char *chars;
 	uint32_t length;
-} ;
+};
 
 struct carbon_function {
 	CarbonObj obj;
@@ -93,7 +93,13 @@ CarbonMethod *carbon_newMethod(CarbonInstance *parent, CarbonFunction *func,
 							   CarbonVM *vm);
 
 char *carbon_appendArray(CarbonObj *arr, CarbonValue *args, CarbonVM *vm);
+char *carbon_splice(CarbonObj *it, CarbonValue *args, CarbonVM *vm);
 void carbon_printObject(CarbonObj *obj);
+
+CarbonValue carbon_getObjIndex(CarbonObj *obj, CarbonValue i, CarbonVM *vm);
+CarbonValue carbon_getGeneratorIndex(CarbonGenerator *g, uint64_t i);
+uint64_t carbon_objLength(CarbonObj *obj);
+bool carbon_checkBounds(CarbonObj *obj, CarbonValue index, char **msg);
 
 void carbon_freeObject(CarbonObj *obj, CarbonVM *vm);
 void *carbon_reallocateObj(uint32_t oldSize, uint32_t newSize, void *oldptr,

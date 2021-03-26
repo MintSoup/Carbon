@@ -1493,6 +1493,23 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 						break;
 					}
 				case ValueString:
+					if (idntfLexCmp(dot->right, "splice", strlen("splice"))) {
+						CarbonValueType t = newType(ValueFunction);
+						t.compound.signature = carbon_reallocate(
+							0, sizeof(CarbonFunctionSignature), NULL);
+						t.compound.signature->arity = 2;
+						t.compound.signature->arguments = carbon_reallocate(
+							0, sizeof(CarbonValueType) * 2, NULL);
+						t.compound.signature->returnType =
+							carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+
+						*t.compound.signature->returnType =
+							carbon_cloneType(dot->left->evalsTo);
+						t.compound.signature->arguments[0] = newType(ValueInt);
+						t.compound.signature->arguments[1] = newType(ValueInt);
+						expr->evalsTo = t;
+						break;
+					}
 				case ValueGenerator: {
 					if (idntfLexCmp(dot->right, "length", strlen("length"))) {
 						expr->evalsTo = newType(ValueUInt);
@@ -2116,6 +2133,15 @@ static void compileBuiltinDot(CarbonExprDot *dot, CarbonChunk *chunk,
 				break;
 			}
 		case ValueString:
+			if (idntfLexCmp(dot->right, "splice", strlen("append"))) {
+				carbon_writeToChunk(chunk, OpBuiltin, dot->right.line);
+				carbon_writeToChunk(chunk, BuiltinSplice, dot->right.line);
+				uint16_t n =
+					carbon_pushType(vm, carbon_cloneType(dot->expr.evalsTo));
+				carbon_writeToChunk(chunk, n >> 8, dot->right.line);
+				carbon_writeToChunk(chunk, n, dot->right.line);
+				break;
+			}
 		case ValueGenerator: {
 			if (idntfLexCmp(dot->right, "length", strlen("length")))
 				carbon_writeToChunk(chunk, OpLen, dot->right.line);

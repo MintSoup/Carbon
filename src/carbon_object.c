@@ -29,7 +29,7 @@ static CarbonObj *createObject(uint32_t size, CarbonObjectType type,
 	return obj;
 }
 
-static inline void regObj(CarbonObj* obj, CarbonVM* vm){
+static inline void regObj(CarbonObj *obj, CarbonVM *vm) {
 	obj->next = vm->objects;
 	vm->objects = obj;
 	vm->objectCount++;
@@ -58,7 +58,7 @@ CarbonString *carbon_copyString(char *chars, uint32_t length, CarbonVM *vm) {
 	str->length = length;
 	str->obj.hashCode = hashCode;
 	carbon_tableSet(&vm->strings, (CarbonObj *) str, CarbonUInt(0));
-	regObj((CarbonObj*) str, vm);
+	regObj((CarbonObj *) str, vm);
 	return str;
 }
 CarbonString *carbon_takeString(char *chars, uint32_t length, CarbonVM *vm) {
@@ -75,7 +75,7 @@ CarbonString *carbon_takeString(char *chars, uint32_t length, CarbonVM *vm) {
 	str->length = length;
 	str->obj.hashCode = hashCode;
 	carbon_tableSet(&vm->strings, (CarbonObj *) str, CarbonUInt(0));
-	regObj((CarbonObj*) str, vm);
+	regObj((CarbonObj *) str, vm);
 	return str;
 }
 
@@ -91,7 +91,7 @@ CarbonFunction *carbon_newFunction(CarbonString *name, uint32_t arity,
 	func->name = name;
 	func->sig = sig;
 	carbon_initChunk(&func->chunk);
-	regObj((CarbonObj*) func, vm);
+	regObj((CarbonObj *) func, vm);
 	return func;
 }
 CarbonArray *carbon_newArray(uint64_t initSize, CarbonValueType *type,
@@ -102,7 +102,7 @@ CarbonArray *carbon_newArray(uint64_t initSize, CarbonValueType *type,
 	arr->capacity = initSize;
 	arr->members =
 		carbon_reallocateObj(0, sizeof(CarbonValue) * initSize, NULL, vm);
-	regObj((CarbonObj*) arr, vm);
+	regObj((CarbonObj *) arr, vm);
 	return arr;
 }
 
@@ -150,7 +150,7 @@ CarbonGenerator *carbon_newGenerator(CarbonValue first, CarbonValue last,
 		default:
 			break; // Should never reach here
 	}
-	regObj((CarbonObj*) gen, vm);
+	regObj((CarbonObj *) gen, vm);
 	return gen;
 }
 
@@ -163,7 +163,7 @@ CarbonBuiltin *carbon_newBuiltin(CarbonObj *parent,
 	bltin->func = func;
 	bltin->parent = parent;
 	bltin->sig = sig;
-	regObj((CarbonObj*) bltin, vm);
+	regObj((CarbonObj *) bltin, vm);
 	return bltin;
 }
 
@@ -174,7 +174,7 @@ CarbonInstance *carbon_newInstance(uint8_t type, CarbonVM *vm) {
 	uint32_t size = vm->classes[type].fieldCount * sizeof(CarbonValue);
 	inst->fields = carbon_reallocateObj(0, size, NULL, vm);
 	memset(inst->fields, 0, size);
-	regObj((CarbonObj*) inst, vm);
+	regObj((CarbonObj *) inst, vm);
 	return inst;
 }
 CarbonMethod *carbon_newMethod(CarbonInstance *parent, CarbonFunction *func,
@@ -182,8 +182,12 @@ CarbonMethod *carbon_newMethod(CarbonInstance *parent, CarbonFunction *func,
 	CarbonMethod *method = (CarbonMethod *) ALLOC(CarbonMethod, CrbnObjMethod);
 	method->func = func;
 	method->parent = parent;
-	regObj((CarbonObj*) method, vm);
+	regObj((CarbonObj *) method, vm);
 	return method;
+}
+
+static uint64_t normalizeIndex(CarbonValue i, CarbonObj *obj) {
+	return i.sint < 0 ? (carbon_objLength(obj) + i.sint) : i.uint;
 }
 
 char *carbon_appendArray(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
@@ -202,6 +206,49 @@ char *carbon_appendArray(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
 		arr->members = carbon_reallocateObj(oldSize, newSize, arr->members, vm);
 	}
 	arr->members[arr->count++] = val;
+	return NULL;
+}
+
+char *carbon_splice(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
+	char *msg;
+	if (carbon_checkBounds(parent, args[0], &msg))
+		return msg;
+	if (carbon_checkBounds(parent, args[1], &msg))
+		return msg;
+
+	uint64_t a = normalizeIndex(args[0], parent);
+	uint64_t b = normalizeIndex(args[1], parent);
+	int64_t lower = a < b ? a : b;
+	int64_t higher = a > b ? a : b;
+
+	if (parent->type == CrbnObjArray) {
+		CarbonArray *parr = (CarbonArray *) parent;
+		CarbonArray *arr =
+			carbon_newArray(higher - lower + 1, parr->member, vm);
+		arr->count = arr->capacity;
+		uint64_t n = 0;
+		if (a <= b)
+			for (int64_t i = lower; i <= higher; (i++, n++))
+				arr->members[n] = parr->members[i];
+		else
+			for (int64_t i = higher; i >= lower; (i--, n++))
+				arr->members[n] = parr->members[i];
+		vm->stack[vm->stackTop++] = CarbonObject((CarbonObj *) arr);
+	} else {
+		CarbonString *pstr = (CarbonString *) parent;
+		char *str = carbon_reallocateObj(0, higher - lower + 2, NULL, vm);
+		str[higher - lower + 1] = 0;
+		uint64_t n = 0;
+		if (a <= b)
+			for (int64_t i = lower; i <= higher; (i++, n++))
+				str[n] = pstr->chars[i];
+		else
+			for (int64_t i = higher; i >= lower; (i--, n++))
+				str[n] = pstr->chars[i];
+		CarbonString *out = carbon_takeString(str, higher - lower + 1, vm);
+		vm->stack[vm->stackTop++] = CarbonObject((CarbonObj *) out);
+	}
+
 	return NULL;
 }
 
@@ -375,6 +422,74 @@ void carbon_printObject(CarbonObj *obj) {
 		}
 	}
 #undef castObj
+}
+
+CarbonValue carbon_getObjIndex(CarbonObj *obj, CarbonValue i, CarbonVM *vm) {
+	uint64_t index = normalizeIndex(i, obj);
+	switch (obj->type) {
+		case CrbnObjString: {
+			CarbonString *str = (CarbonString *) obj;
+			CarbonString *c = carbon_copyString(str->chars + index, 1, vm);
+			return CarbonObject((CarbonObj *) c);
+		}
+		case CrbnObjArray: {
+			return ((CarbonArray *) obj)->members[index];
+		}
+		case CrbnObjGenerator: {
+			return carbon_getGeneratorIndex((CarbonGenerator *) obj, index);
+		}
+		default:
+			return CarbonUInt(0); // Should never reach here
+	}
+}
+
+CarbonValue carbon_getGeneratorIndex(CarbonGenerator *g, uint64_t i) {
+	switch (g->type->tag) {
+		case ValueUInt:
+			return CarbonUInt(g->first.uint + g->delta.uint * i);
+		case ValueInt:
+			return CarbonInt(g->first.sint + g->delta.sint * i);
+		case ValueDouble:
+			return CarbonDouble(g->first.dbl + g->delta.dbl * i);
+		default:
+			return CarbonUInt(0); // Should never reach here
+	}
+}
+
+uint64_t carbon_objLength(CarbonObj *obj) {
+	switch (obj->type) {
+		case CrbnObjString:
+			return ((CarbonString *) obj)->length;
+		case CrbnObjArray:
+			return ((CarbonArray *) obj)->count;
+		case CrbnObjGenerator:
+			return ((CarbonGenerator *) obj)->n;
+		default:
+			return 0; // Should never reach here
+	}
+}
+
+bool carbon_checkBounds(CarbonObj *obj, CarbonValue index, char **msg) {
+	uint64_t olength = carbon_objLength(obj);
+	if ((index.sint >= 0 && olength <= index.sint) ||
+		(index.sint < 0 && olength < -index.sint)) {
+		switch (obj->type) {
+			case CrbnObjString:
+				*msg = "Out of bounds error on string";
+				break;
+			case CrbnObjArray:
+				*msg = "Out of bounds error on array";
+				break;
+			case CrbnObjGenerator:
+				*msg = "Out of bounds error on generator";
+				break;
+			default:
+				*msg = "";
+				break; // Should never reach here
+		}
+		return true;
+	}
+	return false;
 }
 
 #undef ALLOC
