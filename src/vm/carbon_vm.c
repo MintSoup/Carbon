@@ -14,6 +14,12 @@ extern char *builtinFunctionNames[];
 static char *(*builtinPtrs[])(CarbonObj *, CarbonValue *, CarbonVM *) = {
 	[BuiltinAppend] = carbon_appendArray,
 	[BuiltinSplice] = carbon_splice,
+	[BuiltinRemoveAt] = carbon_removeAt,
+	[BuiltinRemove] = carbon_remove,
+	[BuiltinRemoveAll] = carbon_removeAll,
+	[BuiltinFirst] = carbon_first,
+	[BuiltinLast] = carbon_last,
+	[BuiltinCloneArr] = carbon_cloneArray,
 };
 
 void carbon_initVM(CarbonVM *vm) {

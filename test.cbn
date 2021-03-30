@@ -1,15 +1,8 @@
 void main():
-	print('hello'.splice(-1, 2))
+	array<uint> a = [0, 1, 2, 3, 4, 5, 1, 4, 2, 1, 6, 7]
+	array<uint> b = a.clone()
+	b.removeAll(1)
+	print(a)
 	print('\n')
-	print(isPalindrome('madam'))
-	print(isPalindrome('racecar'))
-	print(isPalindrome('what'))
-	print([3, 5, 6, 9].splice(1, -2))
-	print('\n')
-	print([3, 5, 6, 9].splice(2, 1))
-	print('\n')
-end
-
-bool isPalindrome(string s):
-	return s.splice(-1, 0) == s
+	print(b)
 end

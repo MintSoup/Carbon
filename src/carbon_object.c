@@ -210,6 +210,8 @@ char *carbon_appendArray(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
 }
 
 char *carbon_splice(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
+	if (parent == NULL)
+		return "Cannot splice null object";
 	char *msg;
 	if (carbon_checkBounds(parent, args[0], &msg))
 		return msg;
@@ -249,6 +251,107 @@ char *carbon_splice(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
 		vm->stack[vm->stackTop++] = CarbonObject((CarbonObj *) out);
 	}
 
+	return NULL;
+}
+
+char *carbon_removeAt(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
+	CarbonArray *arr = (CarbonArray *) parent;
+	if (arr == NULL)
+		return "Cannot remove from a null array";
+	if (carbon_checkBounds(parent, args[0], NULL)) {
+		vm->stack[vm->stackTop++].obj = NULL;
+		return NULL;
+	}
+	uint64_t n = normalizeIndex(args[0], parent);
+	CarbonValue o = arr->members[n];
+	for (uint64_t i = n; i < arr->count - 1; i++) {
+		arr->members[i] = arr->members[i + 1];
+	}
+	arr->count--;
+	vm->stack[vm->stackTop++] = o;
+	return NULL;
+}
+
+char *carbon_remove(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
+	CarbonArray *arr = (CarbonArray *) parent;
+	if (arr == NULL)
+		return "Cannot remove from a null array";
+
+	int64_t n = -1;
+	for (uint64_t i = 0; i < arr->count; i++) {
+		if (arr->members[i].uint == args[0].uint) {
+			n = i;
+			break;
+		}
+	}
+	if (n != -1) {
+		for (uint64_t i = n; i < arr->count - 1; i++) {
+			arr->members[i] = arr->members[i + 1];
+		}
+		arr->count--;
+	}
+	vm->stack[vm->stackTop++].sint = n;
+	return NULL;
+}
+
+char *carbon_removeAll(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
+	CarbonArray *arr = (CarbonArray *) parent;
+	if (arr == NULL)
+		return "Cannot remove from a null array";
+	CarbonValue *members =
+		carbon_reallocateObj(0, arr->count * sizeof(CarbonValue), NULL, vm);
+	uint64_t newSize = 0;
+	for (uint64_t i = 0; i < arr->count; i++)
+		if (arr->members[i].uint != args[0].uint)
+			members[newSize++] = arr->members[i];
+	carbon_reallocateObj(arr->capacity * sizeof(CarbonValue), 0, arr->members,
+						 vm);
+	uint64_t removed = arr->capacity - newSize;
+	arr->capacity = arr->count;
+	arr->count = newSize;
+	arr->members = members;
+	vm->stack[vm->stackTop++].uint = removed;
+	return NULL;
+}
+
+char *carbon_first(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
+	CarbonArray *arr = (CarbonArray *) parent;
+	if (arr == NULL)
+		return "Cannot search on a null array";
+	for (uint64_t i = 0; i < arr->count; i++) {
+		if (arr->members[i].uint == args[0].uint) {
+			vm->stack[vm->stackTop++].sint = i;
+			return NULL;
+		}
+	}
+	vm->stack[vm->stackTop++].sint = -1;
+	return NULL;
+}
+
+char *carbon_last(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
+	CarbonArray *arr = (CarbonArray *) parent;
+	if (arr == NULL)
+		return "Cannot search on a null array";
+	if (arr->count > 1)
+		for (int64_t i = arr->count - 1; i >= 0; i--) {
+			if (arr->members[i].uint == args[0].uint) {
+				vm->stack[vm->stackTop++].sint = i;
+				return NULL;
+			}
+		}
+	vm->stack[vm->stackTop++].sint = -1;
+	return NULL;
+}
+
+char *carbon_cloneArray(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
+	CarbonArray *arr = (CarbonArray *) parent;
+	if (arr == NULL)
+		return "Cannot clone a null array";
+	CarbonArray *clone = carbon_newArray(arr->capacity, arr->member, vm);
+	clone->count = arr->count;
+	for (uint64_t i = 0; i < arr->count; i++)
+		clone->members[i] = arr->members[i];
+	vm->stack[vm->stackTop++].obj = (CarbonObj *) clone;
 	return NULL;
 }
 
@@ -473,20 +576,21 @@ bool carbon_checkBounds(CarbonObj *obj, CarbonValue index, char **msg) {
 	uint64_t olength = carbon_objLength(obj);
 	if ((index.sint >= 0 && olength <= index.sint) ||
 		(index.sint < 0 && olength < -index.sint)) {
-		switch (obj->type) {
-			case CrbnObjString:
-				*msg = "Out of bounds error on string";
-				break;
-			case CrbnObjArray:
-				*msg = "Out of bounds error on array";
-				break;
-			case CrbnObjGenerator:
-				*msg = "Out of bounds error on generator";
-				break;
-			default:
-				*msg = "";
-				break; // Should never reach here
-		}
+		if (msg != NULL)
+			switch (obj->type) {
+				case CrbnObjString:
+					*msg = "Out of bounds error on string";
+					break;
+				case CrbnObjArray:
+					*msg = "Out of bounds error on array";
+					break;
+				case CrbnObjGenerator:
+					*msg = "Out of bounds error on generator";
+					break;
+				default:
+					*msg = "";
+					break; // Should never reach here
+			}
 		return true;
 	}
 	return false;

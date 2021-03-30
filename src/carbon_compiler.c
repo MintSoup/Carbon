@@ -918,6 +918,21 @@ void carbon_markGlobal(CarbonStmt *stmt, CarbonCompiler *c, CarbonVM *vm) {
 	}
 }
 
+static CarbonValueType makeFunctionSig(CarbonValueType from,
+									   CarbonValueType to) {
+	CarbonValueType t = newType(ValueFunction);
+	t.compound.signature =
+		carbon_reallocate(0, sizeof(CarbonFunctionSignature), NULL);
+	t.compound.signature->arity = 1;
+	t.compound.signature->arguments =
+		carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+	t.compound.signature->returnType =
+		carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+	*t.compound.signature->arguments = from;
+	*t.compound.signature->returnType = to;
+	return t;
+}
+
 static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 
 #define castNode(type, name) type *name = (type *) expr;
@@ -1341,11 +1356,13 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			expr->evalsTo = newType(
 				arr->imethod == ImethodGenerator ? ValueGenerator : ValueArray);
 			if (arr->imethod == ImethodContracted) {
-
 				expr->evalsTo.compound.memberType =
 					carbon_reallocate(0, sizeof(CarbonValueType), NULL);
 				*expr->evalsTo.compound.memberType =
 					resolveType(arr->type, c, vm);
+
+				if(arr->count != 3)
+					break;
 
 				if (arr->members[0] != NULL)
 					typecheck(arr->members[0], c, vm);
@@ -1478,17 +1495,57 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			switch (dot->left->evalsTo.tag) {
 				case ValueArray:
 					if (idntfLexCmp(dot->right, "append", strlen("append"))) {
+						expr->evalsTo = makeFunctionSig(
+							carbon_cloneType(
+								*dot->left->evalsTo.compound.memberType),
+							newType(ValueVoid));
+						break;
+					} else if (idntfLexCmp(dot->right, "remove",
+										   strlen("remove"))) {
+						expr->evalsTo = makeFunctionSig(
+							carbon_cloneType(
+								*dot->left->evalsTo.compound.memberType),
+							newType(ValueInt));
+						break;
+					} else if (idntfLexCmp(dot->right, "removeAt",
+										   strlen("removeAt"))) {
+						expr->evalsTo = makeFunctionSig(
+							newType(ValueInt),
+							carbon_cloneType(
+								*dot->left->evalsTo.compound.memberType));
+						break;
+					} else if (idntfLexCmp(dot->right, "removeAll",
+										   strlen("removeAll"))) {
+						expr->evalsTo = makeFunctionSig(
+							carbon_cloneType(
+								*dot->left->evalsTo.compound.memberType),
+							newType(ValueUInt));
+						break;
+					} else if (idntfLexCmp(dot->right, "first",
+										   strlen("first"))) {
+						expr->evalsTo = makeFunctionSig(
+							carbon_cloneType(
+								*dot->left->evalsTo.compound.memberType),
+							newType(ValueInt));
+						break;
+					} else if (idntfLexCmp(dot->right, "last",
+										   strlen("last"))) {
+						expr->evalsTo = makeFunctionSig(
+							carbon_cloneType(
+								*dot->left->evalsTo.compound.memberType),
+							newType(ValueInt));
+						break;
+					} else if (idntfLexCmp(dot->right, "clone",
+										   strlen("clone"))) {
 						CarbonValueType t = newType(ValueFunction);
 						t.compound.signature = carbon_reallocate(
 							0, sizeof(CarbonFunctionSignature), NULL);
-						t.compound.signature->arity = 1;
-						t.compound.signature->arguments =
-							carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+						t.compound.signature->arity = 0;
+						t.compound.signature->arguments = NULL;
 						t.compound.signature->returnType =
 							carbon_reallocate(0, sizeof(CarbonValueType), NULL);
-						*t.compound.signature->arguments = carbon_cloneType(
-							*dot->left->evalsTo.compound.memberType);
-						*t.compound.signature->returnType = newType(ValueVoid);
+						*t.compound.signature->returnType =
+							carbon_cloneType(dot->left->evalsTo);
 						expr->evalsTo = t;
 						break;
 					}
@@ -2119,27 +2176,44 @@ carbon_compileIndexAssignmentExpression(CarbonExprIndexAssignment *ie,
 	carbon_writeToChunk(chunk, OpSetIndex, ie->equals.line);
 }
 
+static void pushBuiltinFunction(enum CarbonBuiltinID id, CarbonExprDot *dot,
+								CarbonChunk *chunk, CarbonVM *vm) {
+	carbon_writeToChunk(chunk, OpBuiltin, dot->right.line);
+	carbon_writeToChunk(chunk, id, dot->right.line);
+	uint16_t n = carbon_pushType(vm, carbon_cloneType(dot->expr.evalsTo));
+	carbon_writeToChunk(chunk, n >> 8, dot->right.line);
+	carbon_writeToChunk(chunk, n, dot->right.line);
+}
+
 static void compileBuiltinDot(CarbonExprDot *dot, CarbonChunk *chunk,
 							  CarbonCompiler *c, CarbonVM *vm) {
 	switch (dot->left->evalsTo.tag) {
 		case ValueArray:
 			if (idntfLexCmp(dot->right, "append", strlen("append"))) {
-				carbon_writeToChunk(chunk, OpBuiltin, dot->right.line);
-				carbon_writeToChunk(chunk, BuiltinAppend, dot->right.line);
-				uint16_t n =
-					carbon_pushType(vm, carbon_cloneType(dot->expr.evalsTo));
-				carbon_writeToChunk(chunk, n >> 8, dot->right.line);
-				carbon_writeToChunk(chunk, n, dot->right.line);
+				pushBuiltinFunction(BuiltinAppend, dot, chunk, vm);
+				break;
+			} else if (idntfLexCmp(dot->right, "remove", strlen("remove"))) {
+				pushBuiltinFunction(BuiltinRemove, dot, chunk, vm);
+				break;
+			} else if (idntfLexCmp(dot->right, "removeAt", strlen("removeAt"))) {
+				pushBuiltinFunction(BuiltinRemoveAt, dot, chunk, vm);
+				break;
+			}else if (idntfLexCmp(dot->right, "removeAll", strlen("removeAll"))) {
+				pushBuiltinFunction(BuiltinRemoveAll, dot, chunk, vm);
+				break;
+			}else if (idntfLexCmp(dot->right, "first", strlen("first"))) {
+				pushBuiltinFunction(BuiltinFirst, dot, chunk, vm);
+				break;
+			}else if (idntfLexCmp(dot->right, "last", strlen("last"))) {
+				pushBuiltinFunction(BuiltinLast, dot, chunk, vm);
+				break;
+			}else if (idntfLexCmp(dot->right, "clone", strlen("clone"))) {
+				pushBuiltinFunction(BuiltinCloneArr, dot, chunk, vm);
 				break;
 			}
 		case ValueString:
 			if (idntfLexCmp(dot->right, "splice", strlen("append"))) {
-				carbon_writeToChunk(chunk, OpBuiltin, dot->right.line);
-				carbon_writeToChunk(chunk, BuiltinSplice, dot->right.line);
-				uint16_t n =
-					carbon_pushType(vm, carbon_cloneType(dot->expr.evalsTo));
-				carbon_writeToChunk(chunk, n >> 8, dot->right.line);
-				carbon_writeToChunk(chunk, n, dot->right.line);
+				pushBuiltinFunction(BuiltinSplice, dot, chunk, vm);
 				break;
 			}
 		case ValueGenerator: {

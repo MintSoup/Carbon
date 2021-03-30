@@ -99,7 +99,11 @@ static char *names[] = {
 };
 
 char *builtinFunctionNames[] = {
-	[BuiltinAppend] = "append", [BuiltinSplice] = "splice"};
+	[BuiltinAppend] = "append",		  [BuiltinSplice] = "splice",
+	[BuiltinRemove] = "remove",		  [BuiltinRemoveAt] = "removeAt",
+	[BuiltinRemoveAll] = "removeAll", [BuiltinFirst] = "first",
+	[BuiltinLast] = "last",			  [BuiltinCloneArr] = "clone",
+};
 
 void carbon_disassemble(CarbonChunk *chunk, CarbonVM *vm) {
 	uint8_t *ip = chunk->code;

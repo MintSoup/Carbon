@@ -6,7 +6,16 @@
 #include "vm/carbon_vm.h"
 #include "carbon_token.h"
 
-enum { BuiltinAppend, BuiltinSplice };
+enum CarbonBuiltinID {
+	BuiltinAppend,
+	BuiltinSplice,
+	BuiltinRemoveAt,
+	BuiltinRemove,
+	BuiltinRemoveAll,
+	BuiltinFirst,
+	BuiltinLast,
+	BuiltinCloneArr,
+};
 
 typedef enum {
 	CrbnObjString,
@@ -94,6 +103,12 @@ CarbonMethod *carbon_newMethod(CarbonInstance *parent, CarbonFunction *func,
 
 char *carbon_appendArray(CarbonObj *arr, CarbonValue *args, CarbonVM *vm);
 char *carbon_splice(CarbonObj *it, CarbonValue *args, CarbonVM *vm);
+char *carbon_removeAt(CarbonObj *it, CarbonValue *args, CarbonVM *vm);
+char *carbon_remove(CarbonObj *it, CarbonValue *args, CarbonVM *vm);
+char *carbon_removeAll(CarbonObj *it, CarbonValue *args, CarbonVM *vm);
+char *carbon_first(CarbonObj *it, CarbonValue *args, CarbonVM *vm);
+char *carbon_last(CarbonObj *it, CarbonValue *args, CarbonVM *vm);
+char *carbon_cloneArray(CarbonObj *it, CarbonValue *args, CarbonVM *vm);
 void carbon_printObject(CarbonObj *obj);
 
 CarbonValue carbon_getObjIndex(CarbonObj *obj, CarbonValue i, CarbonVM *vm);
