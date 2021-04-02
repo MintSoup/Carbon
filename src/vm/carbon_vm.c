@@ -20,6 +20,8 @@ static char *(*builtinPtrs[])(CarbonObj *, CarbonValue *, CarbonVM *) = {
 	[BuiltinFirst] = carbon_first,
 	[BuiltinLast] = carbon_last,
 	[BuiltinCloneArr] = carbon_cloneArray,
+	[BuiltinUpper] = carbon_upper,
+	[BuiltinLower] = carbon_lower,
 };
 
 void carbon_initVM(CarbonVM *vm) {

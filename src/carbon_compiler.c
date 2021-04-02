@@ -696,13 +696,11 @@ static CarbonValueType resolveType(CarbonTypename tn, CarbonCompiler *c,
 			carbon_reallocate(0, sizeof(CarbonValueType), NULL);
 		*typ.compound.signature->returnType =
 			resolveType(tn.templates[0], c, vm);
-		if (arity > 0) {
-			typ.compound.signature->arguments =
-				carbon_reallocate(0, arity * sizeof(CarbonValueType), NULL);
-			for (uint8_t i = 1; i < tn.templateCount; i++) {
-				typ.compound.signature->arguments[i - 1] =
-					resolveType(tn.templates[i], c, vm);
-			}
+		typ.compound.signature->arguments =
+			carbon_reallocate(0, arity * sizeof(CarbonValueType), NULL);
+		for (uint8_t i = 1; i < tn.templateCount; i++) {
+			typ.compound.signature->arguments[i - 1] =
+				resolveType(tn.templates[i], c, vm);
 		}
 	} else if (tn.templateCount != 0) {
 		wrongTemplatecount(tn.base, 0, tn.templateCount, false, c);
@@ -1361,7 +1359,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 				*expr->evalsTo.compound.memberType =
 					resolveType(arr->type, c, vm);
 
-				if(arr->count != 3)
+				if (arr->count != 3)
 					break;
 
 				if (arr->members[0] != NULL)
@@ -1564,6 +1562,22 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 							carbon_cloneType(dot->left->evalsTo);
 						t.compound.signature->arguments[0] = newType(ValueInt);
 						t.compound.signature->arguments[1] = newType(ValueInt);
+						expr->evalsTo = t;
+						break;
+					} else if ((idntfLexCmp(dot->right, "upper",
+											strlen("upper")) ||
+								idntfLexCmp(dot->right, "lower",
+											strlen("lower"))) &&
+							   dot->left->evalsTo.tag == ValueString) {
+						CarbonValueType t = newType(ValueFunction);
+						t.compound.signature = carbon_reallocate(
+							0, sizeof(CarbonFunctionSignature), NULL);
+						t.compound.signature->arity = 0;
+						t.compound.signature->arguments = NULL;
+						t.compound.signature->returnType =
+							carbon_reallocate(0, sizeof(CarbonValueType), NULL);
+						*t.compound.signature->returnType =
+							newType(ValueString);
 						expr->evalsTo = t;
 						break;
 					}
@@ -2195,25 +2209,33 @@ static void compileBuiltinDot(CarbonExprDot *dot, CarbonChunk *chunk,
 			} else if (idntfLexCmp(dot->right, "remove", strlen("remove"))) {
 				pushBuiltinFunction(BuiltinRemove, dot, chunk, vm);
 				break;
-			} else if (idntfLexCmp(dot->right, "removeAt", strlen("removeAt"))) {
+			} else if (idntfLexCmp(dot->right, "removeAt",
+								   strlen("removeAt"))) {
 				pushBuiltinFunction(BuiltinRemoveAt, dot, chunk, vm);
 				break;
-			}else if (idntfLexCmp(dot->right, "removeAll", strlen("removeAll"))) {
+			} else if (idntfLexCmp(dot->right, "removeAll",
+								   strlen("removeAll"))) {
 				pushBuiltinFunction(BuiltinRemoveAll, dot, chunk, vm);
 				break;
-			}else if (idntfLexCmp(dot->right, "first", strlen("first"))) {
+			} else if (idntfLexCmp(dot->right, "first", strlen("first"))) {
 				pushBuiltinFunction(BuiltinFirst, dot, chunk, vm);
 				break;
-			}else if (idntfLexCmp(dot->right, "last", strlen("last"))) {
+			} else if (idntfLexCmp(dot->right, "last", strlen("last"))) {
 				pushBuiltinFunction(BuiltinLast, dot, chunk, vm);
 				break;
-			}else if (idntfLexCmp(dot->right, "clone", strlen("clone"))) {
+			} else if (idntfLexCmp(dot->right, "clone", strlen("clone"))) {
 				pushBuiltinFunction(BuiltinCloneArr, dot, chunk, vm);
 				break;
 			}
 		case ValueString:
 			if (idntfLexCmp(dot->right, "splice", strlen("append"))) {
 				pushBuiltinFunction(BuiltinSplice, dot, chunk, vm);
+				break;
+			} else if (idntfLexCmp(dot->right, "upper", strlen("upper"))) {
+				pushBuiltinFunction(BuiltinUpper, dot, chunk, vm);
+				break;
+			} else if (idntfLexCmp(dot->right, "lower", strlen("lower"))) {
+				pushBuiltinFunction(BuiltinLower, dot, chunk, vm);
 				break;
 			}
 		case ValueGenerator: {

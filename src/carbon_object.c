@@ -355,6 +355,40 @@ char *carbon_cloneArray(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
 	return NULL;
 }
 
+char *carbon_upper(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
+	CarbonString *str = (CarbonString *) parent;
+	if (str == NULL)
+		return "Cannot operate on a null string";
+	char *new = carbon_reallocateObj(0, str->length + 1, NULL, vm);
+	for (uint32_t i = 0; i < str->length + 1; i++) {
+		if (str->chars[i] >= 'a' && str->chars[i] <= 'z') {
+			new[i] = str->chars[i] - 32;
+		} else {
+			new[i] = str->chars[i];
+		}
+	}
+	CarbonString *output = carbon_takeString(new, str->length, vm);
+	vm->stack[vm->stackTop++].obj = (CarbonObj *) output;
+	return NULL;
+}
+
+char *carbon_lower(CarbonObj *parent, CarbonValue *args, CarbonVM *vm) {
+	CarbonString *str = (CarbonString *) parent;
+	if (str == NULL)
+		return "Cannot operate on a null string";
+	char *new = carbon_reallocateObj(0, str->length + 1, NULL, vm);
+	for (uint32_t i = 0; i < str->length + 1; i++) {
+		if (str->chars[i] >= 'A' && str->chars[i] <= 'Z') {
+			new[i] = str->chars[i] + 32;
+		} else {
+			new[i] = str->chars[i];
+		}
+	}
+	CarbonString *output = carbon_takeString(new, str->length, vm);
+	vm->stack[vm->stackTop++].obj = (CarbonObj *) output;
+	return NULL;
+}
+
 void carbon_freeObject(CarbonObj *obj, CarbonVM *vm) {
 
 #define castObj(type, name) type *name = (type *) obj;

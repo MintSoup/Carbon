@@ -15,6 +15,8 @@ enum CarbonBuiltinID {
 	BuiltinFirst,
 	BuiltinLast,
 	BuiltinCloneArr,
+	BuiltinUpper,
+	BuiltinLower
 };
 
 typedef enum {
@@ -109,6 +111,8 @@ char *carbon_removeAll(CarbonObj *it, CarbonValue *args, CarbonVM *vm);
 char *carbon_first(CarbonObj *it, CarbonValue *args, CarbonVM *vm);
 char *carbon_last(CarbonObj *it, CarbonValue *args, CarbonVM *vm);
 char *carbon_cloneArray(CarbonObj *it, CarbonValue *args, CarbonVM *vm);
+char *carbon_upper(CarbonObj *parent, CarbonValue *args, CarbonVM *vm);
+char *carbon_lower(CarbonObj *parent, CarbonValue *args, CarbonVM *vm);
 void carbon_printObject(CarbonObj *obj);
 
 CarbonValue carbon_getObjIndex(CarbonObj *obj, CarbonValue i, CarbonVM *vm);

@@ -5,4 +5,12 @@ void main():
 	print(a)
 	print('\n')
 	print(b)
+
+	print('\nHello World 1234!@#$%^&*()'.upper())
+	print('\nhELLo woRLd 1234!@#$%^&*()'.lower())
+	string g = 'gctest'
+	function<string> up = g.upper
+	# Trigger a GC
+	'a' + 'b'
+	print(up())
 end

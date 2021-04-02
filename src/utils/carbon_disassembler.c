@@ -103,6 +103,7 @@ char *builtinFunctionNames[] = {
 	[BuiltinRemove] = "remove",		  [BuiltinRemoveAt] = "removeAt",
 	[BuiltinRemoveAll] = "removeAll", [BuiltinFirst] = "first",
 	[BuiltinLast] = "last",			  [BuiltinCloneArr] = "clone",
+	[BuiltinUpper] = "lower",		  [BuiltinLower] = "upper",
 };
 
 void carbon_disassemble(CarbonChunk *chunk, CarbonVM *vm) {
