@@ -126,7 +126,7 @@ void carbon_disassemble(CarbonChunk *chunk, CarbonVM *vm) {
 			printf("%4d ", line);
 		}
 
-		printf("%04ld\t %s", ip - chunk->code, names[*ip]);
+		printf("%04" PRIuPTR "\t %s", ip - chunk->code, names[*ip]);
 
 		switch (*ip) {
 			case OpReturn:

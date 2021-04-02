@@ -2459,6 +2459,7 @@ static void compilePrintStmt(CarbonStmtPrint *print, CarbonChunk *chunk,
 			op = OpPrintBool;
 			break;
 		case ValueVoid:
+			op = OpPrintInt; // Just to avoid compiler warning
 			cantPrint(print->token, c);
 			break;
 		default:
