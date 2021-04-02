@@ -1,15 +1,7 @@
 void main():
-	array<uint> a = [0, 1, 2, 3, 4, 5, 1, 4, 2, 1, 6, 7]
-	array<uint> b = a.clone()
-	b.removeAll(1)
-	print(a)
-	print('\n')
-	print(b)
-
-	print('\nHello World 1234!@#$%^&*()'.upper())
-	print('\nhELLo woRLd 1234!@#$%^&*()'.lower())
-	string g = 'gctest'
+	string g = 'gctest\n'
 	function<string> up = g.upper
+	g = null
 	# Trigger a GC
 	'a' + 'b'
 	print(up())
