@@ -1,0 +1,27 @@
+import str
+
+array<uint> cacheFactorials():
+	array<uint> f = [<uint, 16, 0>]
+	f[0] = 1
+	f[1] = 1
+	f[2] = 2
+	for i in [3 .. f.length]:
+		f[i] = f[i - 1] * i
+	end
+	return f
+end
+
+array<uint> fact = cacheFactorials()	
+
+void main():
+	for i in [0 .. fact.length]:
+		for j in [0 .. i + 1]:
+			print(u2str(c(i, j)) + ' ')
+		end
+		print('\n')
+	end
+end
+
+uint c(uint n, uint r):
+	return fact[n] / fact[r] / fact[n - r]
+end

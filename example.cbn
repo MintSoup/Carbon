@@ -1,5 +1,6 @@
-import io
-import string
+import str
+import math
+import error
 
 # Comments are defined like this
 # Each file is a 'module'
@@ -26,9 +27,10 @@ void main():
 	# Here we have a standard, C like syntax
 	b = !(3 > 6)
 	
-	print('How old are you?')
+	print('How old are you?\n')
 
-	s = readln() # This function is from the 'io' module
+    # Standard Carbon has no input() function yet, so we can pretend here :)
+	s = '24'
 	
 	# Errors are heap-allocated objects.
 	# They are the standard way in which functions tell you about errors.
@@ -38,10 +40,11 @@ void main():
 	# before doing anything with its return value.
 	# If a function errorrs out, its return value should not be used.
 
-	Error e # Since we discourage null pointers, most objects are automatically initialized.
+	@Error e = @Error() # Since we discourage null pointers, 
+					    # most objects are automatically initialized.
 	# ints should be used only if negative values are explicitly required
 	# In all other cases use uint
-	uint age = toUInt(s, 
+	uint age = str2u(s, 
 						e)  # function from the 'string' module
 	# Statements can be split across lines, as long as the last token on each line
 	# except the last cannot end a statement. Automatic semicolon insertion works like in Go.
@@ -55,22 +58,20 @@ void main():
 		# Everything else is an error, each code representing one possible error
 		# Now that we know nothing went wrong, we can safely utilize the return value
 		if age >= 18:
-			print('You can drive.')
+			print('You can drive.\n')
 		else:
-			print('You cannot drive.')
+			print('You cannot drive.\n')
 		end
-
-	# The user entered a float
-	elif e.code == 1:
-		print('Please make sure your age is a whole number')
 
 	# The user entered a random string
 	else:
-		print('Please input a valid number')
+		print('Please input a valid number\n')
 	end
 		
 	# 2) message
-	print(e.msg) # String describing the problem
+	if e.msg:
+		print(e.msg) # String describing the problem
+	end
 
 	# While loops function as expected
 	#
@@ -80,24 +81,26 @@ void main():
 	end
 
 	# Arrays are heap allocated
-	array<int> arr = [ 3, 6, 
+	array<int> arr = [ 3, -6, 
 							9, 5 ]
 	# They can be initialized like so
 	array<string> names = [<
 							string, # Member type
 							8, 		# Initial size
-							'John' 	# Default member value
-							>]
+							'John'>] 	# Default member value 
 
 	# Their size can grow at runtime
 	arr.append(4)
+
+	# We can also access their length
+	print(arr.length)
 
 	# Members can be accessed like so
 	print(arr[2]) # 9
 	
 	# Python-like for(each) loops
 	for member in names:
-		print(member)
+		print(member + '\n')
 	end
 
 	# Array initializers are standalone expressions, which means	
@@ -107,17 +110,8 @@ void main():
 	end
 	# Prints 'false' 12 times
 
-	# Builtin hashtables
-	# Key must be an object type
-	table<string, uint> salaries
-	salaries['John Smith'] = 30000
-
-	if salaries.has('John Smith'):
-		uint salary = salaries['John Smith']
-	end
-	
 	# Instances can be created like this
-	Vector a = Vector(1,2)
+	@Vector a = @Vector(3,4)
 
 	# Member access functions as you would expect
 	print(a.Magnitude())
@@ -125,18 +119,18 @@ void main():
 end
 
 
-class Vector:
+class @Vector:
 		
 	double a
 	double b
 	
-	Vector(double a, double b):
-		this.a = a
-		this.b = b
+	void Vector(double a, double b):
+		self.a = a
+		self.b = b
 	end
 	
 	double Magnitude():
-		return sqrt(a*a+b*b)
+		return sqrt(self.a * self. a + self.b * self.b)
 	end
 	
 end
