@@ -1,24 +1,26 @@
 * Carbon
-Carbon is an interpreted, object oriented, VM-based, statically typed scripting language. It is intended to be simple, easy to use and easy to embed. You can think of it as statically-typed Lua with a language inspired by Python. It offers:
+Carbon is an interpreted, object oriented, VM-based, statically typed scripting language. It is intended to be simple, elegant and easy to use and embed. You can think of it as a statically-typed Lua with a syntax inspired by Python. It offers:
 
 + A simple, strict, safe, no-nonsense typesystem.
 + A managed environment. Let the computer take care of the memory.
 + Simple, easy to understand object-orientation, with single inheritance.
-+ Readable, easy, modern syntax.
-+ Easy embedability with a flexible module system.
++ Readable, modern syntax.
++ Effortless embedability with a flexible module system.
 
 Keep in mind that Carbon is still in early development and bugs might be common. Please report them if you find any!
 
 * Getting started
+First, we need to compile Carbon.
+
 ** POSIX
-Carbon is very simple to build given you have a C99 compiler and Make.
+Carbon is very simple to build given you have a C99 compiler, make and a few command standard command line utilities.
 
 First, clone the repo.
 #+BEGIN_SRC sh
 git clone https://github.com/MintSoup/Carbon.git
 #+END_SRC
 
-Cd into your newly cloned directory,
+cd into your newly cloned directory,
 #+BEGIN_SRC sh
 cd Carbon
 #+END_SRC
