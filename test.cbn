@@ -1,8 +1,12 @@
 void main():
-	string g = 'gctest\n'
-	function<string> up = g.upper
-	g = null
-	# Trigger a GC
-	'a' + 'b'
-	print(up())
+	for x in [2..20]:
+		print(fib(x))	
+	end
+end
+
+uint fib(uint n):
+	if n == 1 or n == 2:
+		return 1
+	end
+	return fib(n - 1) + fib(n - 2)
 end

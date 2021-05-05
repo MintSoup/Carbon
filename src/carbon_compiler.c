@@ -2170,8 +2170,7 @@ static void compileIndexExpression(CarbonExprIndex *index, CarbonChunk *chunk,
 	carbon_compileExpression(index->index, chunk, c, vm);
 	carbon_writeToChunk(chunk, OpGetIndex, index->bracket.line);
 }
-static void
-carbon_compileIndexAssignmentExpression(CarbonExprIndexAssignment *ie,
+static void carbon_compileIndexAssignmentExpression(CarbonExprIndexAssignment *ie,
 										CarbonChunk *chunk, CarbonCompiler *c,
 										CarbonVM *vm) {
 
