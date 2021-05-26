@@ -11,35 +11,34 @@ Keep in mind that Carbon is still in early development and bugs might be common.
 
 * Getting started
 First, we need to compile Carbon.
-
 ** POSIX
-Carbon is very simple to build given you have a C99 compiler, make and a few standard command line utilities.
+Carbon is very simple to build given you have a C99 compiler, ~make~ and a few standard command line utilities.
 
 First, clone the repo.
 #+BEGIN_SRC sh
-git clone https://github.com/MintSoup/Carbon.git
+  git clone https://github.com/MintSoup/Carbon.git
 #+END_SRC
 
 cd into your newly cloned directory,
 #+BEGIN_SRC sh
-cd Carbon
+  cd Carbon
 #+END_SRC
 
 And finally, build.
 #+BEGIN_SRC sh
-make
+  make
 #+END_SRC
 
 You can use
 #+BEGIN_SRC sh
-make -j$(nproc)
+  make -j$(nproc)
 #+END_SRC
 for a slightly faster build.
 
 You can also compile in debug mode.
 
 #+BEGIN_SRC sh
-make debug
+  make debug
 #+END_SRC
 
 ** Windows
@@ -47,20 +46,20 @@ Building Carbon on Windows is a little more cumbersome, but still doable. We're 
 
 After you're done installing MSYS2, make sure our required tools are present.
 #+BEGIN_SRC sh
-pacman -S make gcc git
+  pacman -S make gcc git
 #+END_SRC
 
 And from here on out, building follows the same process.
 #+BEGIN_SRC sh
-git clone https://github.com/MintSoup/Carbon.git
-cd Carbon
-make
+  git clone https://github.com/MintSoup/Carbon.git
+  cd Carbon
+  make
 #+END_SRC
 
 ** Testing
 Now that you have built Carbon, you can test it.
 #+BEGIN_SRC sh
-./carbon pascal.cbn
+  ./carbon pascal.cbn
 #+END_SRC
 
 If you did everything right, you should see a Pascal's triangle get printed out, like so.

@@ -1,12 +1,7 @@
 void main():
-	for x in [2..20]:
-		print(fib(x))	
-	end
+	print(1 + a())
 end
 
-uint fib(uint n):
-	if n == 1 or n == 2:
-		return 1
-	end
-	return fib(n - 1) + fib(n - 2)
+int a():
+	return 6
 end
