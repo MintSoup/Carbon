@@ -4,3 +4,5 @@ _vimrc_local.vim
 .ycm_extra_conf.py
 carbon
 obj/**
+.cache/**
+/compile_commands.json
