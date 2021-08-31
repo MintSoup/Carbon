@@ -1,7 +1,13 @@
 void main():
-	print(1 + a())
+	 for x in [1 .. 10]:
+	 	print(f(x))
+	 end
 end
 
-int a():
-	return 6
+
+uint f(uint n):
+	if n == 1 or n == 2:
+	 	return 1
+	end
+	return f(n - 1) + f(n - 2)
 end

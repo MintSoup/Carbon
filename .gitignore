@@ -6,3 +6,5 @@ carbon
 obj/**
 .cache/**
 /compile_commands.json
+/.dir-locals.el
+/.gdbinit

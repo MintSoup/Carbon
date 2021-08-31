@@ -2227,7 +2227,7 @@ static void compileBuiltinDot(CarbonExprDot *dot, CarbonChunk *chunk,
 				break;
 			}
 		case ValueString:
-			if (idntfLexCmp(dot->right, "splice", strlen("append"))) {
+			if (idntfLexCmp(dot->right, "splice", strlen("splice"))) {
 				pushBuiltinFunction(BuiltinSplice, dot, chunk, vm);
 				break;
 			} else if (idntfLexCmp(dot->right, "upper", strlen("upper"))) {
