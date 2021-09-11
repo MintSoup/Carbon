@@ -251,12 +251,12 @@ CarbonModule *carbon_initModuleString(CarbonVM *vm) {
 	CarbonFunctionSignature *d2s = sigX2S(vm, ValueDouble);
 	CarbonFunctionSignature *i2s = sigX2S(vm, ValueInt);
 
-	mod->funcs[0] = (CarbonModuleElement){str("d2str"), func(mD2S, d2s)};
-	mod->funcs[1] = (CarbonModuleElement){str("i2str"), func(mI2S, i2s)};
-	mod->funcs[2] = (CarbonModuleElement){str("u2str"), func(mU2S, i2s)};
-	mod->funcs[3] = (CarbonModuleElement){str("str2u"), func(mS2U, s2u)};
-	mod->funcs[4] = (CarbonModuleElement){str("str2i"), func(mS2I, s2i)};
-	mod->funcs[5] = (CarbonModuleElement){str("str2d"), func(mS2D, s2d)};
+	mod->funcs[0] = (CarbonModuleElement){str("d2s"), func(mD2S, d2s)};
+	mod->funcs[1] = (CarbonModuleElement){str("i2s"), func(mI2S, i2s)};
+	mod->funcs[2] = (CarbonModuleElement){str("u2s"), func(mU2S, i2s)};
+	mod->funcs[3] = (CarbonModuleElement){str("s2u"), func(mS2U, s2u)};
+	mod->funcs[4] = (CarbonModuleElement){str("s2i"), func(mS2I, s2i)};
+	mod->funcs[5] = (CarbonModuleElement){str("s2d"), func(mS2D, s2d)};
 
 	return mod;
 }
