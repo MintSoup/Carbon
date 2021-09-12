@@ -1383,15 +1383,15 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			CarbonValueType highestType = newType(ValueUInt);
 			CarbonValueType firstType;
 			for (uint64_t i = 0; i < arr->count; i++) {
-				if (arr->members[i] != NULL) {
-					typecheck(arr->members[i], c, vm);
-					if (arr->members[i]->evalsTo.tag > highestType.tag) {
-						highestType = arr->members[i]->evalsTo;
-						if (arr->imethod == ImethodGenerator &&
-							highestType.tag > ValueDouble &&
-							highestType.tag != ValueUnresolved) {
-							wrongGeneratorType(arr->members[i]->first, c);
-						}
+				if (arr->members[i] == NULL)
+					continue;
+				typecheck(arr->members[i], c, vm);
+				if (arr->members[i]->evalsTo.tag > highestType.tag) {
+					highestType = arr->members[i]->evalsTo;
+					if (arr->imethod == ImethodGenerator &&
+						highestType.tag > ValueDouble &&
+						highestType.tag != ValueUnresolved) {
+						wrongGeneratorType(arr->members[i]->first, c);
 					}
 				}
 			}
@@ -1409,6 +1409,8 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 			}
 			firstType = arr->members[0]->evalsTo;
 			for (uint64_t i = 0; i < arr->count; i++) {
+				if (arr->members[i] == NULL)
+					continue;
 				if (!carbon_canAssign(firstType, arr->members[i]->evalsTo, c) &&
 					arr->imethod != ImethodGenerator) {
 					wrongMemberType(arr->members[i]->first, i, firstType,
@@ -2170,7 +2172,8 @@ static void compileIndexExpression(CarbonExprIndex *index, CarbonChunk *chunk,
 	carbon_compileExpression(index->index, chunk, c, vm);
 	carbon_writeToChunk(chunk, OpGetIndex, index->bracket.line);
 }
-static void carbon_compileIndexAssignmentExpression(CarbonExprIndexAssignment *ie,
+static void
+carbon_compileIndexAssignmentExpression(CarbonExprIndexAssignment *ie,
 										CarbonChunk *chunk, CarbonCompiler *c,
 										CarbonVM *vm) {
 

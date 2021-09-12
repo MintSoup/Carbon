@@ -1,13 +1,6 @@
 void main():
-	 for x in [1 .. 10]:
-	 	print(f(x))
-	 end
+	 array<@Dog> lol = [12,
+	 			 		2+,]
 end
 
-
-uint f(uint n):
-	if n == 1 or n == 2:
-	 	return 1
-	end
-	return f(n - 1) + f(n - 2)
-end
+class @Dog: end
