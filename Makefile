@@ -37,7 +37,7 @@ run_new: $(executable)
 run: $(executable)
 	./$(executable)
 
-$(obj): 
+$(obj):
 	mkdir -p $(obj)
 
 clean:

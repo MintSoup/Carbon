@@ -2507,8 +2507,8 @@ static void compileVarDecStmt(CarbonStmtVarDec *vardec, CarbonChunk *chunk,
 	// If global:
 	// 		Get from Global g
 	// If local:
-	// 		resolve type here *
-	// 		store in c.locals *
+	// 		resolve type here
+	// 		store in c.locals
 	// 		discard when popping
 	CarbonValueType vartype;
 
@@ -2551,6 +2551,7 @@ static void compileVarDecStmt(CarbonStmtVarDec *vardec, CarbonChunk *chunk,
 		emit(OpPop, vardec->identifier.line);
 		if (!isObject(vartype))
 			carbon_tableSet(&vm->primitives, (CarbonObj *) name, CarbonUInt(0));
+
 	} else {
 		int16_t depth = resolveLocal(name, c);
 		if (depth == -1 || c->locals[depth].depth != c->depth) {

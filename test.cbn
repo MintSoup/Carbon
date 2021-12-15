@@ -1,6 +1,2 @@
 void main():
-	 array<@Dog> lol = [12,
-	 			 		2+,]
 end
-
-class @Dog: end

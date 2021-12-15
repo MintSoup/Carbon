@@ -90,6 +90,7 @@ static inline CarbonValue pop(CarbonVM *vm) {
 }
 
 static inline void push(CarbonValue v, CarbonVM *vm) {
+	//TODO: Cleanly exit on stack overflow
 	vm->stack[vm->stackTop++] = v;
 }
 static inline CarbonChunk getChunk(CarbonVM *vm) {

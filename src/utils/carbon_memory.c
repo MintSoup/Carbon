@@ -134,9 +134,17 @@ void carbon_gc(CarbonVM *vm) {
 	uint32_t i = 0;
 	while (o != NULL) {
 		vm->gcarr[i] = o;
+		// Mark the top-level function right away
+		// before sorting gcarr
+		if (o->type == CrbnObjFunc) {
+			CarbonFunction *func = (CarbonFunction *) o;
+			if (func->name == NULL) // Only the TL function has a NULL name
+				markObject(o, vm);
+		}
 		o = o->next;
 		i++;
 	}
+
 	qsort(vm->gcarr, vm->objectCount, sizeof(CarbonObj *), compare);
 
 	// Marking roots
@@ -186,6 +194,10 @@ void carbon_gc(CarbonVM *vm) {
 	while (o != NULL) {
 		CarbonObj *next = o->next;
 		if (!o->marked) {
+			if (o->type == CrbnObjString) {
+				CarbonString *s = o;
+				printf("!!CLEANING UP %s\n", s->chars);
+			}
 			carbon_freeObject(o, vm);
 		} else
 			o->marked = false;

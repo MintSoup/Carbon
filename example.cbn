@@ -44,7 +44,7 @@ void main():
 					    # most objects are automatically initialized.
 	# ints should be used only if negative values are explicitly required
 	# In all other cases use uint
-	uint age = str2u(s, 
+	uint age = s2u(s, 
 						e)  # function from the 'string' module
 	# Statements can be split across lines, as long as the last token on each line
 	# except the last cannot end a statement. Automatic semicolon insertion works like in Go.

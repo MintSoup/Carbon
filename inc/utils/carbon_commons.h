@@ -4,5 +4,4 @@
 #include <inttypes.h>
 #include <stddef.h>
 
-#define CARBON_StackSize 255
-
+#define CARBON_StackSize 512
