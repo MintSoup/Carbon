@@ -3,7 +3,7 @@ import str
 void main():
 	for i in [0 .. fact.length]:
 		for j in [0 .. i + 1]:
-			print(u2str(c(i, j)) + ' ')
+			print(u2s(c(i, j)) + ' ')
 		end
 		print('\n')
 	end
@@ -24,4 +24,4 @@ array<uint> cacheFactorials():
 	return f
 end
 
-array<uint> fact = cacheFactorials()	
+array<uint> fact = cacheFactorials()
