@@ -194,10 +194,6 @@ void carbon_gc(CarbonVM *vm) {
 	while (o != NULL) {
 		CarbonObj *next = o->next;
 		if (!o->marked) {
-			if (o->type == CrbnObjString) {
-				CarbonString *s = o;
-				printf("!!CLEANING UP %s\n", s->chars);
-			}
 			carbon_freeObject(o, vm);
 		} else
 			o->marked = false;
