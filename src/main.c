@@ -121,8 +121,9 @@ int main(int argc, char *argv[]) {
 	char *first = malloc(length);
 	strcpy(first, argv[argc - 1]);
 	first[length - 1] = 0;
-	readFile(first, NULL, NULL);
-
+	if (readFile(first, NULL, NULL) == NULL) {
+		return 1;
+	}
 	CarbonRunResult isOk = carbon_execute(
 		&instance, files[0].contents, files[0].length, argv[argc - 1], flags);
 
