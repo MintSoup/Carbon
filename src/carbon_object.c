@@ -457,6 +457,11 @@ void carbon_printObject(CarbonObj *obj) {
 
 #define castObj(type, name) type *name = (type *) obj;
 
+	if (obj == NULL) {
+		printf("null");
+		return;
+	}
+
 	switch (obj->type) {
 		case CrbnObjString: {
 			castObj(CarbonString, str);

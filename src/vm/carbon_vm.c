@@ -529,9 +529,6 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				break;
 			case OpPrintObj: {
 				CarbonObj *o = pop().obj;
-				if (nullcheck(o, "Cannot print a null object", vm))
-					return Carbon_Runtime_Error;
-
 				carbon_printObject(o);
 				fflush(stdout);
 				frame->ip++;
