@@ -255,7 +255,7 @@ uint16_t carbon_pushType(CarbonVM *vm, CarbonValueType type) {
 
 CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 
-#define ReadByte() *(frame->ip)
+#define ReadByte() *(ip)
 #define push(x) push(x, vm)
 #define pop() pop(vm)
 #define peek() vm->stack[vm->stackTop - 1]
@@ -287,9 +287,9 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 	} while (false)
 
 #define cast(from, to, nativeType) push(to((nativeType) pop().from))
-#define ReadConstant8() getChunk(vm).constants.arr[*frame->ip]
-#define ReadConstant16() c16(vm, frame->ip)
-#define ReadType() t16(vm, frame->ip)
+#define ReadConstant8() getChunk(vm).constants.arr[*ip]
+#define ReadConstant16() c16(vm, ip)
+#define ReadType() t16(vm, ip)
 
 	vm->callDepth = 1;
 	vm->callStack[0].func = func;
@@ -298,10 +298,12 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 
 	CarbonCallframe *frame = &vm->callStack[0];
 
+	register uint8_t* ip = frame->ip;
+
 	vm->gc = true;
 
 	while (true) {
-		switch (*frame->ip) {
+		switch (*ip) {
 			case OpReturnVoid:
 				vm->callDepth--;
 				if (vm->callDepth == 0) {
@@ -311,6 +313,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				}
 				vm->stackTop = frame->slots - vm->stack - 1;
 				frame = &vm->callStack[vm->callDepth - 1];
+				ip = frame->ip;
 				break;
 			case OpReturn: {
 				CarbonValue v = peek();
@@ -323,40 +326,41 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				}
 				vm->stackTop = frame->slots - vm->stack - 1;
 				frame = &vm->callStack[vm->callDepth - 1];
+				ip = frame->ip;
 				push(v);
 				break;
 			}
 			case OpPopn:
-				frame->ip++;
+				ip++;
 				vm->stackTop -= ReadByte();
-				frame->ip++;
+				ip++;
 				break;
 			case OpPop:
 				pop();
-				frame->ip++;
+				ip++;
 				break;
 			// Signed integer binary ops
 			case OpAddInt:
 				binary(int64_t, +, CarbonInt, sint);
-				frame->ip++;
+				ip++;
 				break;
 			case OpSubInt:
 				binary(int64_t, -, CarbonInt, sint);
-				frame->ip++;
+				ip++;
 				break;
 			case OpDivInt:
 				if (peek().uint == 0)
 					return runtimeError("Division by zero", vm);
 				binary(int64_t, /, CarbonInt, sint);
-				frame->ip++;
+				ip++;
 				break;
 			case OpMulInt:
 				binary(int64_t, *, CarbonInt, sint);
-				frame->ip++;
+				ip++;
 				break;
 			case OpMod:
 				binary(int64_t, %, CarbonInt, sint);
-				frame->ip++;
+				ip++;
 				break;
 
 			// Unsigned integer binary ops
@@ -364,107 +368,107 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				if (peek().uint == 0)
 					return runtimeError("Division by zero", vm);
 				binary(uint64_t, /, CarbonUInt, uint);
-				frame->ip++;
+				ip++;
 				break;
 			case OpMulUInt:
 				binary(uint64_t, *, CarbonUInt, uint);
-				frame->ip++;
+				ip++;
 				break;
 
 			// Double binary ops
 			case OpAddDouble:
 				binary(double, +, CarbonDouble, dbl);
-				frame->ip++;
+				ip++;
 				break;
 			case OpSubDouble:
 				binary(double, -, CarbonDouble, dbl);
-				frame->ip++;
+				ip++;
 				break;
 			case OpDivDouble:
 				binary(double, /, CarbonDouble, dbl);
-				frame->ip++;
+				ip++;
 				break;
 			case OpMulDouble:
 				binary(double, *, CarbonDouble, dbl);
-				frame->ip++;
+				ip++;
 				break;
 
 			// Unary ops
 			case OpNegateBool:
 				unary(bool, !, CarbonBool, boolean);
-				frame->ip++;
+				ip++;
 				break;
 			case OpNegateUInt:
 				unary(uint64_t, -, CarbonInt, uint);
-				frame->ip++;
+				ip++;
 				break;
 			case OpNegateInt:
 				unary(int64_t, -, CarbonInt, sint);
-				frame->ip++;
+				ip++;
 				break;
 			case OpNegateDouble:
 				unary(double, -, CarbonDouble, dbl);
-				frame->ip++;
+				ip++;
 				break;
 
 			// Primitive casts
 			case OpDoubleToInt:
 				cast(dbl, CarbonInt, int64_t);
-				frame->ip++;
+				ip++;
 				break;
 			case OpDoubleToUInt:
 				cast(dbl, CarbonUInt, uint64_t);
-				frame->ip++;
+				ip++;
 				break;
 			case OpIntToDouble:
 				cast(sint, CarbonDouble, double);
-				frame->ip++;
+				ip++;
 				break;
 			case OpUIntToDouble:
 				cast(uint, CarbonDouble, double);
-				frame->ip++;
+				ip++;
 				break;
 			case OpToBool:
 				cast(obj, CarbonBool, bool);
-				frame->ip++;
+				ip++;
 				break;
 
 			// Comparison and equality
 			case OpCompareInt:
 				compare(int64_t, sint);
-				frame->ip++;
+				ip++;
 				break;
 			case OpCompareUInt:
 				compare(uint64_t, uint);
-				frame->ip++;
+				ip++;
 				break;
 			case OpCompareDouble:
 				compare(double, dbl);
-				frame->ip++;
+				ip++;
 				break;
 
 			case OpGreater: {
 				int64_t top = pop().sint;
 				push(CarbonBool(top == 1));
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpLess: {
 				int64_t top = pop().sint;
 				push(CarbonBool(top == -1));
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpGEQ: {
 				int64_t top = pop().sint;
 				push(CarbonBool(top != -1));
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpLEQ: {
 				int64_t top = pop().sint;
 				push(CarbonBool(top != 1));
-				frame->ip++;
+				ip++;
 				break;
 			}
 
@@ -472,27 +476,27 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				uint64_t a = pop().uint;
 				uint64_t b = pop().uint;
 				push(CarbonBool(a == b));
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpNotEquals: {
 				uint64_t a = pop().uint;
 				uint64_t b = pop().uint;
 				push(CarbonBool(a != b));
-				frame->ip++;
+				ip++;
 				break;
 			}
 
 			// Constant instructions
 			case OpLoadConstant:
-				frame->ip++;
+				ip++;
 				push(ReadConstant8());
-				frame->ip++;
+				ip++;
 				break;
 			case OpLoadConstant16:
-				frame->ip++;
+				ip++;
 				push(ReadConstant16());
-				frame->ip += 2;
+				ip += 2;
 				break;
 
 			case OpConcat: {
@@ -507,41 +511,41 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				CarbonString *out = carbon_takeString(concat, length, vm);
 				vm->stackTop -= 2;
 				push(CarbonObject((CarbonObj *) out));
-				frame->ip++;
+				ip++;
 				break;
 			}
 
 			case OpPrintInt:
 				printf("%" PRId64 "\n", pop().sint);
-				frame->ip++;
+				ip++;
 				break;
 			case OpPrintUInt:
 				printf("%" PRIu64 "\n", pop().uint);
-				frame->ip++;
+				ip++;
 				break;
 			case OpPrintDouble:
 				printf("%g\n", pop().dbl);
-				frame->ip++;
+				ip++;
 				break;
 			case OpPrintBool:
 				printf("%s\n", pop().uint ? "true" : "false");
-				frame->ip++;
+				ip++;
 				break;
 			case OpPrintObj: {
 				CarbonObj *o = pop().obj;
 				carbon_printObject(o);
 				fflush(stdout);
-				frame->ip++;
+				ip++;
 				break;
 			}
 
 			case OpPush1:
 				push(CarbonUInt(1));
-				frame->ip++;
+				ip++;
 				break;
 			case OpPush0:
 				push(CarbonUInt(0));
-				frame->ip++;
+				ip++;
 				break;
 
 			case OpGetGlobal: {
@@ -549,112 +553,114 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				CarbonValue value;
 				carbon_tableGet(&vm->globals, name, &value);
 				push(value);
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpSetGlobal: {
 				CarbonObj *name = pop().obj;
 				CarbonValue value = peek();
 				carbon_tableSet(&vm->globals, name, value);
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpGetGlobalInline: {
-				frame->ip++;
+				ip++;
 				CarbonObj *name = ReadConstant8().obj;
 				CarbonValue value;
 				carbon_tableGet(&vm->globals, name, &value);
 				push(value);
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpSetGlobalInline: {
-				frame->ip++;
+				ip++;
 				CarbonObj *name = ReadConstant8().obj;
 				CarbonValue value = peek();
 				carbon_tableSet(&vm->globals, name, value);
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpSetLocal: {
-				frame->ip++;
+				ip++;
 				uint8_t slot = ReadByte();
-				frame->ip++;
+				ip++;
 				frame->slots[slot] = peek();
 				break;
 			}
 			case OpGetLocal: {
-				frame->ip++;
+				ip++;
 				uint8_t slot = ReadByte();
-				frame->ip++;
+				ip++;
 				push(frame->slots[slot]);
 				break;
 			}
 			case OpCall: {
-				frame->ip++;
+				ip++;
 				uint8_t arity = ReadByte();
-				frame->ip++;
+				ip++;
 				CarbonObj *func = vm->stack[vm->stackTop - arity - 1].obj;
 				if (nullcheck(func, "Cannot call a null function", vm))
 					return Carbon_Runtime_Error;
 				if (call(func, vm, arity)) {
 					return Carbon_Runtime_Error;
 				}
+				frame->ip = ip;
 				frame = &vm->callStack[vm->callDepth - 1];
+				ip = frame->ip;
 				break;
 			}
 			case OpJumpOnFalse: {
-				frame->ip++;
+				ip++;
 				uint8_t top = ReadByte();
-				frame->ip++;
+				ip++;
 				uint8_t bottom = ReadByte();
 				uint16_t range = ((uint16_t) top << 8) | bottom;
 				if (!peek().boolean)
-					frame->ip += range;
+					ip += range;
 				else
-					frame->ip++;
+					ip++;
 				break;
 			}
 			case OpJumpOnTrue: {
-				frame->ip++;
+				ip++;
 				uint8_t top = ReadByte();
-				frame->ip++;
+				ip++;
 				uint8_t bottom = ReadByte();
 				uint16_t range = ((uint16_t) top << 8) | bottom;
 				if (peek().boolean)
-					frame->ip += range;
+					ip += range;
 				else
-					frame->ip++;
+					ip++;
 				break;
 			}
 			case OpJump: {
-				frame->ip++;
+				ip++;
 				uint8_t top = ReadByte();
-				frame->ip++;
+				ip++;
 				uint8_t bottom = ReadByte();
 				uint16_t range = ((uint16_t) top << 8) | bottom;
-				frame->ip += range;
+				ip += range;
 				break;
 			}
 			case OpIf: {
-				frame->ip++;
+				ip++;
 				uint8_t top = ReadByte();
-				frame->ip++;
+				ip++;
 				uint8_t bottom = ReadByte();
 				uint16_t range = ((uint16_t) top << 8) | bottom;
 				if (!pop().boolean)
-					frame->ip += range;
+					ip += range;
 				else
-					frame->ip++;
+					ip++;
 				break;
 			}
 			case OpLoop: {
-				frame->ip++;
+				ip++;
 				uint8_t top = ReadByte();
-				frame->ip++;
+				ip++;
 				uint8_t bottom = ReadByte();
 				uint16_t range = ((uint16_t) top << 8) | bottom;
-				frame->ip -= range;
+				ip -= range;
 				break;
 			}
 
@@ -665,24 +671,24 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 							  vm))
 					return Carbon_Runtime_Error;
 				push(CarbonUInt(carbon_objLength(obj)));
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpMakeArray: {
-				frame->ip++;
+				ip++;
 				uint8_t size = ReadByte();
-				frame->ip++;
+				ip++;
 				push(CarbonObject(
 					(CarbonObj *) carbon_newArray(size, ReadType(), vm)));
-				frame->ip += 2;
+				ip += 2;
 				break;
 			}
 			case OpMakeArray64: {
-				frame->ip++;
+				ip++;
 				uint64_t size = pop().uint;
 				push(CarbonObject(
 					(CarbonObj *) carbon_newArray(size, ReadType(), vm)));
-				frame->ip += 2;
+				ip += 2;
 				break;
 			}
 			case OpInitArray: {
@@ -692,11 +698,11 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				for (uint64_t i = 0; i < arr->capacity; i++) {
 					arr->members[i] = v;
 				}
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpMakeGenerator: {
-				frame->ip++;
+				ip++;
 				CarbonValue first = peek();
 				CarbonValue last = peekn(1);
 				CarbonValue delta = peekn(2);
@@ -706,7 +712,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 					return runtimeError("Invalid numbers for generator", vm);
 				vm->stackTop -= 3;
 				push(CarbonObject((CarbonObj *) g));
-				frame->ip += 2;
+				ip += 2;
 				break;
 			}
 			case OpAppend: {
@@ -717,7 +723,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 					return Carbon_Runtime_Error;
 				append(arr, top, vm);
 				pop();
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpGetIndex: {
@@ -731,7 +737,7 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 					return runtimeError(msg, vm);
 				}
 				push(carbon_getObjIndex(obj, index, vm));
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpSetIndex: {
@@ -747,13 +753,13 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				}
 				setIndex(obj, index, v, vm);
 				push(v);
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpFor: {
-				frame->ip++;
+				ip++;
 				uint8_t top = ReadByte();
-				frame->ip++;
+				ip++;
 				uint8_t bottom = ReadByte();
 				uint16_t range = ((uint16_t) top << 8) | bottom;
 
@@ -762,81 +768,81 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				if (i < carbon_objLength(obj)) {
 					vm->stack[vm->stackTop - 1].uint++;
 					push(carbon_getObjIndex(obj, CarbonUInt(i), vm));
-					frame->ip++;
+					ip++;
 				} else {
-					frame->ip += range;
+					ip += range;
 				}
 				break;
 			}
 			case OpBuiltin: {
-				frame->ip++;
+				ip++;
 				CarbonObj *obj = peek().obj;
 
 				char *(*func)(CarbonObj *, CarbonValue *, CarbonVM *) =
-					builtinPtrs[*frame->ip++];
+					builtinPtrs[*ip++];
 
 				CarbonBuiltin *bltin = carbon_newBuiltin(
 					obj, func, ReadType()->compound.signature, vm);
 				pop();
 				push(CarbonObject((CarbonObj *) bltin));
-				frame->ip += 2;
+				ip += 2;
 				break;
 			}
 			case OpIs: {
-				frame->ip++;
+				ip++;
 				CarbonObj *object = pop().obj;
 				if (nullcheck(object, "Cannot check type of a null object", vm))
 					return Carbon_Runtime_Error;
 				CarbonValueType *wanted = ReadType();
 				push(CarbonBool(is(object, wanted)));
-				frame->ip += 2;
+				ip += 2;
 				break;
 			}
 			case OpCastcheck: {
-				frame->ip++;
+				ip++;
 				CarbonObj *object = peek().obj;
 				if (nullcheck(object, "Cannot cast a null object", vm))
 					return Carbon_Runtime_Error;
 				CarbonValueType *wanted = ReadType();
 				if (!is(object, wanted))
 					return runtimeError("Cast failed", vm);
-				frame->ip += 2;
+				ip += 2;
 				break;
 			}
 			case OpIsInstance: {
-				frame->ip++;
+				ip++;
 				CarbonObj *object = pop().obj;
 				if (nullcheck(object, "Cannot check type of a null object", vm))
 					return Carbon_Runtime_Error;
 				uint8_t n = ReadByte();
 				push(CarbonBool(isInstane(object, n, vm)));
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpInstanceCastcheck: {
-				frame->ip++;
+				ip++;
 				CarbonObj *object = peek().obj;
 				if (nullcheck(object, "Cannot cast a null object", vm))
 					return Carbon_Runtime_Error;
 				uint8_t n = ReadByte();
 				if (!isInstane(object, n, vm))
 					return runtimeError("Cast failed", vm);
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpDot: {
-				frame->ip++;
+				ip++;
 				uint8_t index = ReadByte();
 				CarbonInstance *i = (CarbonInstance *) pop().obj;
 				if (nullcheck((CarbonObj *) i, "Cannot access a null object",
 							  vm))
 					return Carbon_Runtime_Error;
 				push(i->fields[index]);
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpDotSet: {
-				frame->ip++;
+				ip++;
 				uint8_t index = ReadByte();
 				CarbonValue val = pop();
 				CarbonInstance *i = (CarbonInstance *) pop().obj;
@@ -845,11 +851,11 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 					return Carbon_Runtime_Error;
 				i->fields[index] = val;
 				push(val);
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpMethod: {
-				frame->ip++;
+				ip++;
 				uint8_t index = ReadByte();
 				CarbonInstance *i = (CarbonInstance *) peek().obj;
 				if (nullcheck((CarbonObj *) i, "Cannot access a null object",
@@ -859,34 +865,34 @@ CarbonRunResult carbon_run(CarbonVM *vm, CarbonFunction *func) {
 				CarbonMethod *m = carbon_newMethod(i, f, vm);
 				pop();
 				push(CarbonObject((CarbonObj *) m));
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpMakeInstance: {
-				frame->ip++;
+				ip++;
 				uint8_t index = ReadByte();
 				CarbonInstance *i = carbon_newInstance(index, vm);
 				push(CarbonObject((CarbonObj *) i));
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpInitInstance: {
-				frame->ip++;
+				ip++;
 				uint8_t index = ReadByte();
 				struct carbon_class *class = &vm->classes[index];
 				CarbonFunction *init = class->methods[class->init];
 				push(CarbonObject((CarbonObj *) init));
-				frame->ip++;
+				ip++;
 				break;
 			}
 			case OpSuper: {
-				frame->ip++;
+				ip++;
 				uint8_t class = ReadByte();
-				frame->ip++;
+				ip++;
 				uint8_t id = ReadByte();
-				frame->ip++;
+				ip++;
 				uint8_t slot = ReadByte();
-				frame->ip++;
+				ip++;
 				CarbonFunction *func = vm->classes[class].methods[id];
 				CarbonInstance *self =
 					(CarbonInstance *) frame->slots[slot].obj;
