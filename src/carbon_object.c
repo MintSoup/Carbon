@@ -16,6 +16,8 @@ extern char *CarbonValueTypeLexeme[];
 void *carbon_reallocateObj(uint32_t oldSize, uint32_t newSize, void *oldptr,
 						   CarbonVM *vm) {
 	vm->objectHeapSize += newSize - oldSize;
+	/* This is basically a GC stresstest and will massively slow all programs
+	   down. It's kept on to catch any potential GC bugs as soon as possible. */
 	if (oldSize < newSize && vm->gc)
 		carbon_gc(vm);
 	return carbon_reallocate(oldSize, newSize, oldptr);

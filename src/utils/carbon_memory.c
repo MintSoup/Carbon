@@ -71,7 +71,16 @@ static void mark(CarbonValue v, CarbonVM *vm) {
 	if (v.uint < (uint64_t) vm->gcarr[0] ||
 		v.uint > (uint64_t) vm->gcarr[vm->objectCount - 1])
 		return;
-	if (find(v, vm))
+
+	/* v.uint % 8 == 0 checks if the 3
+	   least significant bits of the CarbonValue are all zero.
+	   Because on pretty much every ISA our 8-byte CarbonValue heap allocations
+	   will return pointers that are 8-byte aligned, we can safely assume that
+	   ALL values that are not divisible by 8 are not pointers to a
+	   heap-allocated object. This should translate to a significantly faster GC
+	   as our conservative find() is slow. */
+
+	if (v.uint % 8 == 0 && find(v, vm))
 		markObject(v.obj, vm);
 }
 
