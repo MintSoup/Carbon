@@ -1359,7 +1359,7 @@ static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 				*expr->evalsTo.compound.memberType =
 					resolveType(arr->type, c, vm);
 
-				if (arr->count != 3)
+				if (arr->count != 2)
 					break;
 
 				if (arr->members[0] != NULL)

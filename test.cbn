@@ -1,14 +1,10 @@
 void main():
-	for n in [0 .. 35]:
-		print(fibonacci(n))
+	array<array<uint>> matrix = [<array<uint>, 3, null>]
+	for i in [0 .. matrix.length]:
+		matrix[i] = [<uint, 3, 0>]
 	end
-end
 
+	matrix[1][0] = 4
 
-uint fibonacci(uint n):
-	if n == 0 or n == 1:
-	   return 1
-	else:
-		return fibonacci(n - 1) + fibonacci(n - 2)
-	end
+	print(matrix)
 end
