@@ -7,6 +7,8 @@ Carbon is an interpreted, object oriented, VM-based, statically typed scripting 
 + Readable, modern syntax.
 + Effortless embedability with a flexible module system.
 
+See ~example.cbn~ to get a quick feel for the language!
+
 Keep in mind that Carbon is still in early development and bugs might be common. Please report them if you find any!
 
 * Getting started
