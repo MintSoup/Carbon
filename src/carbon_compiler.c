@@ -931,6 +931,7 @@ static CarbonValueType makeFunctionSig(CarbonValueType from,
 	return t;
 }
 
+// TODO: Split this into multiple functions
 static void typecheck(CarbonExpr *expr, CarbonCompiler *c, CarbonVM *vm) {
 
 #define castNode(type, name) type *name = (type *) expr;
