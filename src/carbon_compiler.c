@@ -220,7 +220,7 @@ static bool canCast(CarbonValueType from, CarbonValueType to,
 		case ValueObject:
 			return isObject(from);
 		case ValueInstance:
-			return to.tag == ValueInstance && carbon_isSuperclass(to, from, c);
+			return to.tag == ValueInstance;
 		default:
 			return false;
 	}
