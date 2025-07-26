@@ -1,0 +1,40 @@
+class @Animal:
+    string name
+
+    void Animal(string name):
+        self.name = name
+    end
+
+    void MakeSound():
+        print('Some generic animal sound\n')
+    end
+end
+
+class @Dog < @Animal:
+    void Dog(string name):
+        super(name)
+    end
+
+    void MakeSound():
+        print('Woof! My name is ')
+        print(self.name)
+        print('\n')
+    end
+end
+
+void main():
+    @Animal generic = @Animal('Unknown')
+    @Dog buddy = @Dog('Buddy')
+
+    generic.MakeSound()  # "Some generic animal sound"
+    buddy.MakeSound()    # "Woof! My name is Buddy"
+
+    # Using the 'is' operator
+    if buddy is @Animal:
+        print('Buddy is an Animal\n')  # This will print
+    end
+
+    if generic is @Dog:
+        print('Generic is a Dog\n')    # This won't print
+    end
+end

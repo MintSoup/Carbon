@@ -13,7 +13,7 @@ uint c(uint n, uint r):
 	return fact[n] / fact[r] / fact[n - r]
 end
 
-array<uint> cacheFactorials():
+array<uint> CacheFactorials():
 	array<uint> f = [<uint, 16, 0>]
 	f[0] = 1
 	f[1] = 1
@@ -24,4 +24,4 @@ array<uint> cacheFactorials():
 	return f
 end
 
-array<uint> fact = cacheFactorials()
+array<uint> fact = CacheFactorials()

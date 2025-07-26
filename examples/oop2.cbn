@@ -1,0 +1,41 @@
+class @Shape:
+	void Shape(): end
+end
+
+class @Circle < @Shape:
+	double radius
+
+	void Circle(double radius):
+		super()
+		self.radius = radius
+	end
+end
+
+class @Rectangle < @Shape:
+	double width
+	double height
+
+	void Rectangle(double width, double height):
+		super()
+		self.width = width
+		self.height = height
+	end
+end
+
+void ProcessShape(@Shape shape):
+	if shape is @Circle:
+		print('This is specifically a circle!\n')
+	elif shape is @Rectangle:
+		print('This is specifically a rectangle!\n')
+	else:
+		print('This is some other shape\n')
+	end
+end
+
+void main():
+	array<@Shape> shapes = [@Circle(5.0) as @Shape, @Rectangle(3.0, 4.0), @Shape()]
+
+	for shape in shapes:
+		  ProcessShape(shape)
+	end
+end

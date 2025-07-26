@@ -1,0 +1,16 @@
+double Square(double d):
+	return d * d
+end
+
+double Cube(double d):
+	return d * d * d
+end
+
+double ApplyTwice(function<double, double> fn, double d):
+	return fn(fn(d))
+end
+
+void main():
+	print(ApplyTwice(Square, 3))
+	print(ApplyTwice(Cube, 3))
+end
