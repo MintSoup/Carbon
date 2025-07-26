@@ -82,6 +82,16 @@ char *readFile(char *name, char *from, uint32_t *length) {
 	}
 	fseek(f, 0, SEEK_END);
 	uint32_t size = ftell(f);
+	if (size == -1) {
+		if (from)
+			fprintf(stderr, "%s: Cannot open file %s\n", from, name);
+		else
+			fprintf(stderr, "Cannot open file %s\n", name);
+		if (length != NULL)
+			*length = 1;
+		return NULL;
+	}
+
 	fseek(f, 0, SEEK_SET);
 	char *t = malloc(size + 1);
 	if (!t) {
