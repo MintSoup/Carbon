@@ -85,6 +85,8 @@ If you did everything right, you should see a Pascal's triangle get printed out,
 #+END_SRC
 
 * Learning more
-Carbon is still very much in development, thus you should expect changes, some of which may be breaking. More info will be added soon, documenting the language syntax and builtin features, as well as the standard library. Until then, let ~examples/~ be your guide.
+Carbon is still very much in development, thus you should expect changes, some of which may be breaking. Also, currently the garbage collector is set to run on every allocation (to find bugs quicker), so expect long-running programs to execute (much) slower than usual.
+
+More info will be added soon, documenting the language syntax and builtin features, as well as the standard library. Until then, let ~examples/~ be your guide.
 
 Future integration with the [[https://github.com/MRGGC/PaperEngine][Paper Game Engine]] is planned.
